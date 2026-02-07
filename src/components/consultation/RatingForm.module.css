@@ -1,0 +1,138 @@
+.container {
+  max-width: 400px;
+  margin: 0 auto;
+  padding: var(--space-6);
+  text-align: center;
+}
+
+.title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.subtitle {
+  margin: 0 0 var(--space-6);
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+}
+
+/* Star Rating */
+.starContainer {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.starButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-1);
+  background: none;
+  border: none;
+  color: var(--color-border);
+  cursor: pointer;
+  transition: var(--transition-base);
+}
+
+.starButton:hover {
+  transform: scale(1.1);
+}
+
+.starActive {
+  color: var(--color-warning);
+}
+
+.ratingLabel {
+  margin: 0 0 var(--space-6);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  min-height: 24px;
+}
+
+/* Feedback */
+.feedbackContainer {
+  margin-bottom: var(--space-6);
+  text-align: left;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.charCount {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  text-align: right;
+}
+
+/* Error */
+.error {
+  margin: 0 0 var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--color-error);
+}
+
+/* Actions */
+.actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-3);
+}
+
+/* Success State */
+.success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.successIcon {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-success-light);
+  border-radius: var(--radius-full);
+  color: var(--color-success);
+}
+
+.successTitle {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.successText {
+  margin: 0;
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+}
+
+/* Tablet and up */
+@media (min-width: 768px) {
+  .starButton svg {
+    width: 48px;
+    height: 48px;
+  }
+
+  .starContainer {
+    gap: var(--space-3);
+  }
+}

@@ -1,0 +1,37 @@
+/* src/styles/breakpoints.css */
+/* Furrie Breakpoint System */
+/* MOBILE-FIRST: Base styles are for mobile (320px+) */
+/* Add complexity via min-width queries. NEVER use max-width. */
+
+/*
+ * Breakpoint Reference (DO NOT use max-width):
+ *
+ * Mobile:       320px - 767px   (base styles, no media query needed)
+ * Tablet:       768px+          @media (min-width: 768px)
+ * Desktop:      1024px+         @media (min-width: 1024px)
+ * Wide:         1280px+         @media (min-width: 1280px)
+ * Ultra-wide:   1536px+         @media (min-width: 1536px)
+ *
+ * Usage Example:
+ *
+ * .element {
+ *   // Mobile styles (default)
+ *   padding: var(--space-4);
+ *   flex-direction: column;
+ * }
+ *
+ * @media (min-width: 768px) {
+ *   .element {
+ *     // Tablet+ styles
+ *     padding: var(--space-6);
+ *     flex-direction: row;
+ *   }
+ * }
+ *
+ * @media (min-width: 1024px) {
+ *   .element {
+ *     // Desktop+ styles
+ *     padding: var(--space-8);
+ *   }
+ * }
+ */

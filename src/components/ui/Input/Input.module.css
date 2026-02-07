@@ -1,0 +1,143 @@
+/* Input.module.css */
+/* Mobile-first input component with iOS-style focus states */
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+}
+
+.label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+.inputContainer {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input {
+  width: 100%;
+  /* CRITICAL: 16px minimum prevents iOS zoom */
+  font-size: max(16px, var(--font-size-base));
+  font-family: var(--font-family);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-primary);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    background-color var(--transition-fast);
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* Sizes */
+.sm {
+  min-height: 40px;
+  padding: var(--space-2) var(--space-3);
+}
+
+.md {
+  min-height: 48px;
+  padding: var(--space-3) var(--space-4);
+}
+
+.lg {
+  min-height: 56px;
+  padding: var(--space-4) var(--space-5);
+}
+
+/* Icon padding adjustments */
+.hasLeftIcon {
+  padding-left: calc(var(--space-4) + 24px);
+}
+
+.hasRightIcon {
+  padding-right: calc(var(--space-4) + 24px);
+}
+
+/* === STATES === */
+
+/* Focus state - Dusk Blue glow */
+.input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(30, 80, 129, 0.15);
+}
+
+.input::placeholder {
+  color: var(--color-text-muted);
+}
+
+/* Hover state */
+.input:hover:not(:focus):not(:disabled) {
+  border-color: var(--color-text-tertiary);
+}
+
+/* Error state */
+.error {
+  border-color: var(--color-error);
+}
+
+.error:focus {
+  border-color: var(--color-error);
+  box-shadow: 0 0 0 3px rgba(206, 62, 36, 0.15);
+}
+
+.error:hover:not(:focus):not(:disabled) {
+  border-color: var(--color-error);
+}
+
+/* Disabled state */
+.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: var(--color-bg-secondary);
+}
+
+/* === ICONS === */
+.leftIcon,
+.rightIcon {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-tertiary);
+  pointer-events: none;
+  transition: color var(--transition-fast);
+}
+
+.leftIcon {
+  left: var(--space-4);
+}
+
+.rightIcon {
+  right: var(--space-4);
+}
+
+/* Icon color changes on focus */
+.inputContainer:focus-within .leftIcon,
+.inputContainer:focus-within .rightIcon {
+  color: var(--color-primary);
+}
+
+/* === HELPER TEXT === */
+.errorText {
+  font-size: var(--font-size-xs);
+  color: var(--color-error);
+  margin-top: var(--space-1);
+}
+
+.helperText {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  margin-top: var(--space-1);
+}

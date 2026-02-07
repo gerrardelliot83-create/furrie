@@ -1,0 +1,184 @@
+/* CustomerLayout.module.css */
+/* Mobile-first: bottom nav on mobile, sidebar on desktop */
+
+.layout {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-bg-secondary);
+}
+
+/* Desktop Sidebar - hidden on mobile */
+.sidebar {
+  display: none;
+}
+
+/* Main content area */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: calc(64px + env(safe-area-inset-bottom, 0)); /* Space for bottom nav */
+}
+
+.content {
+  flex: 1;
+  width: 100%;
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--page-padding-y) var(--page-padding-x);
+}
+
+/* Mobile Bottom Navigation */
+.bottomNav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  background-color: var(--color-bg-primary);
+  border-top: 1px solid var(--color-border);
+  padding: var(--space-2) 0;
+  padding-bottom: calc(var(--space-2) + env(safe-area-inset-bottom, 0));
+  z-index: var(--z-fixed);
+  min-height: 64px;
+  /* Glassmorphism effect */
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+
+.navItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--space-1) var(--space-3);
+  color: var(--color-text-tertiary);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: color var(--transition-fast), transform var(--transition-fast);
+  min-width: 64px;
+  min-height: 44px;
+  justify-content: center;
+}
+
+.navItem:active {
+  transform: scale(0.95);
+}
+
+.navItemActive {
+  color: var(--color-primary);
+}
+
+.navLabel {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Tablet+ styles */
+@media (min-width: 768px) {
+  .layout {
+    flex-direction: row;
+    background-color: var(--color-bg-primary);
+  }
+
+  /* Show sidebar on tablet+ */
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    width: 240px;
+    background-color: var(--color-bg-primary);
+    border-right: 1px solid var(--color-border);
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: var(--z-sticky);
+  }
+
+  .sidebarHeader {
+    padding: var(--space-6) var(--space-5);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .logo {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-primary);
+    text-decoration: none;
+  }
+
+  .sidebarNav {
+    flex: 1;
+    padding: var(--space-4) var(--space-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .sidebarLink {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    border-radius: var(--radius-lg);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-medium);
+    transition:
+      background-color var(--transition-fast),
+      color var(--transition-fast),
+      transform var(--transition-fast);
+    min-height: 44px;
+  }
+
+  .sidebarLink:hover {
+    background-color: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+  }
+
+  .sidebarLink:active {
+    transform: scale(0.98);
+  }
+
+  .sidebarLinkActive {
+    background-color: var(--color-primary);
+    color: var(--color-text-inverse);
+  }
+
+  .sidebarLinkActive:hover {
+    background-color: var(--color-primary-dark);
+    color: var(--color-text-inverse);
+  }
+
+  /* Main content adjusts for sidebar */
+  .main {
+    margin-left: 240px;
+    padding-bottom: 0;
+    background-color: var(--color-bg-secondary);
+  }
+
+  .content {
+    max-width: 960px;
+  }
+
+  /* Hide bottom nav on tablet+ */
+  .bottomNav {
+    display: none;
+  }
+}
+
+/* Desktop styles */
+@media (min-width: 1024px) {
+  .sidebar {
+    width: var(--sidebar-width);
+  }
+
+  .main {
+    margin-left: var(--sidebar-width);
+  }
+}

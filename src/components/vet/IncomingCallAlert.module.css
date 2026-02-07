@@ -1,0 +1,223 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.95);
+  z-index: var(--z-vet-alert);
+  padding: var(--space-4);
+}
+
+.container {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+/* Pulsing ring animation */
+.ringContainer {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  margin-bottom: var(--space-6);
+}
+
+.ring {
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--color-success);
+  border-radius: var(--radius-full);
+  animation: pulse-ring 2s ease-out infinite;
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+.iconWrapper {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-success);
+  border-radius: var(--radius-full);
+  color: var(--color-text-inverse);
+  animation: shake 0.5s ease-in-out infinite;
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: rotate(-5deg);
+  }
+  50% {
+    transform: rotate(5deg);
+  }
+}
+
+.title {
+  margin: 0 0 var(--space-6);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-inverse);
+}
+
+/* Patient Info Card */
+.patientInfo {
+  width: 100%;
+  padding: var(--space-5);
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: var(--space-6);
+  text-align: left;
+}
+
+.patientHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: var(--space-4);
+}
+
+.petIcon {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-primary);
+  border-radius: var(--radius-lg);
+  color: var(--color-text-inverse);
+}
+
+.petDetails {
+  flex: 1;
+}
+
+.petName {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-inverse);
+}
+
+.petBreed {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: rgba(255, 255, 255, 0.7);
+  text-transform: capitalize;
+}
+
+.customerName,
+.concern,
+.symptoms {
+  margin-bottom: var(--space-3);
+}
+
+.customerName:last-child,
+.concern:last-child,
+.symptoms:last-child {
+  margin-bottom: 0;
+}
+
+.label {
+  display: block;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--space-1);
+}
+
+.value {
+  font-size: var(--font-size-base);
+  color: var(--color-text-inverse);
+}
+
+.concernText {
+  margin: 0;
+  font-size: var(--font-size-base);
+  color: var(--color-text-inverse);
+  line-height: var(--line-height-relaxed);
+}
+
+.symptomTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.symptomTag {
+  padding: var(--space-1) var(--space-2);
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-inverse);
+  text-transform: capitalize;
+}
+
+/* Timer */
+.timer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+}
+
+.timerLabel {
+  font-size: var(--font-size-sm);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.timerValue {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-warning);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Actions */
+.actions {
+  width: 100%;
+  margin-bottom: var(--space-4);
+}
+
+.note {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: rgba(255, 255, 255, 0.5);
+  line-height: var(--line-height-relaxed);
+}
+
+/* Desktop */
+@media (min-width: 768px) {
+  .container {
+    max-width: 480px;
+  }
+
+  .ringContainer {
+    width: 140px;
+    height: 140px;
+  }
+
+  .iconWrapper svg {
+    width: 56px;
+    height: 56px;
+  }
+}

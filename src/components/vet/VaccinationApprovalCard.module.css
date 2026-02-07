@@ -1,0 +1,116 @@
+/* VaccinationApprovalCard.module.css */
+/* Vaccination approval card - Desktop-first */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.petInfo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.speciesIndicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  background-color: var(--color-bg-secondary);
+  border-radius: 50%;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.petName {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.breed {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.owner {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.vaccinationDetails {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background-color: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+}
+
+.detailRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+}
+
+.value {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.rejectForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.rejectInput {
+  width: 100%;
+  padding: var(--space-3);
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  resize: vertical;
+}
+
+.rejectInput:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.rejectActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+/* Mobile */
+@media (max-width: 640px) {
+  .vaccinationDetails {
+    grid-template-columns: 1fr;
+  }
+}

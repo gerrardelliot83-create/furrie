@@ -1,0 +1,118 @@
+.container {
+  width: 100%;
+  padding: var(--space-4) 0;
+}
+
+.steps {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  flex: 1;
+  max-width: 120px;
+}
+
+.circle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-secondary);
+  border: 2px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  transition: all var(--transition-base);
+  z-index: 1;
+}
+
+.number {
+  line-height: 1;
+}
+
+.label {
+  margin-top: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.connector {
+  position: absolute;
+  top: 15px;
+  left: calc(50% + 20px);
+  width: calc(100% - 40px);
+  height: 2px;
+  background: var(--color-border);
+  z-index: 0;
+}
+
+/* Completed step */
+.step.completed .circle {
+  background: var(--color-success);
+  border-color: var(--color-success);
+  color: var(--color-text-inverse);
+}
+
+.step.completed .label {
+  color: var(--color-success);
+}
+
+.step.completed .connector {
+  background: var(--color-success);
+}
+
+/* Current step */
+.step.current .circle {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-text-inverse);
+}
+
+.step.current .label {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Hide labels on mobile to save space */
+@media (max-width: 479px) {
+  .label {
+    display: none;
+  }
+
+  .step {
+    max-width: 80px;
+  }
+
+  .connector {
+    left: calc(50% + 18px);
+    width: calc(100% - 36px);
+  }
+}
+
+/* Show labels on tablet+ */
+@media (min-width: 480px) {
+  .circle {
+    width: 36px;
+    height: 36px;
+  }
+
+  .connector {
+    top: 17px;
+    left: calc(50% + 22px);
+    width: calc(100% - 44px);
+  }
+}

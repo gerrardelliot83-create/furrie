@@ -1,0 +1,190 @@
+import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import {
+  mapConsultationWithRelationsFromDB,
+  mapConsultationUpdateToDB,
+} from '@/lib/utils/consultationMapper';
+
+// GET /api/consultations/[id] - Get single consultation
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const supabase = await createClient();
+    const { id } = await params;
+
+    // Get authenticated user
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized', code: 'AUTH_REQUIRED' },
+        { status: 401 }
+      );
+    }
+
+    // Fetch consultation with relations
+    const { data: consultation, error } = await supabase
+      .from('consultations')
+      .select(
+        `
+        *,
+        pets!consultations_pet_id_fkey (
+          id,
+          name,
+          species,
+          breed,
+          photo_urls
+        ),
+        profiles!consultations_vet_id_fkey (
+          id,
+          full_name,
+          avatar_url
+        ),
+        vet_profiles!consultations_vet_id_fkey (
+          qualifications
+        ),
+        consultation_ratings (
+          rating,
+          feedback_text
+        ),
+        prescriptions (
+          id,
+          pdf_url,
+          prescription_number
+        )
+      `
+      )
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return NextResponse.json(
+          { error: 'Consultation not found', code: 'NOT_FOUND' },
+          { status: 404 }
+        );
+      }
+      console.error('Error fetching consultation:', error);
+      return NextResponse.json(
+        { error: 'Failed to fetch consultation', code: 'FETCH_ERROR' },
+        { status: 500 }
+      );
+    }
+
+    // Map to TypeScript interface
+    const mappedConsultation = mapConsultationWithRelationsFromDB(
+      consultation as Parameters<typeof mapConsultationWithRelationsFromDB>[0]
+    );
+
+    return NextResponse.json({ consultation: mappedConsultation });
+  } catch (error) {
+    console.error('Unexpected error in GET /api/consultations/[id]:', error);
+    return NextResponse.json(
+      { error: 'Internal server error', code: 'INTERNAL_ERROR' },
+      { status: 500 }
+    );
+  }
+}
+
+// PATCH /api/consultations/[id] - Update consultation (e.g., cancel)
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const supabase = await createClient();
+    const { id } = await params;
+
+    // Get authenticated user
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized', code: 'AUTH_REQUIRED' },
+        { status: 401 }
+      );
+    }
+
+    const body = await request.json();
+
+    // Verify consultation exists and belongs to user
+    const { data: existing, error: fetchError } = await supabase
+      .from('consultations')
+      .select('id, status, customer_id')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !existing) {
+      return NextResponse.json(
+        { error: 'Consultation not found', code: 'NOT_FOUND' },
+        { status: 404 }
+      );
+    }
+
+    // Check ownership
+    if (existing.customer_id !== user.id) {
+      return NextResponse.json(
+        { error: 'You do not have permission to update this consultation', code: 'FORBIDDEN' },
+        { status: 403 }
+      );
+    }
+
+    // Validate status transitions for customers
+    if (body.status) {
+      const allowedTransitions: Record<string, string[]> = {
+        pending: ['cancelled'],
+        matching: ['cancelled'],
+        matched: ['cancelled'],
+        // in_progress, completed, missed cannot be changed by customer
+      };
+
+      const currentStatus = existing.status;
+      const allowedNextStatuses = allowedTransitions[currentStatus] || [];
+
+      if (!allowedNextStatuses.includes(body.status)) {
+        return NextResponse.json(
+          {
+            error: `Cannot change status from "${currentStatus}" to "${body.status}"`,
+            code: 'INVALID_TRANSITION',
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Map update data
+    const updateData = mapConsultationUpdateToDB(body);
+
+    // Perform update
+    const { data: updated, error: updateError } = await supabase
+      .from('consultations')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('Error updating consultation:', updateError);
+      return NextResponse.json(
+        { error: 'Failed to update consultation', code: 'UPDATE_ERROR' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ consultation: updated });
+  } catch (error) {
+    console.error('Unexpected error in PATCH /api/consultations/[id]:', error);
+    return NextResponse.json(
+      { error: 'Internal server error', code: 'INTERNAL_ERROR' },
+      { status: 500 }
+    );
+  }
+}

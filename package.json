@@ -1,0 +1,39 @@
+{
+  "name": "furrie",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "setup:daily-webhooks": "npx tsx scripts/setup-daily-webhooks.ts"
+  },
+  "dependencies": {
+    "@daily-co/daily-js": "^0.87.0",
+    "@daily-co/daily-react": "^0.24.0",
+    "@react-pdf/renderer": "^4.3.2",
+    "@supabase/ssr": "^0.8.0",
+    "@supabase/supabase-js": "^2.94.0",
+    "@uploadthing/react": "^7.3.3",
+    "next": "16.1.6",
+    "next-intl": "^4.8.2",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-dropzone": "^14.4.0",
+    "uploadthing": "^7.7.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "dotenv": "^17.2.4",
+    "eslint": "^9",
+    "eslint-config-next": "16.1.6",
+    "supabase": "^2.75.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5",
+    "xlsx": "^0.18.5"
+  }
+}

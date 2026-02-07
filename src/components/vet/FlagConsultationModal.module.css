@@ -1,0 +1,97 @@
+/* FlagConsultationModal.module.css */
+/* Flag consultation modal - Desktop-first */
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.description {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
+}
+
+.reasons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.reasonOption {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.reasonOption:hover {
+  background-color: var(--color-bg-secondary);
+}
+
+.reasonOption.selected {
+  border-color: var(--color-primary);
+  background-color: rgba(119, 0, 2, 0.05);
+}
+
+.radioInput {
+  margin-top: var(--space-1);
+  accent-color: var(--color-primary);
+}
+
+.reasonContent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.reasonLabel {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.reasonDescription {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.notesSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.notesLabel {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.notesInput {
+  width: 100%;
+  padding: var(--space-3);
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  resize: vertical;
+}
+
+.notesInput:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}

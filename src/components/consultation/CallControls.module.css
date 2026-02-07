@@ -1,0 +1,136 @@
+.container {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: var(--space-4);
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.8) 0%,
+    rgba(0, 0, 0, 0.4) 70%,
+    transparent 100%
+  );
+  z-index: var(--z-fixed);
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* Recording Indicator */
+.recordingIndicator {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: var(--radius-full);
+}
+
+.recordingDot {
+  width: 8px;
+  height: 8px;
+  background: var(--color-error);
+  border-radius: var(--radius-full);
+  animation: blink 1.5s infinite;
+}
+
+@keyframes blink {
+  0%, 50% {
+    opacity: 1;
+  }
+  51%, 100% {
+    opacity: 0.3;
+  }
+}
+
+.recordingText {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-inverse);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Main Controls */
+.mainControls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+}
+
+.controlBtn {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.2);
+  color: var(--color-text-inverse);
+  cursor: pointer;
+  transition: var(--transition-base);
+  backdrop-filter: blur(8px);
+}
+
+.controlBtn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.controlBtn:active {
+  transform: scale(0.95);
+}
+
+.controlBtnOff {
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--color-error);
+}
+
+.controlBtnOff:hover {
+  background: rgba(255, 255, 255, 1);
+}
+
+/* End Call Button */
+.endCallBtn {
+  background: var(--color-error);
+  color: var(--color-text-inverse);
+}
+
+.endCallBtn:hover {
+  background: var(--color-error-light);
+}
+
+/* Tablet and up */
+@media (min-width: 768px) {
+  .container {
+    padding: var(--space-6);
+  }
+
+  .controlBtn {
+    width: 64px;
+    height: 64px;
+  }
+
+  .mainControls {
+    gap: var(--space-5);
+  }
+}
+
+/* Desktop - floating controls */
+@media (min-width: 1024px) {
+  .container {
+    bottom: var(--space-8);
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    padding: var(--space-4) var(--space-6);
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: var(--radius-xl);
+    backdrop-filter: blur(12px);
+  }
+}

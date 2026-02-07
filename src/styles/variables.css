@@ -1,0 +1,182 @@
+/* src/styles/variables.css */
+/* Furrie Design System - CSS Custom Properties */
+/* MOBILE-FIRST: Base styles target mobile (320px+) */
+
+:root {
+  /* === NEW BRAND COLOR PALETTE (Phase 2A) === */
+
+  /* Beige - Page backgrounds, warm neutral */
+  --color-beige: #F2EAC3;
+  --color-beige-light: #F9F6E8;
+
+  /* Bright Red - Primary CTAs, alerts, urgent actions */
+  --color-red: #CE3E24;
+  --color-red-light: #E85D44;
+  --color-red-dark: #A93119;
+
+  /* Light Blue - Secondary actions, links, information */
+  --color-light-blue: #7796CC;
+  --color-light-blue-hover: #5E80BD;
+
+  /* Dusk Blue - Primary buttons, headers, navigation active */
+  --color-dusk-blue: #1E5081;
+  --color-dusk-blue-light: #2B6299;
+  --color-dusk-blue-dark: #153B61;
+
+  /* Jet Deep Blue - Body text, headings, dark UI elements */
+  --color-jet-blue: #303344;
+  --color-jet-blue-light: #464A5C;
+
+  /* === PRIMARY/SECONDARY MAPPINGS === */
+  --color-primary: var(--color-dusk-blue);
+  --color-primary-light: var(--color-dusk-blue-light);
+  --color-primary-dark: var(--color-dusk-blue-dark);
+
+  --color-secondary: var(--color-light-blue);
+  --color-secondary-light: var(--color-light-blue);
+  --color-secondary-dark: var(--color-light-blue-hover);
+
+  /* Accent - for CTAs and urgent actions */
+  --color-accent: var(--color-red);
+  --color-accent-light: var(--color-red-light);
+  --color-accent-dark: var(--color-red-dark);
+
+  /* === BACKGROUND COLORS (60% - Dominant) === */
+  --color-bg-primary: #FFFFFF;
+  --color-bg-secondary: var(--color-beige-light);
+  --color-bg-tertiary: var(--color-beige);
+  --color-bg-warm: var(--color-beige);
+
+  /* === TEXT COLORS (30% - Secondary) === */
+  --color-text-primary: var(--color-jet-blue);
+  --color-text-secondary: var(--color-jet-blue-light);
+  --color-text-tertiary: #6B7280;
+  --color-text-muted: #9CA3AF;
+  --color-text-inverse: #FFFFFF;
+
+  /* === LINK COLOR === */
+  --color-link: var(--color-light-blue);
+  --color-link-hover: var(--color-light-blue-hover);
+
+  /* === BORDER COLORS === */
+  --color-border: #E5E7EB;
+  --color-border-light: #F0F0F0;
+  --color-border-focus: var(--color-dusk-blue);
+
+  /* === SEMANTIC COLORS === */
+  --color-success: #059669;
+  --color-success-light: #D1FAE5;
+  --color-warning: #D97706;
+  --color-warning-light: #FEF3C7;
+  --color-error: var(--color-red);
+  --color-error-light: #FEE2E2;
+  --color-info: var(--color-light-blue);
+  --color-info-light: #DBEAFE;
+
+  /* === TYPOGRAPHY - EPILOGUE FONT === */
+  --font-family: 'Epilogue', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-family-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+
+  /* Fluid typography using clamp() - scales between mobile and desktop */
+  --font-size-xs: clamp(0.6875rem, 0.625rem + 0.25vw, 0.75rem);     /* 11-12px */
+  --font-size-sm: clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem);        /* 12-14px */
+  --font-size-base: clamp(0.875rem, 0.825rem + 0.25vw, 1rem);       /* 14-16px */
+  --font-size-md: clamp(1rem, 0.925rem + 0.375vw, 1.125rem);        /* 16-18px */
+  --font-size-lg: clamp(1.125rem, 1rem + 0.5vw, 1.375rem);          /* 18-22px */
+  --font-size-xl: clamp(1.25rem, 1.1rem + 0.75vw, 1.75rem);         /* 20-28px */
+  --font-size-2xl: clamp(1.5rem, 1.25rem + 1.25vw, 2.25rem);        /* 24-36px */
+  --font-size-3xl: clamp(1.875rem, 1.5rem + 1.875vw, 3rem);         /* 30-48px */
+
+  /* Font weights - Epilogue variable font */
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
+
+  /* === SPACING (8px base scale) === */
+  --space-1: 0.25rem;    /* 4px */
+  --space-2: 0.5rem;     /* 8px */
+  --space-3: 0.75rem;    /* 12px */
+  --space-4: 1rem;       /* 16px */
+  --space-5: 1.25rem;    /* 20px */
+  --space-6: 1.5rem;     /* 24px */
+  --space-8: 2rem;       /* 32px */
+  --space-10: 2.5rem;    /* 40px */
+  --space-12: 3rem;      /* 48px */
+  --space-16: 4rem;      /* 64px */
+
+  /* === LAYOUT === */
+  --container-max: 1280px;
+  --content-max: 680px;
+  --sidebar-width: 280px;
+
+  /* Page padding - scales with viewport */
+  --page-padding-x: var(--space-4);   /* 16px on mobile */
+  --page-padding-y: var(--space-4);
+
+  /* === BORDERS & RADII === */
+  --radius-sm: 0.375rem;     /* 6px */
+  --radius-md: 0.5rem;       /* 8px */
+  --radius-lg: 0.75rem;      /* 12px */
+  --radius-xl: 1rem;         /* 16px */
+  --radius-2xl: 1.25rem;     /* 20px */
+  --radius-full: 9999px;     /* Pill shape */
+
+  /* === SHADOWS (iOS-style soft shadows) === */
+  --shadow-sm: 0 1px 2px rgba(48, 51, 68, 0.04);
+  --shadow-md:
+    0 4px 6px -1px rgba(48, 51, 68, 0.1),
+    0 2px 4px -1px rgba(48, 51, 68, 0.06);
+  --shadow-lg:
+    0 10px 15px -3px rgba(48, 51, 68, 0.1),
+    0 4px 6px -4px rgba(48, 51, 68, 0.05);
+  --shadow-xl:
+    0 20px 25px -5px rgba(48, 51, 68, 0.1),
+    0 8px 10px -6px rgba(48, 51, 68, 0.04);
+
+  /* Elevated shadow for cards on hover */
+  --shadow-elevated:
+    0 12px 24px -4px rgba(48, 51, 68, 0.12),
+    0 8px 12px -4px rgba(48, 51, 68, 0.08);
+
+  /* === GLASSMORPHISM === */
+  --glass-bg: rgba(255, 255, 255, 0.85);
+  --glass-border: rgba(255, 255, 255, 0.5);
+  --glass-blur: 12px;
+
+  /* === TRANSITIONS (micro-interactions) === */
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+  --transition-slow: 300ms ease-out;
+  --transition-spring: 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* === Z-INDEX SCALE === */
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-fixed: 300;
+  --z-modal-backdrop: 400;
+  --z-modal: 500;
+  --z-toast: 600;
+  --z-tooltip: 700;
+  --z-vet-alert: 900;
+}
+
+/* Tablet+ overrides */
+@media (min-width: 768px) {
+  :root {
+    --page-padding-x: var(--space-8);   /* 32px on tablet+ */
+    --page-padding-y: var(--space-6);
+  }
+}
+
+/* Desktop+ overrides */
+@media (min-width: 1024px) {
+  :root {
+    --page-padding-x: var(--space-12);  /* 48px on desktop */
+  }
+}

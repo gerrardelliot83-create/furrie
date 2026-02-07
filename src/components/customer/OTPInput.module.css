@@ -1,0 +1,111 @@
+/* OTPInput.module.css */
+/* 6-digit OTP input component with iOS-style design */
+
+.container {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: center;
+  width: 100%;
+}
+
+.input {
+  width: 48px;
+  height: 56px;
+  text-align: center;
+  font-family: var(--font-family);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-primary);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast),
+    background-color var(--transition-fast);
+  -webkit-appearance: none;
+  appearance: none;
+  caret-color: var(--color-primary);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(30, 80, 129, 0.15);
+}
+
+/* Filled state */
+.filled {
+  border-color: var(--color-primary);
+  background-color: var(--color-bg-secondary);
+}
+
+/* Active state */
+.active {
+  transform: scale(1.05);
+}
+
+/* Error state */
+.error {
+  border-color: var(--color-error);
+  animation: shake 0.4s ease;
+}
+
+.error:focus {
+  border-color: var(--color-error);
+  box-shadow: 0 0 0 3px rgba(206, 62, 36, 0.15);
+}
+
+/* Disabled state */
+.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: var(--color-bg-secondary);
+}
+
+/* Shake animation for error */
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-4px);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(4px);
+  }
+}
+
+/* Success animation */
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Responsive sizing */
+@media (min-width: 400px) {
+  .input {
+    width: 52px;
+    height: 60px;
+  }
+
+  .container {
+    gap: var(--space-3);
+  }
+}
+
+@media (min-width: 768px) {
+  .input {
+    width: 56px;
+    height: 64px;
+    font-size: var(--font-size-2xl);
+  }
+}

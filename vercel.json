@@ -1,0 +1,19 @@
+{
+  "rewrites": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "vet.furrie.in" }],
+      "destination": "/vet-portal/:path*"
+    },
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "admin.furrie.in" }],
+      "destination": "/admin-portal/:path*"
+    },
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "app.furrie.in" }],
+      "destination": "/customer-portal/:path*"
+    }
+  ]
+}

@@ -1,0 +1,104 @@
+/* PrescriptionPage.module.css */
+/* Prescription generation page - Desktop-first */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.backLink {
+  font-size: var(--font-size-sm);
+  color: var(--color-link);
+  text-decoration: none;
+}
+
+.backLink:hover {
+  text-decoration: underline;
+}
+
+.title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.description {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
+}
+
+.list {
+  margin: 0;
+  padding-left: var(--space-5);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
+}
+
+.list li {
+  margin-bottom: var(--space-2);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.successMessage {
+  padding: var(--space-4);
+  background-color: rgba(34, 197, 94, 0.1);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--color-success);
+}
+
+.successMessage p {
+  font-size: var(--font-size-sm);
+  color: var(--color-success);
+  font-weight: var(--font-weight-medium);
+}
+
+.hint {
+  margin-top: var(--space-2);
+  font-weight: normal !important;
+  opacity: 0.8;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+/* Mobile */
+@media (max-width: 640px) {
+  .actions {
+    flex-direction: column;
+  }
+
+  .footer {
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .footer button {
+    width: 100%;
+  }
+}

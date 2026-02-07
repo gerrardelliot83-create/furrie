@@ -1,0 +1,215 @@
+/* Button.module.css */
+/* Mobile-first button component with iOS-style micro-interactions */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font-family: var(--font-family);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+  border-radius: var(--radius-lg);
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+  white-space: nowrap;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+  border: 1.5px solid transparent;
+  position: relative;
+  overflow: hidden;
+
+  /* Full width on mobile by default */
+  width: 100%;
+}
+
+/* Sizes */
+.sm {
+  min-height: 36px;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+}
+
+.md {
+  min-height: 48px;
+  padding: var(--space-3) var(--space-5);
+  font-size: var(--font-size-base);
+}
+
+.lg {
+  min-height: 56px;
+  padding: var(--space-4) var(--space-6);
+  font-size: var(--font-size-md);
+}
+
+/* === VARIANTS === */
+
+/* Primary - Dusk Blue */
+.primary {
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.primary:hover:not(:disabled) {
+  background-color: var(--color-primary-dark);
+  border-color: var(--color-primary-dark);
+  box-shadow: var(--shadow-md);
+}
+
+.primary:active:not(:disabled) {
+  transform: scale(0.98);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Secondary - Light Blue outline */
+.secondary {
+  background-color: transparent;
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.secondary:hover:not(:disabled) {
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+  box-shadow: var(--shadow-sm);
+}
+
+.secondary:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Ghost - subtle background on hover */
+.ghost {
+  background-color: transparent;
+  color: var(--color-text-secondary);
+  border-color: transparent;
+}
+
+.ghost:hover:not(:disabled) {
+  background-color: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
+.ghost:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Accent - Bright Red for important CTAs */
+.accent {
+  background-color: var(--color-accent);
+  color: var(--color-text-inverse);
+  border-color: var(--color-accent);
+  box-shadow: var(--shadow-sm);
+}
+
+.accent:hover:not(:disabled) {
+  background-color: var(--color-accent-dark);
+  border-color: var(--color-accent-dark);
+  box-shadow: var(--shadow-md);
+}
+
+.accent:active:not(:disabled) {
+  transform: scale(0.98);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Danger - same as accent for destructive actions */
+.danger {
+  background-color: var(--color-accent);
+  color: var(--color-text-inverse);
+  border-color: var(--color-accent);
+}
+
+.danger:hover:not(:disabled) {
+  background-color: var(--color-accent-dark);
+  border-color: var(--color-accent-dark);
+}
+
+.danger:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* === STATES === */
+.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.fullWidth {
+  width: 100%;
+}
+
+/* Loading state */
+.loading .content {
+  visibility: hidden;
+}
+
+.loading .icon {
+  visibility: hidden;
+}
+
+.spinner {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Icon */
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.content {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* === TOUCH RIPPLE EFFECT === */
+.button::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, transparent 70%);
+  opacity: 0;
+  transform: scale(0);
+  transition: opacity var(--transition-fast), transform var(--transition-base);
+  pointer-events: none;
+}
+
+.button:active:not(:disabled)::after {
+  opacity: 1;
+  transform: scale(2);
+}
+
+/* Tablet+ styles */
+@media (min-width: 768px) {
+  .button {
+    width: auto;
+  }
+
+  .fullWidth {
+    width: 100%;
+  }
+}

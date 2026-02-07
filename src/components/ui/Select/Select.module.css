@@ -1,0 +1,123 @@
+/* Select.module.css */
+/* Mobile-first select component with iOS-style focus states */
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+}
+
+.label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+.selectContainer {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.select {
+  width: 100%;
+  /* CRITICAL: 16px minimum prevents iOS zoom */
+  font-size: max(16px, var(--font-size-base));
+  font-family: var(--font-family);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-primary);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    background-color var(--transition-fast);
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: calc(var(--space-4) + 24px);
+}
+
+/* Sizes */
+.sm {
+  min-height: 40px;
+  padding: var(--space-2) var(--space-3);
+}
+
+.md {
+  min-height: 48px;
+  padding: var(--space-3) var(--space-4);
+}
+
+.lg {
+  min-height: 56px;
+  padding: var(--space-4) var(--space-5);
+}
+
+/* === STATES === */
+
+/* Focus state - Dusk Blue glow */
+.select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(30, 80, 129, 0.15);
+}
+
+/* Hover state */
+.select:hover:not(:focus):not(:disabled) {
+  border-color: var(--color-text-tertiary);
+}
+
+/* Error state */
+.error {
+  border-color: var(--color-error);
+}
+
+.error:focus {
+  border-color: var(--color-error);
+  box-shadow: 0 0 0 3px rgba(206, 62, 36, 0.15);
+}
+
+.error:hover:not(:focus):not(:disabled) {
+  border-color: var(--color-error);
+}
+
+/* Disabled state */
+.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: var(--color-bg-secondary);
+}
+
+/* Arrow icon */
+.arrow {
+  position: absolute;
+  right: var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-tertiary);
+  pointer-events: none;
+  transition: color var(--transition-fast);
+}
+
+/* Arrow color changes on focus */
+.selectContainer:focus-within .arrow {
+  color: var(--color-primary);
+}
+
+/* Helper and error text */
+.errorText {
+  font-size: var(--font-size-xs);
+  color: var(--color-error);
+  margin-top: var(--space-1);
+}
+
+.helperText {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  margin-top: var(--space-1);
+}

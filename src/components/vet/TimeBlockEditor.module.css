@@ -1,0 +1,91 @@
+/* TimeBlockEditor.module.css */
+/* Time block editor for schedule - Desktop-first */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.emptyText {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+  text-align: center;
+  padding: var(--space-4) 0;
+}
+
+.slotsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.slotRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.timeSelect {
+  flex: 1;
+  padding: var(--space-2);
+  font-size: var(--font-size-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  min-width: 0;
+}
+
+.timeSelect:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(119, 0, 2, 0.1);
+}
+
+.separator {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+}
+
+.removeButton {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+
+.removeButton:hover {
+  border-color: var(--color-error);
+  color: var(--color-error);
+  background-color: rgba(220, 53, 69, 0.1);
+}
+
+.addButton {
+  width: 100%;
+  padding: var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-primary);
+  background: none;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.addButton:hover {
+  border-color: var(--color-primary);
+  background-color: rgba(119, 0, 2, 0.05);
+}

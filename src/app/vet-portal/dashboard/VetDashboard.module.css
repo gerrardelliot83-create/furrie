@@ -1,0 +1,70 @@
+/* VetDashboard.module.css */
+/* Vet dashboard layout - Desktop-first */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.headerLeft {
+  flex: 1;
+}
+
+.title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-1);
+}
+
+.welcome {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.headerRight {
+  flex-shrink: 0;
+}
+
+.statsSection {
+  margin-bottom: var(--space-2);
+}
+
+.mainContent {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: var(--space-6);
+}
+
+.queueSection {
+  /* Left column - queue panel */
+}
+
+.consultationsSection {
+  /* Right column - consultations list */
+}
+
+/* Tablet */
+@media (max-width: 1024px) {
+  .mainContent {
+    grid-template-columns: 1fr;
+  }
+
+  .header {
+    flex-direction: column;
+  }
+
+  .headerRight {
+    width: 100%;
+    display: flex;
+    justify-content: flex-start;
+  }
+}

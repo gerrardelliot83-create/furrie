@@ -1,0 +1,141 @@
+/* LoginForm.module.css */
+/* Customer login form with OTP steps */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.header {
+  text-align: center;
+}
+
+.title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-normal);
+}
+
+.subtitle strong {
+  color: var(--color-text-primary);
+  display: block;
+  margin-top: var(--space-1);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* OTP container */
+.otpContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.errorText {
+  font-size: var(--font-size-sm);
+  color: var(--color-error);
+  text-align: center;
+}
+
+/* Resend section */
+.resendContainer {
+  text-align: center;
+}
+
+.resendTimer {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+}
+
+.resendButton {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-link);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-2);
+  transition: color var(--transition-fast);
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.resendButton:hover {
+  color: var(--color-link-hover);
+}
+
+.resendButton:disabled {
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+/* Back button */
+.backButton {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-2);
+  text-align: center;
+  transition: color var(--transition-fast);
+  min-height: 44px;
+}
+
+.backButton:hover {
+  color: var(--color-text-primary);
+}
+
+/* Footer */
+.footer {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+  text-align: center;
+}
+
+.footerText {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.footerLink {
+  color: var(--color-link);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+}
+
+.footerLink:hover {
+  color: var(--color-link-hover);
+  text-decoration: underline;
+}
+
+/* Terms */
+.terms {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  text-align: center;
+  line-height: var(--line-height-relaxed);
+}
+
+.termsLink {
+  color: var(--color-text-secondary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.termsLink:hover {
+  color: var(--color-text-primary);
+}

@@ -1,0 +1,89 @@
+/* Skeleton.module.css */
+/* Loading skeleton components with beige gradient shimmer */
+
+.skeleton {
+  background-color: var(--color-beige-light);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Shimmer animation with beige gradient */
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(242, 234, 195, 0.6),
+    rgba(255, 255, 255, 0.8),
+    rgba(242, 234, 195, 0.6),
+    transparent
+  );
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Variants */
+.text {
+  height: 16px;
+  border-radius: var(--radius-sm);
+  width: 100%;
+}
+
+.circle {
+  border-radius: 50%;
+}
+
+.rect {
+  border-radius: var(--radius-lg);
+}
+
+/* Stack for multiple skeletons */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* Text container */
+.textContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* Pre-built card skeleton */
+.card {
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background-color: var(--color-bg-primary);
+}
+
+.cardHeader {
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.cardHeaderText {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  justify-content: center;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after {
+    animation: none;
+  }
+}

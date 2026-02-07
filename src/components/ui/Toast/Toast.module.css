@@ -1,0 +1,138 @@
+/* Toast.module.css */
+/* Toast notification system - NO emojis */
+/* Mobile: bottom. Desktop: top-right. */
+
+.container {
+  position: fixed;
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  pointer-events: none;
+
+  /* Mobile: bottom */
+  bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0));
+  left: var(--space-4);
+  right: var(--space-4);
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--color-border);
+  pointer-events: auto;
+  animation: slideIn var(--transition-base);
+}
+
+/* Variants */
+.success {
+  border-left: 3px solid var(--color-success);
+}
+
+.success .icon {
+  color: var(--color-success);
+}
+
+.error {
+  border-left: 3px solid var(--color-error);
+}
+
+.error .icon {
+  color: var(--color-error);
+}
+
+.warning {
+  border-left: 3px solid var(--color-warning);
+}
+
+.warning .icon {
+  color: var(--color-warning);
+}
+
+.info {
+  border-left: 3px solid var(--color-info);
+}
+
+.info .icon {
+  color: var(--color-info);
+}
+
+/* Icon */
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Message */
+.message {
+  flex: 1;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  line-height: var(--line-height-normal);
+}
+
+/* Dismiss button */
+.dismissButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  color: var(--color-text-tertiary);
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.dismissButton:hover {
+  background-color: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
+/* Animation */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Desktop: top-right */
+@media (min-width: 768px) {
+  .container {
+    bottom: auto;
+    left: auto;
+    top: var(--space-6);
+    right: var(--space-6);
+    max-width: 400px;
+  }
+
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateX(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: none;
+  }
+}

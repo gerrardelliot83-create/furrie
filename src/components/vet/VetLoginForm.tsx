@@ -90,7 +90,7 @@ export function VetLoginForm() {
   };
 
   const handleVerifyOtp = useCallback(async (code: string) => {
-    if (code.length !== 6) return;
+    if (code.length !== 8) return;
 
     setIsSubmitting(true);
     setOtpError('');
@@ -170,6 +170,7 @@ export function VetLoginForm() {
 
         <div className={styles.otpContainer}>
           <OTPInput
+            length={8}
             value={otp}
             onChange={setOtp}
             onComplete={handleVerifyOtp}
@@ -184,7 +185,7 @@ export function VetLoginForm() {
           variant="primary"
           onClick={() => handleVerifyOtp(otp)}
           loading={isSubmitting || loading}
-          disabled={otp.length !== 6}
+          disabled={otp.length !== 8}
           fullWidth
         >
           {t('verifyOtp')}

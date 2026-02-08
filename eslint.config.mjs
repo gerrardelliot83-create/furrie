@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Temporary UI review files (for Claude Desktop)
+    "temp-ui-review/**",
   ]),
 ]);
 

@@ -47,3 +47,6 @@ CLAUDE.md
 
 # Claude Code plans
 .claude/
+
+# Temporary UI review files (for Claude Desktop)
+temp-ui-review/

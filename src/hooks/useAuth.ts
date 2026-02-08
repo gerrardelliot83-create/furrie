@@ -15,6 +15,7 @@ interface AuthState {
 interface UseAuthReturn extends AuthState {
   signInWithOtp: (email: string) => Promise<{ error: string | null }>;
   verifyOtp: (email: string, token: string) => Promise<{ error: string | null }>;
+  signInWithPassword: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   clearError: () => void;
 }
@@ -129,6 +130,30 @@ export function useAuth(): UseAuthReturn {
     }
   }, [supabase.auth]);
 
+  // Sign in with email and password
+  const signInWithPassword = useCallback(async (email: string, password: string): Promise<{ error: string | null }> => {
+    try {
+      setState(prev => ({ ...prev, loading: true, error: null }));
+
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        setState(prev => ({ ...prev, loading: false, error: error.message }));
+        return { error: error.message };
+      }
+
+      setState(prev => ({ ...prev, loading: false }));
+      return { error: null };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to sign in';
+      setState(prev => ({ ...prev, loading: false, error: message }));
+      return { error: message };
+    }
+  }, [supabase.auth]);
+
   // Sign out
   const signOut = useCallback(async () => {
     try {
@@ -150,6 +175,7 @@ export function useAuth(): UseAuthReturn {
     ...state,
     signInWithOtp,
     verifyOtp,
+    signInWithPassword,
     signOut,
     clearError,
   };

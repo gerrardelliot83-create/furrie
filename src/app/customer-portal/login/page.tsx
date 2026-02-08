@@ -3,17 +3,17 @@ import { getTranslations } from 'next-intl/server';
 import { Suspense } from 'react';
 
 import { AuthLayout } from '@/components/layouts/AuthLayout';
-import { LoginForm } from '@/components/customer/LoginForm';
+import { AuthForm } from '@/components/customer/AuthForm';
 import { Skeleton } from '@/components/ui/Skeleton';
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('auth');
   return {
-    title: t('login'),
+    title: t('welcomeToFurrie'),
   };
 }
 
-function LoginFormFallback() {
+function AuthFormFallback() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
       <Skeleton variant="text" height={28} width="60%" />
@@ -27,8 +27,8 @@ function LoginFormFallback() {
 export default function CustomerLoginPage() {
   return (
     <AuthLayout>
-      <Suspense fallback={<LoginFormFallback />}>
-        <LoginForm />
+      <Suspense fallback={<AuthFormFallback />}>
+        <AuthForm />
       </Suspense>
     </AuthLayout>
   );

@@ -14,3 +14,4 @@ export { RatingForm } from './RatingForm';
 export { ChatInterface } from './ChatInterface';
 export { MessageBubble } from './MessageBubble';
 export { MessageComposer } from './MessageComposer';
+export { PaymentButton } from './PaymentButton';

@@ -76,6 +76,7 @@
     "wrongAccount": "Wrong account type. Please use the correct portal.",
     "otpExpired": "Code expired. Please request a new one.",
     "invalidOtp": "Invalid code. Please check and try again.",
+    "rateLimited": "Too many attempts. Please wait a few minutes and try again.",
     "required": "This field is required",
     "adminLoginTitle": "Admin Portal",
     "adminLoginSubtitle": "Sign in to access the admin dashboard",

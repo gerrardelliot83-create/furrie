@@ -13,7 +13,7 @@ interface AuthState {
 }
 
 interface UseAuthReturn extends AuthState {
-  signInWithOtp: (email: string) => Promise<{ error: string | null }>;
+  signInWithOtp: (email: string) => Promise<{ error: string | null; isRateLimited?: boolean }>;
   verifyOtp: (email: string, token: string) => Promise<{ error: string | null }>;
   signInWithPassword: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
@@ -80,7 +80,7 @@ export function useAuth(): UseAuthReturn {
   }, [supabase.auth, router]);
 
   // Send OTP to email
-  const signInWithOtp = useCallback(async (email: string): Promise<{ error: string | null }> => {
+  const signInWithOtp = useCallback(async (email: string): Promise<{ error: string | null; isRateLimited?: boolean }> => {
     try {
       setState(prev => ({ ...prev, loading: true, error: null }));
 
@@ -92,8 +92,17 @@ export function useAuth(): UseAuthReturn {
       });
 
       if (error) {
-        setState(prev => ({ ...prev, loading: false, error: error.message }));
-        return { error: error.message };
+        // Check for rate limit error (429 Too Many Requests)
+        const isRateLimited = error.status === 429 ||
+          error.message.toLowerCase().includes('rate limit') ||
+          error.message.toLowerCase().includes('too many requests');
+
+        const userMessage = isRateLimited
+          ? 'Too many attempts. Please wait a few minutes and try again.'
+          : error.message;
+
+        setState(prev => ({ ...prev, loading: false, error: userMessage }));
+        return { error: userMessage, isRateLimited };
       }
 
       setState(prev => ({ ...prev, loading: false }));

@@ -15,6 +15,8 @@ import styles from './AuthForm.module.css';
 type Step = 'email' | 'otp';
 
 const RESEND_COOLDOWN = 60; // seconds
+const RATE_LIMIT_COOLDOWN = 300; // 5 minutes when rate limited
+const COOLDOWN_STORAGE_KEY = 'furrie_otp_cooldown_until';
 
 export function AuthForm() {
   const t = useTranslations('auth');
@@ -28,7 +30,20 @@ export function AuthForm() {
   const [otp, setOtp] = useState('');
   const [emailError, setEmailError] = useState('');
   const [otpError, setOtpError] = useState('');
-  const [resendTimer, setResendTimer] = useState(0);
+  // Initialize cooldown from localStorage (persists across refresh)
+  const [resendTimer, setResendTimer] = useState(() => {
+    if (typeof window === 'undefined') return 0;
+    const storedCooldownUntil = localStorage.getItem(COOLDOWN_STORAGE_KEY);
+    if (storedCooldownUntil) {
+      const cooldownUntil = parseInt(storedCooldownUntil, 10);
+      const remainingSeconds = Math.ceil((cooldownUntil - Date.now()) / 1000);
+      if (remainingSeconds > 0) {
+        return remainingSeconds;
+      }
+      localStorage.removeItem(COOLDOWN_STORAGE_KEY);
+    }
+    return 0;
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Check for error param (e.g., wrong account type)
@@ -46,6 +61,9 @@ export function AuthForm() {
     if (resendTimer > 0) {
       const timer = setTimeout(() => setResendTimer(resendTimer - 1), 1000);
       return () => clearTimeout(timer);
+    } else {
+      // Clear storage when cooldown expires
+      localStorage.removeItem(COOLDOWN_STORAGE_KEY);
     }
   }, [resendTimer]);
 
@@ -55,6 +73,13 @@ export function AuthForm() {
       clearError();
     }
   }, [email, otp, authError, clearError]);
+
+  // Helper to set cooldown with localStorage persistence
+  const setCooldown = (seconds: number) => {
+    setResendTimer(seconds);
+    const cooldownUntil = Date.now() + seconds * 1000;
+    localStorage.setItem(COOLDOWN_STORAGE_KEY, cooldownUntil.toString());
+  };
 
   const validateEmail = (value: string): boolean => {
     if (!value.trim()) {
@@ -76,16 +101,22 @@ export function AuthForm() {
     if (!validateEmail(email)) return;
 
     setIsSubmitting(true);
-    const { error } = await signInWithOtp(email);
+    const { error, isRateLimited } = await signInWithOtp(email);
     setIsSubmitting(false);
 
     if (error) {
-      toast(error, 'error');
+      // Apply extended cooldown when rate limited
+      if (isRateLimited) {
+        setCooldown(RATE_LIMIT_COOLDOWN);
+        toast(t('rateLimited'), 'error');
+      } else {
+        toast(error, 'error');
+      }
       return;
     }
 
     setStep('otp');
-    setResendTimer(RESEND_COOLDOWN);
+    setCooldown(RESEND_COOLDOWN);
     toast(t('otpSent'), 'success');
   };
 
@@ -113,15 +144,21 @@ export function AuthForm() {
     if (resendTimer > 0) return;
 
     setIsSubmitting(true);
-    const { error } = await signInWithOtp(email);
+    const { error, isRateLimited } = await signInWithOtp(email);
     setIsSubmitting(false);
 
     if (error) {
-      toast(error, 'error');
+      // Apply extended cooldown when rate limited
+      if (isRateLimited) {
+        setCooldown(RATE_LIMIT_COOLDOWN);
+        toast(t('rateLimited'), 'error');
+      } else {
+        toast(error, 'error');
+      }
       return;
     }
 
-    setResendTimer(RESEND_COOLDOWN);
+    setCooldown(RESEND_COOLDOWN);
     setOtp(''); // Clear any existing OTP
     setOtpError('');
     toast(t('otpSent'), 'success');

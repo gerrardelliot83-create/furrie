@@ -87,10 +87,20 @@ export function VetLoginForm() {
 
     // Verify the user has vet role
     const supabase = createClient();
+
+    // Get the authenticated user's ID
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      setIsSubmitting(false);
+      toast('Authentication failed. Please try again.', 'error');
+      return;
+    }
+
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('role')
-      .eq('email', email)
+      .eq('id', user.id)
       .single();
 
     setIsSubmitting(false);

@@ -1,0 +1,322 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-link);
+  text-decoration: none;
+  margin-bottom: var(--space-2);
+}
+
+.backLink:hover {
+  text-decoration: underline;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.title {
+  font-size: var(--font-size-2xl);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.consultationNumber {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+  margin-top: var(--space-1);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+}
+
+.card {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}
+
+.cardTitle {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.petCard {
+  composes: card;
+}
+
+.petInfo {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.petAvatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--color-bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.petAvatarImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.petDetails {
+  flex: 1;
+}
+
+.petName {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.petSpecies {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-top: var(--space-1);
+}
+
+.petMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+}
+
+.petMetaItem {
+  font-size: var(--font-size-sm);
+}
+
+.petMetaLabel {
+  color: var(--color-text-tertiary);
+}
+
+.petMetaValue {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.customerCard {
+  composes: card;
+}
+
+.customerInfo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.customerName {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.customerContact {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.detailsCard {
+  composes: card;
+}
+
+.detailsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.detailItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.detailLabel {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.detailValue {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.concernText {
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  line-height: var(--line-height-relaxed);
+}
+
+.symptoms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.actionsCard {
+  composes: card;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.actionButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text-inverse);
+  background: var(--color-primary);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  min-height: 48px;
+  transition: background var(--transition-fast);
+}
+
+.actionButton:hover {
+  opacity: 0.9;
+}
+
+.actionButtonSecondary {
+  composes: actionButton;
+  background: transparent;
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+}
+
+.actionButtonSecondary:hover {
+  background: var(--color-bg-secondary);
+}
+
+.actionButtonWarning {
+  composes: actionButton;
+  background: var(--color-warning);
+}
+
+.flagButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-error);
+  background: transparent;
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  min-height: 48px;
+  width: 100%;
+  transition: all var(--transition-fast);
+}
+
+.flagButton:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.flagged {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: var(--radius-md);
+  color: var(--color-error);
+  font-size: var(--font-size-sm);
+}
+
+/* Desktop enhancements */
+@media (min-width: 768px) {
+  .container {
+    gap: var(--space-6);
+  }
+
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .petCard,
+  .actionsCard {
+    grid-column: span 2;
+  }
+
+  .card {
+    padding: var(--space-6);
+  }
+
+  .actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .actionButton,
+  .actionButtonSecondary,
+  .flagButton {
+    flex: 1;
+    min-width: 180px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .petCard {
+    grid-column: span 2;
+  }
+
+  .actionsCard {
+    grid-column: span 3;
+  }
+}

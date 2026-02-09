@@ -118,7 +118,8 @@ export function LiveQueuePanel({ vetId, isAvailable }: LiveQueuePanelProps) {
           table: 'consultations',
           filter: `vet_id=eq.${vetId}`,
         },
-        async () => {
+        async (payload) => {
+          console.log('LiveQueuePanel received change:', payload.eventType);
           try {
             await fetchMatchedConsultation();
           } catch (error) {
@@ -127,8 +128,13 @@ export function LiveQueuePanel({ vetId, isAvailable }: LiveQueuePanelProps) {
           }
         }
       )
-      .subscribe((status) => {
+      .subscribe((status, err) => {
         console.log('LiveQueuePanel subscription status:', status);
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error('LiveQueuePanel subscription error:', err);
+          // Immediately fetch on error as fallback
+          fetchMatchedConsultation();
+        }
       });
 
     // Polling fallback: refresh every 10 seconds as backup

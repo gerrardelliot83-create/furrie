@@ -7,6 +7,41 @@ import Daily from '@daily-co/daily-js';
 import { PreJoinScreen, VideoRoom } from '@/components/consultation';
 import styles from './page.module.css';
 
+// Retry helper for handling race conditions in consultation fetch
+async function fetchWithRetry(
+  url: string,
+  options?: RequestInit,
+  maxRetries = 3,
+  initialDelay = 500
+): Promise<Response> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    if (attempt > 0) {
+      const delay = initialDelay * Math.pow(2, attempt - 1);
+      console.log(`Retry attempt ${attempt + 1} after ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+
+    try {
+      const response = await fetch(url, options);
+      if (response.ok || (response.status !== 404 && response.status !== 500)) {
+        return response;
+      }
+      if (attempt < maxRetries - 1) {
+        console.log(`Request returned ${response.status}, retrying...`);
+        continue;
+      }
+      return response;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (attempt === maxRetries - 1) throw lastError;
+    }
+  }
+
+  throw lastError || new Error('Request failed after retries');
+}
+
 type RoomState = 'loading' | 'error' | 'prejoin' | 'joining' | 'in-call' | 'left';
 
 interface TokenResponse {
@@ -63,8 +98,8 @@ export default function CustomerVideoRoomPage() {
         const data: TokenResponse = await tokenResponse.json();
         setTokenData(data);
 
-        // Fetch consultation details for vet info
-        const consultationResponse = await fetch(`/api/consultations/${consultationId}`);
+        // Fetch consultation details for vet info with retry logic
+        const consultationResponse = await fetchWithRetry(`/api/consultations/${consultationId}`);
         if (consultationResponse.ok) {
           const consultationData = await consultationResponse.json();
           if (consultationData.consultation?.vet) {

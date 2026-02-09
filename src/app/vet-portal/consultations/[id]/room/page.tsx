@@ -8,6 +8,41 @@ import { VideoRoom } from '@/components/consultation';
 import { Button } from '@/components/ui/Button';
 import styles from './page.module.css';
 
+// Retry helper for handling race conditions in consultation fetch
+async function fetchWithRetry(
+  url: string,
+  options?: RequestInit,
+  maxRetries = 3,
+  initialDelay = 500
+): Promise<Response> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    if (attempt > 0) {
+      const delay = initialDelay * Math.pow(2, attempt - 1);
+      console.log(`Retry attempt ${attempt + 1} after ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+
+    try {
+      const response = await fetch(url, options);
+      if (response.ok || (response.status !== 404 && response.status !== 500)) {
+        return response;
+      }
+      if (attempt < maxRetries - 1) {
+        console.log(`Request returned ${response.status}, retrying...`);
+        continue;
+      }
+      return response;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (attempt === maxRetries - 1) throw lastError;
+    }
+  }
+
+  throw lastError || new Error('Request failed after retries');
+}
+
 type RoomState = 'loading' | 'error' | 'ready' | 'in-call' | 'left';
 
 interface TokenResponse {
@@ -43,10 +78,11 @@ export default function VetVideoRoomPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch consultation details
-        const consultationResponse = await fetch(`/api/consultations/${consultationId}`);
+        // Fetch consultation details with retry logic for race conditions
+        const consultationResponse = await fetchWithRetry(`/api/consultations/${consultationId}`);
         if (!consultationResponse.ok) {
-          throw new Error('Consultation not found');
+          const errorData = await consultationResponse.json().catch(() => ({}));
+          throw new Error(errorData.error || 'Consultation not found');
         }
         const consultationData = await consultationResponse.json();
         const consultation = consultationData.consultation;

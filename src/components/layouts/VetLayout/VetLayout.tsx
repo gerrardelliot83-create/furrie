@@ -24,6 +24,13 @@ export function VetLayout({ children }: VetLayoutProps) {
   const router = useRouter();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [vetId, setVetId] = useState<string | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Mark component as mounted to prevent hydration mismatch
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Valid hydration guard pattern
+    setIsMounted(true);
+  }, []);
 
   // Fetch vet ID on mount
   useEffect(() => {
@@ -170,7 +177,8 @@ export function VetLayout({ children }: VetLayoutProps) {
       </main>
 
       {/* Incoming Consultation Alert - Full screen overlay */}
-      {incomingNotification && (
+      {/* Only render after mount to prevent React hydration mismatch (Error #418) */}
+      {isMounted && incomingNotification && (
         <IncomingCallAlert
           consultationId={incomingNotification.data.consultationId}
           customerName={incomingNotification.data.customerName || 'Pet Parent'}

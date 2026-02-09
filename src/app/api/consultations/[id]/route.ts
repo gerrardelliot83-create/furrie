@@ -28,12 +28,16 @@ export async function GET(
       );
     }
 
-    // Check if user is a vet
-    const { data: profile } = await supabase
+    // Check if user is a vet - use supabaseAdmin to bypass RLS timing issues
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single();
+
+    if (profileError) {
+      console.error('Profile fetch failed:', profileError);
+    }
 
     const isVet = profile?.role === 'vet';
 

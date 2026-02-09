@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
         await handleMeetingEnded(payload);
         break;
 
-      case 'participant-joined':
+      case 'participant.joined':
         await handleParticipantJoined(payload);
         break;
 

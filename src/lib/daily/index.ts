@@ -12,8 +12,9 @@ const DEFAULT_ROOM_CONFIG = {
   // Privacy: 'private' requires meeting token to join
   privacy: 'private' as const,
 
-  // Recording: 'cloud' for server-side MP4 recording (pay-as-you-go enabled)
-  enable_recording: 'cloud' as const,
+  // Recording: Temporarily disabled to debug 400 error
+  // TODO: Re-enable after confirming basic room creation works
+  // enable_recording: 'cloud' as const,
 
   // Enable in-call text chat
   enable_chat: true,
@@ -80,19 +81,25 @@ export async function createRoom(
   // Expiry: current time + duration + 5 min buffer
   const expiresAt = Math.floor(Date.now() / 1000) + (durationMinutes + 5) * 60;
 
+  // Build request body
+  const requestBody = {
+    name: roomName,
+    properties: {
+      ...DEFAULT_ROOM_CONFIG,
+      exp: expiresAt,
+    },
+  };
+
+  // Log the exact request being sent for debugging
+  console.log('Daily.co createRoom request:', JSON.stringify(requestBody, null, 2));
+
   const response = await fetch(`${DAILY_API_URL}/rooms`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${DAILY_API_KEY}`,
     },
-    body: JSON.stringify({
-      name: roomName,
-      properties: {
-        ...DEFAULT_ROOM_CONFIG,
-        exp: expiresAt,
-      },
-    }),
+    body: JSON.stringify(requestBody),
   });
 
   // Handle room already exists (409 Conflict) - return existing room
@@ -109,14 +116,24 @@ export async function createRoom(
   }
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
+    // Get full error response for debugging
+    const responseText = await response.text();
+    let errorData: Record<string, unknown> = {};
+    try {
+      errorData = JSON.parse(responseText);
+    } catch {
+      errorData = { rawResponse: responseText };
+    }
+
+    console.error('Daily.co API error - FULL RESPONSE:', {
+      status: response.status,
+      statusText: response.statusText,
+      roomName,
+      fullError: JSON.stringify(errorData, null, 2),
+    });
+
     const error = errorData as DailyError;
     const errorMessage = error.error || error.info || `HTTP ${response.status}`;
-    console.error('Daily.co API error:', {
-      status: response.status,
-      error: errorMessage,
-      roomName,
-    });
     throw new Error(`Failed to create Daily room: ${errorMessage}`);
   }
 

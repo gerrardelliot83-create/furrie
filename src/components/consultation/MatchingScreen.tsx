@@ -29,6 +29,7 @@ interface MatchResponse {
     name: string;
   };
   error?: string;
+  details?: string;
   code?: string;
 }
 
@@ -85,6 +86,14 @@ export function MatchingScreen({
         const data: MatchResponse = await response.json();
 
         if (!response.ok) {
+          // Log detailed error for debugging
+          console.error('Match API error:', {
+            status: response.status,
+            code: data.code,
+            error: data.error,
+            details: data.details,
+          });
+
           // Handle API errors
           if (data.code === 'INVALID_STATUS') {
             // Consultation might already be matched or in different state
@@ -102,8 +111,14 @@ export function MatchingScreen({
               }
             }
           }
+
+          // Show detailed error if available
+          const errorMsg = data.details
+            ? `${data.error}: ${data.details}`
+            : data.error || 'Failed to find a veterinarian';
+
           setMatchStatus('error');
-          setErrorMessage(data.error || 'Failed to find a veterinarian');
+          setErrorMessage(errorMsg);
           return;
         }
 

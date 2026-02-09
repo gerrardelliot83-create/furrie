@@ -141,7 +141,13 @@ export async function POST(request: NextRequest) {
     try {
       room = await createRoom(consultationId, 30);
     } catch (roomError) {
-      console.error('Failed to create Daily room:', roomError);
+      const errorMessage = roomError instanceof Error ? roomError.message : 'Unknown error';
+      console.error('Failed to create Daily room:', {
+        consultationId,
+        error: errorMessage,
+        stack: roomError instanceof Error ? roomError.stack : undefined,
+      });
+
       // Rollback to pending
       await supabase
         .from('consultations')
@@ -152,7 +158,11 @@ export async function POST(request: NextRequest) {
         .eq('id', consultationId);
 
       return NextResponse.json(
-        { error: 'Failed to create video room', code: 'ROOM_ERROR' },
+        {
+          error: 'Failed to create video room',
+          details: errorMessage,
+          code: 'ROOM_ERROR'
+        },
         { status: 500 }
       );
     }

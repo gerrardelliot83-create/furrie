@@ -88,6 +88,7 @@ export async function createRoom(
   durationMinutes: number = 30
 ): Promise<{ name: string; url: string; expiresAt: number }> {
   if (!DAILY_API_KEY) {
+    console.error('DAILY_API_KEY is not configured. Check Vercel environment variables.');
     throw new Error('DAILY_API_KEY is not configured');
   }
 
@@ -112,9 +113,29 @@ export async function createRoom(
     }),
   });
 
+  // Handle room already exists (409 Conflict) - return existing room
+  if (response.status === 409) {
+    console.log(`Room ${roomName} already exists, fetching existing room`);
+    const existingRoom = await getRoom(roomName);
+    if (existingRoom) {
+      return {
+        name: existingRoom.name,
+        url: existingRoom.url,
+        expiresAt: existingRoom.config.exp,
+      };
+    }
+  }
+
   if (!response.ok) {
-    const error: DailyError = await response.json();
-    throw new Error(`Failed to create Daily room: ${error.error || error.info || 'Unknown error'}`);
+    const errorData = await response.json().catch(() => ({}));
+    const error = errorData as DailyError;
+    const errorMessage = error.error || error.info || `HTTP ${response.status}`;
+    console.error('Daily.co API error:', {
+      status: response.status,
+      error: errorMessage,
+      roomName,
+    });
+    throw new Error(`Failed to create Daily room: ${errorMessage}`);
   }
 
   const room: DailyRoom = await response.json();

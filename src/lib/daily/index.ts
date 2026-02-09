@@ -6,13 +6,13 @@ const DAILY_API_URL = 'https://api.daily.co/v1';
 
 // Room settings for consultations
 // See: https://docs.daily.co/reference/rest-api/rooms/config
+// NOTE: Properties like enable_network_ui and enable_active_speaker_mode are
+// Daily Prebuilt only and will cause 400 errors with custom implementations
 const DEFAULT_ROOM_CONFIG = {
   // Privacy: 'private' requires meeting token to join
-  // Options: 'public', 'private'
   privacy: 'private' as const,
 
-  // Recording: 'cloud' for server-side MP4 recording
-  // Options: 'cloud', 'cloud-audio-only', 'local', 'raw-tracks', false
+  // Recording: 'cloud' for server-side MP4 recording (pay-as-you-go enabled)
   enable_recording: 'cloud' as const,
 
   // Enable in-call text chat
@@ -30,30 +30,12 @@ const DEFAULT_ROOM_CONFIG = {
   // Eject all participants when room expires
   eject_at_room_exp: true,
 
-  // Disable Daily's built-in prejoin UI (we use custom)
-  enable_prejoin_ui: false,
+  // Disable lobby/knocking for matched consultations
+  enable_knocking: false,
 
   // Start with video/audio enabled
   start_video_off: false,
   start_audio_off: false,
-
-  // Enable lobby/knocking for private rooms (disabled for matched consultations)
-  enable_knocking: false,
-
-  // Auto-close empty room after 60 seconds
-  autojoin: false,
-
-  // Enable network quality monitoring
-  enable_network_ui: true,
-
-  // Enable active speaker detection
-  enable_active_speaker_mode: true,
-
-  // Owner-only broadcast (false - both can broadcast)
-  owner_only_broadcast: false,
-
-  // Experimental: noise cancellation
-  enable_advanced_chat: false,
 };
 
 export interface DailyRoom {

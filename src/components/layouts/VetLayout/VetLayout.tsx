@@ -25,15 +25,17 @@ export function VetLayout({ children }: VetLayoutProps) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [vetId, setVetId] = useState<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
+  const [isAccepting, setIsAccepting] = useState(false);
 
-  // Mark component as mounted to prevent hydration mismatch
+  // CRITICAL: Mark mounted first, synchronously safe
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Valid hydration guard pattern
     setIsMounted(true);
   }, []);
 
-  // Fetch vet ID on mount
+  // Fetch vet ID only after mount (browser-only)
   useEffect(() => {
+    if (!isMounted) return;
+
     const fetchVetId = async () => {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
@@ -43,10 +45,12 @@ export function VetLayout({ children }: VetLayoutProps) {
     };
 
     fetchVetId();
-  }, []);
+  }, [isMounted]);
 
-  // Request browser notification permission on mount
+  // Request notification permission only after mount (browser-only)
   useEffect(() => {
+    if (!isMounted) return;
+
     if (typeof window !== 'undefined' && 'Notification' in window) {
       if (Notification.permission === 'default') {
         Notification.requestPermission().then((permission) => {
@@ -54,7 +58,7 @@ export function VetLayout({ children }: VetLayoutProps) {
         });
       }
     }
-  }, []);
+  }, [isMounted]);
 
   // Unlock AudioContext on first user interaction
   useEffect(() => {
@@ -101,14 +105,43 @@ export function VetLayout({ children }: VetLayoutProps) {
   const { incomingNotification, markAsRead, dismissNotification } = useVetNotifications(vetId);
 
   // Handle accepting a consultation
-  const handleAcceptConsultation = useCallback(() => {
-    if (incomingNotification) {
-      // Mark notification as read
-      markAsRead(incomingNotification.id);
-      // Navigate to the consultation room
+  const handleAcceptConsultation = useCallback(async () => {
+    if (!incomingNotification || isAccepting) return;
+
+    setIsAccepting(true);
+
+    try {
+      // Call server-side acceptance API
+      const response = await fetch(
+        `/api/consultations/${incomingNotification.data.consultationId}/accept`,
+        { method: 'POST' }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        // Handle specific error cases
+        if (data.code === 'REASSIGNED' || data.code === 'INVALID_STATUS') {
+          // Consultation was reassigned to another vet
+          console.warn('Consultation no longer available:', data);
+          dismissNotification();
+          setIsAccepting(false);
+          return;
+        }
+        throw new Error(data.error || 'Failed to accept');
+      }
+
+      // Success - mark notification as read
+      await markAsRead(incomingNotification.id);
+
+      // Navigate to room
       router.push(`/consultations/${incomingNotification.data.consultationId}/room`);
+    } catch (error) {
+      console.error('Failed to accept consultation:', error);
+      setIsAccepting(false);
+      // Could show error toast here
     }
-  }, [incomingNotification, markAsRead, router]);
+  }, [incomingNotification, isAccepting, markAsRead, router, dismissNotification]);
 
   // Handle timeout (vet didn't respond in time)
   const handleTimeout = useCallback(() => {
@@ -177,8 +210,8 @@ export function VetLayout({ children }: VetLayoutProps) {
       </main>
 
       {/* Incoming Consultation Alert - Full screen overlay */}
-      {/* Only render after mount to prevent React hydration mismatch (Error #418) */}
-      {isMounted && incomingNotification && (
+      {/* CRITICAL: Triple guard for client-only content to prevent React hydration mismatch (Error #418) */}
+      {isMounted && vetId && incomingNotification && (
         <IncomingCallAlert
           consultationId={incomingNotification.data.consultationId}
           customerName={incomingNotification.data.customerName || 'Pet Parent'}
@@ -190,6 +223,7 @@ export function VetLayout({ children }: VetLayoutProps) {
           onAccept={handleAcceptConsultation}
           onTimeout={handleTimeout}
           timeoutSeconds={30}
+          isAccepting={isAccepting}
         />
       )}
     </div>

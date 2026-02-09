@@ -15,5 +15,11 @@
       "has": [{ "type": "host", "value": "app.furrie.in" }],
       "destination": "/customer-portal/:path*"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/reassign-stale",
+      "schedule": "* * * * *"
+    }
   ]
 }

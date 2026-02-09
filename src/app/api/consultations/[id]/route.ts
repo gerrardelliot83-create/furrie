@@ -28,18 +28,45 @@ export async function GET(
       );
     }
 
-    // Check if user is a vet - use supabaseAdmin to bypass RLS timing issues
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('role')
+    // Determine if user is a vet by checking vet_profiles table directly
+    // This is more reliable than checking profiles.role which could fail
+    let isVet = false;
+
+    const { data: vetProfile, error: vetCheckError } = await supabaseAdmin
+      .from('vet_profiles')
+      .select('id')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
-    if (profileError) {
-      console.error('Profile fetch failed:', profileError);
+    if (vetCheckError) {
+      console.error('Vet profile check failed:', vetCheckError);
+      // Don't fail silently - try alternative approach
+      // Check if user is vet_id OR customer_id on this specific consultation
+      const { data: consultationOwnership } = await supabaseAdmin
+        .from('consultations')
+        .select('customer_id, vet_id')
+        .eq('id', id)
+        .maybeSingle();
+
+      if (!consultationOwnership) {
+        return NextResponse.json(
+          { error: 'Consultation not found', code: 'NOT_FOUND' },
+          { status: 404 }
+        );
+      }
+
+      if (consultationOwnership.vet_id === user.id) {
+        isVet = true;
+      } else if (consultationOwnership.customer_id !== user.id) {
+        return NextResponse.json(
+          { error: 'Not authorized to view this consultation', code: 'FORBIDDEN' },
+          { status: 403 }
+        );
+      }
+    } else {
+      // vetProfile exists means user is a vet
+      isVet = vetProfile !== null;
     }
-
-    const isVet = profile?.role === 'vet';
 
     // Fetch consultation with relations
     let consultation;

@@ -17,6 +17,8 @@ interface IncomingCallAlertProps {
   onTimeout?: () => void;
   timeoutSeconds?: number;
   className?: string;
+  /** External loading state from parent (e.g., during API call) */
+  isAccepting?: boolean;
 }
 
 export function IncomingCallAlert({
@@ -31,10 +33,14 @@ export function IncomingCallAlert({
   onTimeout,
   timeoutSeconds = 30,
   className,
+  isAccepting: externalIsAccepting,
 }: IncomingCallAlertProps) {
   const [remainingSeconds, setRemainingSeconds] = useState(timeoutSeconds);
-  const [isAccepting, setIsAccepting] = useState(false);
+  const [internalIsAccepting, setInternalIsAccepting] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Use external state if provided, otherwise use internal state
+  const isAccepting = externalIsAccepting ?? internalIsAccepting;
 
   // Play ringtone using pre-unlocked AudioContext if available
   useEffect(() => {
@@ -155,7 +161,7 @@ export function IncomingCallAlert({
   }, [consultationId, customerName, petName, petSpecies]);
 
   const handleAccept = useCallback(() => {
-    setIsAccepting(true);
+    setInternalIsAccepting(true);
     if (timerRef.current) {
       clearInterval(timerRef.current);
     }

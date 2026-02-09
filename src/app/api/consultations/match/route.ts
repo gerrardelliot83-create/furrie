@@ -100,7 +100,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Update status to matching
-    const { error: updateError } = await supabase
+    // Use supabaseAdmin because RLS policies don't allow customers to update consultations
+    const { error: updateError } = await supabaseAdmin
       .from('consultations')
       .update({
         status: 'matching',
@@ -121,7 +122,8 @@ export async function POST(request: NextRequest) {
 
     if (!availableVet) {
       // No vet available - update status
-      await supabase
+      // Use supabaseAdmin because RLS policies don't allow customers to update consultations
+      await supabaseAdmin
         .from('consultations')
         .update({
           status: 'no_vet_available',
@@ -149,7 +151,8 @@ export async function POST(request: NextRequest) {
       });
 
       // Rollback to pending
-      await supabase
+      // Use supabaseAdmin because RLS policies don't allow customers to update consultations
+      await supabaseAdmin
         .from('consultations')
         .update({
           status: 'pending',
@@ -168,7 +171,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Assign vet and update consultation
-    const { error: assignError } = await supabase
+    // Use supabaseAdmin because RLS policies prevent customers from updating vet_id
+    const { error: assignError } = await supabaseAdmin
       .from('consultations')
       .update({
         vet_id: availableVet.id,
@@ -335,7 +339,7 @@ async function sendVetNotification(
   }
 ) {
   // Insert notification record
-  const { error } = await supabaseAdmin
+  const { error, data: insertedNotification } = await supabaseAdmin
     .from('notifications')
     .insert({
       user_id: vetId,
@@ -352,9 +356,16 @@ async function sendVetNotification(
         roomUrl: data.roomUrl,
       },
       is_read: false,
-    });
+    })
+    .select();
 
   if (error) {
     console.error('Failed to send vet notification:', error);
+  } else {
+    console.log('Vet notification sent successfully:', {
+      vetId,
+      consultationId: data.consultationId,
+      notificationId: insertedNotification?.[0]?.id,
+    });
   }
 }

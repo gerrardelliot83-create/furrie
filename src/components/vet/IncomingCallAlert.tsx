@@ -36,47 +36,77 @@ export function IncomingCallAlert({
   const [isAccepting, setIsAccepting] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Play ringtone
+  // Play ringtone using pre-unlocked AudioContext if available
   useEffect(() => {
-    // Create audio context for ringtone
-    const playRingtone = () => {
+    let audioContext: AudioContext | null = null;
+    let intervalId: NodeJS.Timeout | null = null;
+    let isCleanedUp = false;
+    let ownsAudioContext = false;
+
+    const playRingtone = async () => {
       try {
-        // Use Web Audio API to create a simple ringtone
-        const audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+        // Try to use pre-unlocked AudioContext from VetLayout
+        if (typeof window !== 'undefined' && window.__furrie_audio_context && window.__furrie_audio_unlocked) {
+          audioContext = window.__furrie_audio_context;
+        } else {
+          // Fallback: create new AudioContext (may be suspended)
+          const AudioContextClass = window.AudioContext ||
+            (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+          audioContext = new AudioContextClass();
+          ownsAudioContext = true;
+
+          if (audioContext.state === 'suspended') {
+            try {
+              await audioContext.resume();
+            } catch {
+              console.warn('AudioContext could not be resumed - ringtone silent until user interaction');
+              return;
+            }
+          }
+        }
+
+        if (isCleanedUp || !audioContext || audioContext.state !== 'running') return;
 
         const playTone = () => {
-          const oscillator = audioContext.createOscillator();
-          const gainNode = audioContext.createGain();
+          if (isCleanedUp || !audioContext || audioContext.state !== 'running') return;
 
-          oscillator.connect(gainNode);
-          gainNode.connect(audioContext.destination);
+          try {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
 
-          oscillator.frequency.value = 440; // A4 note
-          oscillator.type = 'sine';
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
 
-          gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+            oscillator.frequency.value = 440; // A4 note
+            oscillator.type = 'sine';
 
-          oscillator.start(audioContext.currentTime);
-          oscillator.stop(audioContext.currentTime + 0.5);
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.5);
+          } catch (error) {
+            console.warn('Failed to play tone:', error);
+          }
         };
 
-        // Play tone every 2 seconds
         playTone();
-        const interval = setInterval(playTone, 2000);
-
-        return () => {
-          clearInterval(interval);
-          audioContext.close();
-        };
+        intervalId = setInterval(playTone, 2000);
       } catch (error) {
-        console.error('Failed to play ringtone:', error);
-        return () => {};
+        console.warn('Failed to initialize ringtone:', error);
       }
     };
 
-    const cleanup = playRingtone();
-    return cleanup;
+    playRingtone();
+
+    return () => {
+      isCleanedUp = true;
+      if (intervalId) clearInterval(intervalId);
+      // Only close AudioContext if we created it (not the shared one)
+      if (ownsAudioContext && audioContext) {
+        audioContext.close().catch(() => {});
+      }
+    };
   }, []);
 
   // Countdown timer
@@ -110,7 +140,7 @@ export function IncomingCallAlert({
     if ('Notification' in window && Notification.permission === 'granted') {
       const notification = new Notification('Incoming Consultation', {
         body: `${customerName} needs help with ${petName} (${petSpecies})`,
-        icon: '/icons/icon-192.png',
+        icon: '/favicon.ico',
         tag: `consultation-${consultationId}`,
         requireInteraction: true,
       });

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 import {
   mapConsultationWithRelationsFromDB,
   mapConsultationUpdateToDB,
@@ -27,49 +28,113 @@ export async function GET(
       );
     }
 
-    // Fetch consultation with relations
-    const { data: consultation, error } = await supabase
-      .from('consultations')
-      .select(
-        `
-        *,
-        pets!consultations_pet_id_fkey (
-          id,
-          name,
-          species,
-          breed,
-          photo_urls
-        ),
-        profiles!consultations_vet_id_fkey (
-          id,
-          full_name,
-          avatar_url
-        ),
-        vet_profiles!consultations_vet_id_fkey (
-          qualifications
-        ),
-        consultation_ratings (
-          rating,
-          feedback_text
-        ),
-        prescriptions (
-          id,
-          pdf_url,
-          prescription_number
-        )
-      `
-      )
-      .eq('id', id)
+    // Check if user is a vet
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
       .single();
 
-    if (error) {
-      if (error.code === 'PGRST116') {
+    const isVet = profile?.role === 'vet';
+
+    // Fetch consultation with relations
+    let consultation;
+    let queryError;
+
+    if (isVet) {
+      // For vets: Use admin client to bypass RLS timing issues
+      const { data, error } = await supabaseAdmin
+        .from('consultations')
+        .select(
+          `
+          *,
+          pets!consultations_pet_id_fkey (
+            id,
+            name,
+            species,
+            breed,
+            photo_urls
+          ),
+          profiles!consultations_vet_id_fkey (
+            id,
+            full_name,
+            avatar_url
+          ),
+          vet_profiles!consultations_vet_id_fkey (
+            qualifications
+          ),
+          consultation_ratings (
+            rating,
+            feedback_text
+          ),
+          prescriptions (
+            id,
+            pdf_url,
+            prescription_number
+          )
+        `
+        )
+        .eq('id', id)
+        .single();
+
+      // Manual security check: ensure vet is assigned
+      if (data && data.vet_id !== user.id) {
+        return NextResponse.json(
+          { error: 'You do not have permission to view this consultation', code: 'FORBIDDEN' },
+          { status: 403 }
+        );
+      }
+
+      consultation = data;
+      queryError = error;
+    } else {
+      // For customers: Use regular client with RLS
+      const { data, error } = await supabase
+        .from('consultations')
+        .select(
+          `
+          *,
+          pets!consultations_pet_id_fkey (
+            id,
+            name,
+            species,
+            breed,
+            photo_urls
+          ),
+          profiles!consultations_vet_id_fkey (
+            id,
+            full_name,
+            avatar_url
+          ),
+          vet_profiles!consultations_vet_id_fkey (
+            qualifications
+          ),
+          consultation_ratings (
+            rating,
+            feedback_text
+          ),
+          prescriptions (
+            id,
+            pdf_url,
+            prescription_number
+          )
+        `
+        )
+        .eq('id', id)
+        .single();
+
+      consultation = data;
+      queryError = error;
+    }
+
+    if (queryError) {
+      if (queryError.code === 'PGRST116') {
         return NextResponse.json(
           { error: 'Consultation not found', code: 'NOT_FOUND' },
           { status: 404 }
         );
       }
-      console.error('Error fetching consultation:', error);
+      console.error('Error fetching consultation:', queryError);
       return NextResponse.json(
         { error: 'Failed to fetch consultation', code: 'FETCH_ERROR' },
         { status: 500 }

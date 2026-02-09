@@ -118,14 +118,27 @@ export function LiveQueuePanel({ vetId, isAvailable }: LiveQueuePanelProps) {
           table: 'consultations',
           filter: `vet_id=eq.${vetId}`,
         },
-        () => {
-          fetchMatchedConsultation();
+        async () => {
+          try {
+            await fetchMatchedConsultation();
+          } catch (error) {
+            console.error('Error in realtime callback:', error);
+            setMatchedConsultation(null);
+          }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('LiveQueuePanel subscription status:', status);
+      });
+
+    // Polling fallback: refresh every 10 seconds as backup
+    const pollingInterval = setInterval(() => {
+      fetchMatchedConsultation();
+    }, 10000);
 
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(pollingInterval);
     };
   }, [vetId, fetchMatchedConsultation]);
 

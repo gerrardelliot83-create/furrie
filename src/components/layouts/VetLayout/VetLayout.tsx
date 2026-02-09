@@ -49,6 +49,47 @@ export function VetLayout({ children }: VetLayoutProps) {
     }
   }, []);
 
+  // Unlock AudioContext on first user interaction
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const unlockAudio = async () => {
+      if (window.__furrie_audio_unlocked) return;
+
+      try {
+        const AudioContextClass = window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+
+        if (!window.__furrie_audio_context) {
+          window.__furrie_audio_context = new AudioContextClass();
+        }
+
+        if (window.__furrie_audio_context.state === 'suspended') {
+          await window.__furrie_audio_context.resume();
+        }
+
+        window.__furrie_audio_unlocked = true;
+        console.log('AudioContext unlocked via user interaction');
+
+        document.removeEventListener('click', unlockAudio);
+        document.removeEventListener('touchstart', unlockAudio);
+        document.removeEventListener('keydown', unlockAudio);
+      } catch (error) {
+        console.warn('Failed to unlock AudioContext:', error);
+      }
+    };
+
+    document.addEventListener('click', unlockAudio);
+    document.addEventListener('touchstart', unlockAudio);
+    document.addEventListener('keydown', unlockAudio);
+
+    return () => {
+      document.removeEventListener('click', unlockAudio);
+      document.removeEventListener('touchstart', unlockAudio);
+      document.removeEventListener('keydown', unlockAudio);
+    };
+  }, []);
+
   // Subscribe to vet notifications
   const { incomingNotification, markAsRead, dismissNotification } = useVetNotifications(vetId);
 

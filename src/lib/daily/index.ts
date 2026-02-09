@@ -4,17 +4,12 @@ export const DAILY_DOMAIN = process.env.NEXT_PUBLIC_DAILY_DOMAIN;
 const DAILY_API_KEY = process.env.DAILY_API_KEY;
 const DAILY_API_URL = 'https://api.daily.co/v1';
 
-// Room settings for consultations
+// Room properties for consultations (inside "properties" object)
 // See: https://docs.daily.co/reference/rest-api/rooms/config
-// NOTE: Properties like enable_network_ui and enable_active_speaker_mode are
-// Daily Prebuilt only and will cause 400 errors with custom implementations
-const DEFAULT_ROOM_CONFIG = {
-  // Privacy: 'private' requires meeting token to join
-  privacy: 'private' as const,
-
-  // Recording: Temporarily disabled to debug 400 error
-  // TODO: Re-enable after confirming basic room creation works
-  // enable_recording: 'cloud' as const,
+// NOTE: 'privacy' is a top-level param, not inside properties
+const DEFAULT_ROOM_PROPERTIES = {
+  // Recording: 'cloud' for server-side MP4 recording (pay-as-you-go enabled)
+  enable_recording: 'cloud' as const,
 
   // Enable in-call text chat
   enable_chat: true,
@@ -82,10 +77,12 @@ export async function createRoom(
   const expiresAt = Math.floor(Date.now() / 1000) + (durationMinutes + 5) * 60;
 
   // Build request body
+  // Note: 'privacy' is a top-level property, not inside 'properties'
   const requestBody = {
     name: roomName,
+    privacy: 'private' as const,
     properties: {
-      ...DEFAULT_ROOM_CONFIG,
+      ...DEFAULT_ROOM_PROPERTIES,
       exp: expiresAt,
     },
   };

@@ -121,6 +121,49 @@
   margin-top: var(--space-8);
 }
 
+/* Success/Error Icons */
+.successIcon {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: var(--color-success, #22c55e);
+}
+
+.successIcon svg {
+  animation: scaleIn 0.3s ease-out;
+}
+
+.errorIcon {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: var(--color-warning, #f59e0b);
+}
+
+.errorIcon svg {
+  animation: scaleIn 0.3s ease-out;
+}
+
+@keyframes scaleIn {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Connecting text */
+.connectingText {
+  margin-top: var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--color-primary);
+  font-weight: var(--font-weight-medium);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
 /* Larger animation on desktop */
 @media (min-width: 768px) {
   .dot {

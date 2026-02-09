@@ -267,41 +267,83 @@ async function findAvailableVet(_isPriority: boolean): Promise<AvailableVet | nu
     .eq('is_verified', true)
     .eq('is_available', true);
 
+  // Debug logging
+  console.log('findAvailableVet - Query results:', {
+    is_verified: true,
+    is_available: true,
+    total_vets_found: availableVets?.length || 0,
+    error: error?.message || null,
+  });
+
   if (error || !availableVets || availableVets.length === 0) {
-    console.log('No verified available vets found');
+    console.log('No verified available vets found:', { error: error?.message });
     return null;
   }
 
-  // Filter out vets who are in active consultations
+  // Filter out vets who are in RECENT active consultations
+  // Stale consultations (matched > 5 min, in_progress > 60 min) are ignored
   const vetsNotInCall: AvailableVet[] = [];
 
-  for (const vet of availableVets) {
-    // Check if vet has active consultation
-    const { data: activeConsultation } = await supabaseAdmin
-      .from('consultations')
-      .select('id')
-      .eq('vet_id', vet.id)
-      .in('status', ['matched', 'in_progress'])
-      .limit(1)
-      .single();
+  // Calculate time thresholds
+  const now = new Date();
+  const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000).toISOString();
+  const sixtyMinutesAgo = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
 
-    if (!activeConsultation) {
-      const profile = vet.profiles as unknown as { full_name: string; is_active: boolean } | null;
-      if (profile?.is_active !== false) {
-        vetsNotInCall.push({
-          id: vet.id,
-          profile: {
-            full_name: profile?.full_name || 'Veterinarian',
-          },
-          average_rating: vet.average_rating,
-          consultation_count: vet.consultation_count,
-        });
-      }
+  for (const vet of availableVets) {
+    const profile = vet.profiles as unknown as { full_name: string; is_active: boolean } | null;
+
+    // Check if profile is active
+    if (profile?.is_active === false) {
+      console.log(`Vet ${vet.id}: EXCLUDED - profile is_active is false`);
+      continue;
     }
+
+    // Check for RECENT active consultations only
+    // A consultation is considered "active" if:
+    // - Status is 'matched' AND created within last 5 minutes, OR
+    // - Status is 'in_progress' AND created within last 60 minutes
+    const { data: recentMatchedConsultation } = await supabaseAdmin
+      .from('consultations')
+      .select('id, status, created_at')
+      .eq('vet_id', vet.id)
+      .eq('status', 'matched')
+      .gte('created_at', fiveMinutesAgo)
+      .limit(1)
+      .maybeSingle();
+
+    const { data: recentInProgressConsultation } = await supabaseAdmin
+      .from('consultations')
+      .select('id, status, created_at')
+      .eq('vet_id', vet.id)
+      .eq('status', 'in_progress')
+      .gte('created_at', sixtyMinutesAgo)
+      .limit(1)
+      .maybeSingle();
+
+    const hasActiveConsultation = recentMatchedConsultation || recentInProgressConsultation;
+
+    if (hasActiveConsultation) {
+      console.log(`Vet ${vet.id}: EXCLUDED - has active consultation:`, {
+        matched: recentMatchedConsultation?.id || null,
+        inProgress: recentInProgressConsultation?.id || null,
+      });
+      continue;
+    }
+
+    console.log(`Vet ${vet.id}: INCLUDED - available for matching`);
+
+    vetsNotInCall.push({
+      id: vet.id,
+      profile: {
+        full_name: profile?.full_name || 'Veterinarian',
+      },
+      average_rating: vet.average_rating,
+      consultation_count: vet.consultation_count,
+    });
   }
 
   if (vetsNotInCall.length === 0) {
-    console.log('All vets are currently in consultations');
+    console.log('All vets are currently in consultations or excluded');
     return null;
   }
 
@@ -322,7 +364,9 @@ async function findAvailableVet(_isPriority: boolean): Promise<AvailableVet | nu
 
 /**
  * Sends a real-time notification to the vet
- * Uses Supabase insert to trigger realtime subscription
+ * Uses both:
+ * 1. Database insert (for record keeping)
+ * 2. Supabase Broadcast (for instant delivery - doesn't require Realtime publication setup)
  */
 async function sendVetNotification(
   vetId: string,
@@ -338,7 +382,18 @@ async function sendVetNotification(
     roomUrl: string;
   }
 ) {
-  // Insert notification record
+  const notificationPayload = {
+    consultationId: data.consultationId,
+    customerName: data.customerName,
+    petName: data.petName,
+    petSpecies: data.petSpecies,
+    petBreed: data.petBreed,
+    concern: data.concern,
+    symptoms: data.symptoms,
+    roomUrl: data.roomUrl,
+  };
+
+  // 1. Insert notification record (for persistence and history)
   const { error, data: insertedNotification } = await supabaseAdmin
     .from('notifications')
     .insert({
@@ -347,25 +402,48 @@ async function sendVetNotification(
       title: `Incoming consultation for ${data.petName}`,
       body: `${data.customerName} needs help with their ${data.petSpecies}. ${data.concern}`,
       channel: 'in_app',
-      data: {
-        consultationId: data.consultationId,
-        petName: data.petName,
-        petSpecies: data.petSpecies,
-        petBreed: data.petBreed,
-        symptoms: data.symptoms,
-        roomUrl: data.roomUrl,
-      },
+      data: notificationPayload,
       is_read: false,
     })
     .select();
 
   if (error) {
-    console.error('Failed to send vet notification:', error);
+    console.error('Failed to insert vet notification:', error);
   } else {
-    console.log('Vet notification sent successfully:', {
+    console.log('Vet notification inserted:', {
       vetId,
       consultationId: data.consultationId,
       notificationId: insertedNotification?.[0]?.id,
     });
   }
+
+  // 2. Broadcast directly to vet's channel for instant delivery
+  // This works without requiring Realtime publication configuration
+  const channel = supabaseAdmin.channel(`vet:${vetId}:incoming`);
+
+  const broadcastResult = await channel.send({
+    type: 'broadcast',
+    event: 'incoming_consultation',
+    payload: {
+      id: insertedNotification?.[0]?.id || `temp-${Date.now()}`,
+      type: data.type,
+      title: `Incoming consultation for ${data.petName}`,
+      body: `${data.customerName} needs help with their ${data.petSpecies}. ${data.concern}`,
+      data: notificationPayload,
+      createdAt: new Date().toISOString(),
+    },
+  });
+
+  if (broadcastResult === 'ok') {
+    console.log('Vet notification broadcast sent successfully:', {
+      vetId,
+      consultationId: data.consultationId,
+      channel: `vet:${vetId}:incoming`,
+    });
+  } else {
+    console.error('Failed to broadcast vet notification:', broadcastResult);
+  }
+
+  // Clean up the channel after sending
+  await supabaseAdmin.removeChannel(channel);
 }

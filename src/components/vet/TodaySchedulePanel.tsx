@@ -221,7 +221,7 @@ export function TodaySchedulePanel({ vetId }: TodaySchedulePanelProps) {
   }, [vetId, retryCounter]);
 
   const handleJoinCall = async (consultationId: string) => {
-    router.push(`/vet-portal/consultations/${consultationId}/room`);
+    router.push(`/consultations/${consultationId}/room`);
   };
 
   if (isLoading) {

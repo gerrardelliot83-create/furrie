@@ -132,19 +132,19 @@ export default async function VetConsultationsPage({ searchParams }: PageProps) 
 
         <div className={styles.filters}>
           <Link
-            href="/vet-portal/consultations"
+            href="/consultations"
             className={!statusFilter ? styles.filterTabActive : styles.filterTab}
           >
             All
           </Link>
           <Link
-            href="/vet-portal/consultations?status=in_progress"
+            href="/consultations?status=in_progress"
             className={statusFilter === 'in_progress' ? styles.filterTabActive : styles.filterTab}
           >
             In Progress
           </Link>
           <Link
-            href="/vet-portal/consultations?status=completed"
+            href="/consultations?status=completed"
             className={statusFilter === 'completed' ? styles.filterTabActive : styles.filterTab}
           >
             Completed
@@ -176,7 +176,7 @@ export default async function VetConsultationsPage({ searchParams }: PageProps) 
                   <tr key={consultation.id} className={styles.tableRow}>
                     <td className={styles.tableCell}>
                       <Link
-                        href={`/vet-portal/consultations/${consultation.id}`}
+                        href={`/consultations/${consultation.id}`}
                         className={styles.rowLink}
                       >
                         <div className={styles.dateTime}>
@@ -191,7 +191,7 @@ export default async function VetConsultationsPage({ searchParams }: PageProps) 
                     </td>
                     <td className={styles.tableCell}>
                       <Link
-                        href={`/vet-portal/consultations/${consultation.id}`}
+                        href={`/consultations/${consultation.id}`}
                         className={styles.rowLink}
                       >
                         <div className={styles.petCell}>
@@ -211,7 +211,7 @@ export default async function VetConsultationsPage({ searchParams }: PageProps) 
                     </td>
                     <td className={styles.tableCell}>
                       <Link
-                        href={`/vet-portal/consultations/${consultation.id}`}
+                        href={`/consultations/${consultation.id}`}
                         className={styles.rowLink}
                       >
                         {customer?.full_name || 'Unknown'}

@@ -71,7 +71,7 @@ export default async function VetFollowUpPage({ params }: PageProps) {
       {/* Header */}
       <div>
         <Link
-          href={`/vet-portal/consultations/${consultationId}`}
+          href={`/consultations/${consultationId}`}
           style={{
             fontSize: 'var(--font-size-sm)',
             color: 'var(--color-link)',

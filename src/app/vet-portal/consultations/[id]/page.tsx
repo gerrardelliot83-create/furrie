@@ -171,7 +171,7 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
 
   return (
     <div className={styles.container}>
-      <Link href="/vet-portal/consultations" className={styles.backLink}>
+      <Link href="/consultations" className={styles.backLink}>
         ← Back to Consultations
       </Link>
 
@@ -308,7 +308,7 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
           <div className={styles.actions}>
             {isActive && (
               <Link
-                href={`/vet-portal/consultations/${consultationId}/room`}
+                href={`/consultations/${consultationId}/room`}
                 className={styles.actionButtonWarning}
               >
                 Join Video Call
@@ -316,21 +316,21 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
             )}
 
             <Link
-              href={`/vet-portal/consultations/${consultationId}/soap`}
+              href={`/consultations/${consultationId}/soap`}
               className={hasSoapNotes ? styles.actionButtonSecondary : styles.actionButton}
             >
               {hasSoapNotes ? 'View SOAP Notes' : 'Write SOAP Notes'}
             </Link>
 
             <Link
-              href={`/vet-portal/consultations/${consultationId}/prescription`}
+              href={`/consultations/${consultationId}/prescription`}
               className={hasPrescription ? styles.actionButtonSecondary : styles.actionButton}
             >
               {hasPrescription ? 'View Prescription' : 'Generate Prescription'}
             </Link>
 
             <Link
-              href={`/vet-portal/consultations/${consultationId}/follow-up`}
+              href={`/consultations/${consultationId}/follow-up`}
               className={styles.actionButtonSecondary}
             >
               Follow-up Chat

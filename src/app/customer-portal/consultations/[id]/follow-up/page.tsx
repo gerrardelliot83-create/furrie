@@ -63,7 +63,7 @@ export default async function CustomerFollowUpPage({ params }: PageProps) {
       {/* Header */}
       <div>
         <Link
-          href={`/customer-portal/consultations/${consultationId}`}
+          href={`/consultations/${consultationId}`}
           style={{
             fontSize: 'var(--font-size-sm)',
             color: 'var(--color-link)',

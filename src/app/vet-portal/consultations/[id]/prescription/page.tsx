@@ -71,7 +71,7 @@ export default function PrescriptionPage({ params }: PageProps) {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <Link href={`/vet-portal/consultations/${consultationId}/soap`} className={styles.backLink}>
+        <Link href={`/consultations/${consultationId}/soap`} className={styles.backLink}>
           Back to SOAP Notes
         </Link>
         <h1 className={styles.title}>Generate Prescription</h1>
@@ -128,13 +128,13 @@ export default function PrescriptionPage({ params }: PageProps) {
       <div className={styles.footer}>
         <Button
           variant="secondary"
-          onClick={() => router.push(`/vet-portal/consultations/${consultationId}/soap`)}
+          onClick={() => router.push(`/consultations/${consultationId}/soap`)}
         >
           Back to SOAP Notes
         </Button>
         <Button
           variant="primary"
-          onClick={() => router.push('/vet-portal/consultations')}
+          onClick={() => router.push('/consultations')}
         >
           Finish Consultation
         </Button>

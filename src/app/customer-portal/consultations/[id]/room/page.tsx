@@ -149,11 +149,11 @@ export default function CustomerVideoRoomPage() {
   const handleLeave = useCallback(() => {
     setRoomState('left');
     // Navigate back to consultation details
-    router.push(`/customer-portal/consultations/${consultationId}`);
+    router.push(`/consultations/${consultationId}`);
   }, [router, consultationId]);
 
   const handleCancel = useCallback(() => {
-    router.push(`/customer-portal/consultations/${consultationId}`);
+    router.push(`/consultations/${consultationId}`);
   }, [router, consultationId]);
 
   const handleError = useCallback((err: Error) => {
@@ -186,7 +186,7 @@ export default function CustomerVideoRoomPage() {
           </svg>
           <h2>Unable to Join</h2>
           <p>{error || 'Something went wrong. Please try again.'}</p>
-          <button onClick={() => router.push(`/customer-portal/consultations/${consultationId}`)}>
+          <button onClick={() => router.push(`/consultations/${consultationId}`)}>
             Go Back
           </button>
         </div>

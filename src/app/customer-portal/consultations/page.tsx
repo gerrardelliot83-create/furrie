@@ -114,7 +114,7 @@ export default async function ConsultationsPage({ searchParams }: ConsultationsP
     <div className={styles.container}>
       <header className={styles.header}>
         <h1 className={styles.title}>{t('consultations')}</h1>
-        <Link href="/customer-portal/connect">
+        <Link href="/connect">
           <Button variant="primary" size="sm">
             {t('newConsultation')}
           </Button>
@@ -126,7 +126,7 @@ export default async function ConsultationsPage({ searchParams }: ConsultationsP
         {tabs.map((tab) => (
           <Link
             key={tab.key}
-            href={`/customer-portal/consultations?tab=${tab.key}`}
+            href={`/consultations?tab=${tab.key}`}
             className={`${styles.tab} ${activeTab === tab.key ? styles.tabActive : ''}`}
             role="tab"
             aria-selected={activeTab === tab.key}
@@ -162,7 +162,7 @@ export default async function ConsultationsPage({ searchParams }: ConsultationsP
                   : 'No active follow-up conversations'}
             </p>
             {activeTab === 'upcoming' && (
-              <Link href="/customer-portal/connect">
+              <Link href="/connect">
                 <Button variant="secondary" size="sm">
                   {t('startConsultation')}
                 </Button>

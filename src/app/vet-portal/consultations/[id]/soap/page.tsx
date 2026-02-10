@@ -122,7 +122,7 @@ export default async function VetSoapNotesPage({ params }: PageProps) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <Link
-            href={`/vet-portal/consultations/${consultationId}`}
+            href={`/consultations/${consultationId}`}
             style={{
               fontSize: 'var(--font-size-sm)',
               color: 'var(--color-link)',

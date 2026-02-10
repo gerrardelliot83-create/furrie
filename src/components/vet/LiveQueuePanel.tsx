@@ -157,7 +157,7 @@ export function LiveQueuePanel({ vetId, isAvailable }: LiveQueuePanelProps) {
 
   const handleJoinCall = () => {
     if (matchedConsultation) {
-      router.push(`/vet-portal/consultations/${matchedConsultation.id}/room`);
+      router.push(`/consultations/${matchedConsultation.id}/room`);
     }
   };
 

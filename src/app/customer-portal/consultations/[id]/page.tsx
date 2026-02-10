@@ -75,6 +75,7 @@ export default async function ConsultationDetailPage({ params }: ConsultationDet
       )
     `)
     .eq('id', id)
+    .eq('customer_id', user.id)
     .single();
 
   if (error || !data) {
@@ -91,7 +92,7 @@ export default async function ConsultationDetailPage({ params }: ConsultationDet
   const hasRating = consultation.rating !== undefined;
   const hasPrescription = consultation.prescription !== undefined;
 
-  const statusVariant = statusVariantMap[consultation.status] || 'default';
+  const statusVariant = statusVariantMap[consultation.status] || 'neutral';
   const petPhoto = consultation.pet?.photoUrls?.[0];
 
   return (

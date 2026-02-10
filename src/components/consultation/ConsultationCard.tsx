@@ -28,7 +28,7 @@ export function ConsultationCard({ consultation, className }: ConsultationCardPr
   const t = useTranslations('consultation');
 
   const petPhoto = consultation.pet?.photoUrls?.[0];
-  const statusVariant = statusVariantMap[consultation.status] || 'default';
+  const statusVariant = statusVariantMap[consultation.status] || 'neutral';
   const displayDate = consultation.scheduledAt || consultation.createdAt;
 
   return (

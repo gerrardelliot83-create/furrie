@@ -1,0 +1,10 @@
+{
+  "name": "Furrie",
+  "short_name": "Furrie",
+  "description": "Veterinary Teleconsultation Platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#770002",
+  "icons": []
+}

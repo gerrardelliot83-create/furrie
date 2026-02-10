@@ -77,7 +77,7 @@ export function RecentConsultationsList({ consultations }: RecentConsultationsLi
       <CardHeader>
         <div className={styles.headerRow}>
           <CardTitle>Recent Consultations</CardTitle>
-          <Link href="/consultations" className={styles.viewAllLink}>
+          <Link href="/vet-portal/consultations" className={styles.viewAllLink}>
             View All
           </Link>
         </div>
@@ -119,7 +119,7 @@ export function RecentConsultationsList({ consultations }: RecentConsultationsLi
                   </td>
                   <td>
                     <Link
-                      href={`/consultations/${consultation.id}`}
+                      href={`/vet-portal/consultations/${consultation.id}`}
                       className={styles.actionLink}
                     >
                       View

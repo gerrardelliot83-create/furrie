@@ -26,7 +26,7 @@ export default async function VetSoapNotesPage({ params }: PageProps) {
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    redirect('/login');
+    redirect('/vet-portal/login');
   }
 
   // Verify user is a vet
@@ -37,7 +37,7 @@ export default async function VetSoapNotesPage({ params }: PageProps) {
     .single();
 
   if (!profile || profile.role !== 'vet') {
-    redirect('/login?error=wrong_account');
+    redirect('/vet-portal/login?error=wrong_account');
   }
 
   // Fetch consultation with pet details
@@ -122,7 +122,7 @@ export default async function VetSoapNotesPage({ params }: PageProps) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <Link
-            href={`/consultations/${consultationId}`}
+            href={`/vet-portal/consultations/${consultationId}`}
             style={{
               fontSize: 'var(--font-size-sm)',
               color: 'var(--color-link)',

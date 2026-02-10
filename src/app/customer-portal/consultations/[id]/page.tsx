@@ -46,7 +46,7 @@ export default async function ConsultationDetailPage({ params }: ConsultationDet
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    redirect('/login');
+    redirect('/customer-portal/login');
   }
 
   // Fetch consultation with relations
@@ -97,7 +97,7 @@ export default async function ConsultationDetailPage({ params }: ConsultationDet
   return (
     <div className={styles.container}>
       {/* Back Link */}
-      <Link href="/consultations" className={styles.backLink}>
+      <Link href="/customer-portal/consultations" className={styles.backLink}>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <polyline points="15 18 9 12 15 6" />
         </svg>

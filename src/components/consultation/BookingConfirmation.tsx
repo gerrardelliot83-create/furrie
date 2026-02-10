@@ -57,8 +57,8 @@ DTSTAMP:${formatICSDate(new Date())}
 DTSTART:${formatICSDate(startDate)}
 DTEND:${formatICSDate(endDate)}
 SUMMARY:Furrie Vet Consultation - ${petName}
-DESCRIPTION:Video consultation for ${petName}${vetName ? ` with ${vetName}` : ''}.\\n\\nJoin link: https://app.furrie.in/consultations/${consultationId}/room
-LOCATION:https://app.furrie.in/consultations/${consultationId}/room
+DESCRIPTION:Video consultation for ${petName}${vetName ? ` with ${vetName}` : ''}.\\n\\nJoin link: https://app.furrie.in/customer-portal/consultations/${consultationId}/room
+LOCATION:https://app.furrie.in/customer-portal/consultations/${consultationId}/room
 STATUS:CONFIRMED
 END:VEVENT
 END:VCALENDAR`;
@@ -161,13 +161,13 @@ END:VCALENDAR`;
 
       {/* Actions */}
       <div className={styles.actions}>
-        <Link href={`/consultations/${consultationId}`}>
+        <Link href={`/customer-portal/consultations/${consultationId}`}>
           <Button variant="primary" fullWidth>
             View Appointment Details
           </Button>
         </Link>
 
-        <Link href="/dashboard">
+        <Link href="/customer-portal/dashboard">
           <Button variant="ghost" fullWidth>
             Back to Dashboard
           </Button>

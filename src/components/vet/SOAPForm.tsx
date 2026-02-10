@@ -223,7 +223,7 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
     await saveNotes(false);
 
     // Navigate to prescription generation
-    router.push(`/consultations/${consultationId}/prescription`);
+    router.push(`/vet-portal/consultations/${consultationId}/prescription`);
   };
 
   const handleComplete = async () => {
@@ -258,7 +258,7 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
     }
 
     toast('Consultation completed', 'success');
-    router.push('/consultations');
+    router.push('/vet-portal/consultations');
   };
 
   return (

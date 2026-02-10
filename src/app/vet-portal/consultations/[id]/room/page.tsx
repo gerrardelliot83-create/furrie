@@ -158,7 +158,7 @@ export default function VetVideoRoomPage() {
   const handleLeave = useCallback(async () => {
     setRoomState('left');
     // Navigate to SOAP notes page
-    router.push(`/consultations/${consultationId}/soap`);
+    router.push(`/vet-portal/consultations/${consultationId}/soap`);
   }, [router, consultationId]);
 
   const handleError = useCallback((err: Error) => {
@@ -191,7 +191,7 @@ export default function VetVideoRoomPage() {
           </svg>
           <h2>Unable to Join</h2>
           <p>{error || 'Something went wrong. Please try again.'}</p>
-          <button onClick={() => router.push('/consultations')}>
+          <button onClick={() => router.push('/vet-portal/consultations')}>
             Back to Consultations
           </button>
         </div>
@@ -269,7 +269,7 @@ export default function VetVideoRoomPage() {
           </div>
 
           <div className={styles.actions}>
-            <Button variant="ghost" onClick={() => router.push('/consultations')}>
+            <Button variant="ghost" onClick={() => router.push('/vet-portal/consultations')}>
               Cancel
             </Button>
             <Button variant="primary" onClick={handleJoin}>

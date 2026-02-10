@@ -86,7 +86,7 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    redirect('/login');
+    redirect('/vet-portal/login');
   }
 
   // Verify user is a vet
@@ -97,7 +97,7 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
     .single();
 
   if (!profile || profile.role !== 'vet') {
-    redirect('/login?error=wrong_account');
+    redirect('/vet-portal/login?error=wrong_account');
   }
 
   // Fetch consultation with all related data
@@ -171,7 +171,7 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
 
   return (
     <div className={styles.container}>
-      <Link href="/consultations" className={styles.backLink}>
+      <Link href="/vet-portal/consultations" className={styles.backLink}>
         ← Back to Consultations
       </Link>
 
@@ -308,7 +308,7 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
           <div className={styles.actions}>
             {isActive && (
               <Link
-                href={`/consultations/${consultationId}/room`}
+                href={`/vet-portal/consultations/${consultationId}/room`}
                 className={styles.actionButtonWarning}
               >
                 Join Video Call
@@ -316,21 +316,21 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
             )}
 
             <Link
-              href={`/consultations/${consultationId}/soap`}
+              href={`/vet-portal/consultations/${consultationId}/soap`}
               className={hasSoapNotes ? styles.actionButtonSecondary : styles.actionButton}
             >
               {hasSoapNotes ? 'View SOAP Notes' : 'Write SOAP Notes'}
             </Link>
 
             <Link
-              href={`/consultations/${consultationId}/prescription`}
+              href={`/vet-portal/consultations/${consultationId}/prescription`}
               className={hasPrescription ? styles.actionButtonSecondary : styles.actionButton}
             >
               {hasPrescription ? 'View Prescription' : 'Generate Prescription'}
             </Link>
 
             <Link
-              href={`/consultations/${consultationId}/follow-up`}
+              href={`/vet-portal/consultations/${consultationId}/follow-up`}
               className={styles.actionButtonSecondary}
             >
               Follow-up Chat

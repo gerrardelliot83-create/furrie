@@ -33,7 +33,7 @@ export function ConsultationCard({ consultation, className }: ConsultationCardPr
 
   return (
     <Link
-      href={`/consultations/${consultation.id}`}
+      href={`/customer-portal/consultations/${consultation.id}`}
       className={cn(styles.card, className)}
     >
       <div className={styles.content}>

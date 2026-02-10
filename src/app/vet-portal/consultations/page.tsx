@@ -62,7 +62,7 @@ export default async function VetConsultationsPage({ searchParams }: PageProps) 
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    redirect('/login');
+    redirect('/vet-portal/login');
   }
 
   // Verify user is a vet
@@ -73,7 +73,7 @@ export default async function VetConsultationsPage({ searchParams }: PageProps) 
     .single();
 
   if (!profile || profile.role !== 'vet') {
-    redirect('/login?error=wrong_account');
+    redirect('/vet-portal/login?error=wrong_account');
   }
 
   // Build query with optional status filter
@@ -132,19 +132,19 @@ export default async function VetConsultationsPage({ searchParams }: PageProps) 
 
         <div className={styles.filters}>
           <Link
-            href="/consultations"
+            href="/vet-portal/consultations"
             className={!statusFilter ? styles.filterTabActive : styles.filterTab}
           >
             All
           </Link>
           <Link
-            href="/consultations?status=in_progress"
+            href="/vet-portal/consultations?status=in_progress"
             className={statusFilter === 'in_progress' ? styles.filterTabActive : styles.filterTab}
           >
             In Progress
           </Link>
           <Link
-            href="/consultations?status=completed"
+            href="/vet-portal/consultations?status=completed"
             className={statusFilter === 'completed' ? styles.filterTabActive : styles.filterTab}
           >
             Completed
@@ -176,7 +176,7 @@ export default async function VetConsultationsPage({ searchParams }: PageProps) 
                   <tr key={consultation.id} className={styles.tableRow}>
                     <td className={styles.tableCell}>
                       <Link
-                        href={`/consultations/${consultation.id}`}
+                        href={`/vet-portal/consultations/${consultation.id}`}
                         className={styles.rowLink}
                       >
                         <div className={styles.dateTime}>
@@ -191,7 +191,7 @@ export default async function VetConsultationsPage({ searchParams }: PageProps) 
                     </td>
                     <td className={styles.tableCell}>
                       <Link
-                        href={`/consultations/${consultation.id}`}
+                        href={`/vet-portal/consultations/${consultation.id}`}
                         className={styles.rowLink}
                       >
                         <div className={styles.petCell}>
@@ -211,7 +211,7 @@ export default async function VetConsultationsPage({ searchParams }: PageProps) 
                     </td>
                     <td className={styles.tableCell}>
                       <Link
-                        href={`/consultations/${consultation.id}`}
+                        href={`/vet-portal/consultations/${consultation.id}`}
                         className={styles.rowLink}
                       >
                         {customer?.full_name || 'Unknown'}

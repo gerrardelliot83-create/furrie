@@ -25,7 +25,7 @@ export default async function CustomerFollowUpPage({ params }: PageProps) {
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    redirect('/login');
+    redirect('/customer-portal/login');
   }
 
   // Fetch consultation with relations
@@ -63,7 +63,7 @@ export default async function CustomerFollowUpPage({ params }: PageProps) {
       {/* Header */}
       <div>
         <Link
-          href={`/consultations/${consultationId}`}
+          href={`/customer-portal/consultations/${consultationId}`}
           style={{
             fontSize: 'var(--font-size-sm)',
             color: 'var(--color-link)',

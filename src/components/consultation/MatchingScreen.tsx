@@ -112,7 +112,7 @@ export function MatchingScreen({
                 setMatchStatus('matched');
                 setVetName(statusData.consultation.vet?.fullName || 'a veterinarian');
                 setTimeout(() => {
-                  router.push(`/consultations/${consultationId}/room`);
+                  router.push(`/customer-portal/consultations/${consultationId}/room`);
                 }, 1500);
                 return;
               }
@@ -134,7 +134,7 @@ export function MatchingScreen({
           setVetName(data.vet.name);
           // Redirect to video room after showing success message
           setTimeout(() => {
-            router.push(`/consultations/${consultationId}/room`);
+            router.push(`/customer-portal/consultations/${consultationId}/room`);
           }, 2000);
         } else if (data.reason === 'no_vet_available') {
           setMatchStatus('no_vet');

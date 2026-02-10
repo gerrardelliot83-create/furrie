@@ -282,6 +282,9 @@ export function shouldMarkAsMissed(scheduledAt: string, startedAt: string | null
 // Helper Functions
 // ============================================================================
 
+// IST timezone identifier for Intl APIs
+const IST_TIMEZONE = 'Asia/Kolkata';
+
 /**
  * Expand a time block (e.g., 10:00-16:00) into 30-minute slots
  */
@@ -320,37 +323,61 @@ function expandBlockToSlots(date: string, startTime: string, endTime: string): A
 }
 
 /**
- * Get lowercase day of week name
+ * Get lowercase day of week name in IST timezone
+ * IMPORTANT: Uses explicit timezone to work correctly on servers running in UTC
  */
 function getDayOfWeekLower(date: Date): string {
-  const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-  return days[date.getDay()];
+  const dayName = date.toLocaleDateString('en-US', {
+    timeZone: IST_TIMEZONE,
+    weekday: 'long',
+  });
+  return dayName.toLowerCase();
 }
 
 /**
- * Get capitalized day of week name
+ * Get capitalized day of week name in IST timezone
  */
 function getDayOfWeekName(date: Date): string {
-  return date.toLocaleDateString('en-US', { weekday: 'long' });
+  return date.toLocaleDateString('en-US', {
+    timeZone: IST_TIMEZONE,
+    weekday: 'long',
+  });
 }
 
 /**
- * Format date as YYYY-MM-DD
+ * Format date as YYYY-MM-DD in IST timezone
+ * IMPORTANT: Uses explicit timezone to work correctly on servers running in UTC
  */
 function formatDateISO(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  // Use Intl.DateTimeFormat to get date parts in IST
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: IST_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return formatter.format(date); // Returns YYYY-MM-DD format
 }
 
 /**
- * Format time as HH:MM
+ * Format time as HH:MM in IST timezone
+ * IMPORTANT: Uses explicit timezone to work correctly on servers running in UTC
+ *
+ * Example: If server is UTC and input is "2026-02-09T10:00:00+05:30" (10 AM IST)
+ * - date.getHours() would return 4 (UTC time) - WRONG
+ * - This function returns "10:00" (IST time) - CORRECT
  */
 function formatTimeHHMM(date: Date): string {
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  return `${hours}:${minutes}`;
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: IST_TIMEZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(date);
+  const hour = parts.find(p => p.type === 'hour')?.value || '00';
+  const minute = parts.find(p => p.type === 'minute')?.value || '00';
+  return `${hour}:${minute}`;
 }
 
 // Export constants for use elsewhere

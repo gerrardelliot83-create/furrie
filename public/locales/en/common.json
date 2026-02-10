@@ -10,6 +10,7 @@
     "submit": "Submit",
     "save": "Save",
     "cancel": "Cancel",
+    "continue": "Continue",
     "delete": "Delete",
     "edit": "Edit",
     "view": "View",
@@ -158,7 +159,11 @@
     "concernPrompt": "What's going on with {petName}?",
     "selectSymptoms": "Select symptoms (optional)",
     "findingVet": "Finding a vet for you...",
-    "emergencyWarning": "If {petName} is experiencing a medical emergency, please visit the nearest veterinary clinic immediately."
+    "emergencyWarning": "If {petName} is experiencing a medical emergency, please visit the nearest veterinary clinic immediately.",
+    "selectTime": "Select a time for your consultation",
+    "bookingConfirmed": "Booking Confirmed",
+    "selectTimeSlot": "Select a time slot",
+    "noSlotsAvailable": "No slots available for this day"
   },
   "symptoms": {
     "vomiting": "Vomiting",

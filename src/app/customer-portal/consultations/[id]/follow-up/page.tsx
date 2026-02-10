@@ -25,7 +25,7 @@ export default async function CustomerFollowUpPage({ params }: PageProps) {
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    redirect('/customer-portal/login');
+    redirect('/login');
   }
 
   // Fetch consultation with relations

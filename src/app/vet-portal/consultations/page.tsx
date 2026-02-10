@@ -62,7 +62,7 @@ export default async function VetConsultationsPage({ searchParams }: PageProps) 
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    redirect('/vet-portal/login');
+    redirect('/login');
   }
 
   // Verify user is a vet
@@ -73,7 +73,7 @@ export default async function VetConsultationsPage({ searchParams }: PageProps) 
     .single();
 
   if (!profile || profile.role !== 'vet') {
-    redirect('/vet-portal/login?error=wrong_account');
+    redirect('/login?error=wrong_account');
   }
 
   // Build query with optional status filter
@@ -117,12 +117,14 @@ export default async function VetConsultationsPage({ searchParams }: PageProps) 
     day: 'numeric',
     month: 'short',
     year: 'numeric',
+    timeZone: 'Asia/Kolkata',
   });
 
   const timeFormatter = new Intl.DateTimeFormat('en-IN', {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
+    timeZone: 'Asia/Kolkata',
   });
 
   return (

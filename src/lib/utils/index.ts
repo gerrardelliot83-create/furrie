@@ -1,5 +1,8 @@
 // General utility functions
 
+// Timezone constant for consistent date/time formatting (India Standard Time)
+const IST_TIMEZONE = 'Asia/Kolkata';
+
 /**
  * Combines class names, filtering out falsy values
  */
@@ -16,6 +19,7 @@ export function formatDate(date: Date | string, options?: Intl.DateTimeFormatOpt
     day: 'numeric',
     month: 'short',
     year: 'numeric',
+    timeZone: IST_TIMEZONE,
     ...options,
   });
 }
@@ -29,6 +33,7 @@ export function formatTime(date: Date | string): string {
     hour: '2-digit',
     minute: '2-digit',
     hour12: true,
+    timeZone: IST_TIMEZONE,
   });
 }
 

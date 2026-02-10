@@ -46,7 +46,7 @@ export default async function ConsultationDetailPage({ params }: ConsultationDet
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    redirect('/customer-portal/login');
+    redirect('/login');
   }
 
   // Fetch consultation with relations

@@ -34,7 +34,7 @@ export default async function ConsultationsPage({ searchParams }: ConsultationsP
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    redirect('/customer-portal/login');
+    redirect('/login');
   }
 
   // Determine active tab

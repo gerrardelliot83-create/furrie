@@ -124,6 +124,7 @@
     "noBreedFound": "No breeds found"
   },
   "consultation": {
+    "consultationDetails": "Consultation Details",
     "consultations": "Consultations",
     "newConsultation": "New Consultation",
     "directConnect": "Direct Connect",

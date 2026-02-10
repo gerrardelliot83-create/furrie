@@ -5,6 +5,7 @@ import { getTranslations } from 'next-intl/server';
 
 import { createClient } from '@/lib/supabase/server';
 import { Badge } from '@/components/ui/Badge';
+import { FlagButton } from '@/components/vet/FlagButton';
 import styles from './page.module.css';
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -179,7 +180,7 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
 
       <div className={styles.header}>
         <div className={styles.headerRow}>
-          <h1 className={styles.title}>{t('consultation')}</h1>
+          <h1 className={styles.title}>{t('consultationDetails')}</h1>
           <Badge variant={getStatusVariant(consultation.status as ConsultationStatus)}>
             {consultation.status.replace('_', ' ')}
           </Badge>
@@ -343,16 +344,7 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
                 Flagged: {flag.reason.replace('_', ' ')}
               </div>
             ) : (
-              <button
-                type="button"
-                className={styles.flagButton}
-                onClick={() => {
-                  // TODO: Open flag modal
-                  alert('Flag functionality coming soon');
-                }}
-              >
-                Flag Consultation
-              </button>
+              <FlagButton consultationId={consultationId} className={styles.flagButton} />
             )}
           </div>
         </div>

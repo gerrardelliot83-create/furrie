@@ -13,7 +13,11 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
-        hostname: "utfs.io", // UploadThing
+        hostname: "utfs.io", // UploadThing legacy
+      },
+      {
+        protocol: "https",
+        hostname: "*.ufs.sh", // UploadThing V7+ dynamic subdomains
       },
     ],
   },

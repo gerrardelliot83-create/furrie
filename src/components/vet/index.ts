@@ -17,4 +17,5 @@ export { MedicationEntry } from './MedicationEntry';
 export { BodyConditionScore } from './BodyConditionScore';
 export { PrescriptionPDF } from './PrescriptionPDF';
 export { FlagConsultationModal } from './FlagConsultationModal';
+export { FlagButton } from './FlagButton';
 export { VaccinationApprovalCard } from './VaccinationApprovalCard';

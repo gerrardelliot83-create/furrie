@@ -3,7 +3,9 @@ export { PetSelector } from './PetSelector';
 export { SymptomChips } from './SymptomChips';
 export { EmergencyDisclaimer } from './EmergencyDisclaimer';
 export { ConsultationSummary } from './ConsultationSummary';
-export { MatchingScreen } from './MatchingScreen';
+export { TimeSlotSelector } from './TimeSlotSelector';
+export { BookingConfirmation } from './BookingConfirmation';
+export { MatchingScreen } from './MatchingScreen'; // Deprecated - kept for backwards compatibility
 export { ConsultationCard } from './ConsultationCard';
 export { PreJoinScreen } from './PreJoinScreen';
 export { VideoRoom } from './VideoRoom';

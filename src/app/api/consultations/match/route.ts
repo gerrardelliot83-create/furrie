@@ -1,3 +1,10 @@
+/**
+ * @deprecated This endpoint is DEPRECATED as of Feb 2026.
+ * The instant matching flow has been replaced with a scheduling-based system.
+ * Use /api/consultations/book for new bookings and /api/consultations/[id]/join to join rooms.
+ * This file is kept for backwards compatibility during transition.
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';

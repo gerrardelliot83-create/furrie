@@ -3,7 +3,7 @@
 import { useTranslations } from 'next-intl';
 import { VetStatusToggle } from '@/components/vet/VetStatusToggle';
 import { VetQuickStats } from '@/components/vet/VetQuickStats';
-import { LiveQueuePanel } from '@/components/vet/LiveQueuePanel';
+import { TodaySchedulePanel } from '@/components/vet/TodaySchedulePanel';
 import { RecentConsultationsList } from '@/components/vet/RecentConsultationsList';
 import type { Consultation } from '@/types';
 import styles from './VetDashboard.module.css';
@@ -65,8 +65,8 @@ export function VetDashboardContent({
       </section>
 
       <div className={styles.mainContent}>
-        <section className={styles.queueSection}>
-          <LiveQueuePanel vetId={vetId} isAvailable={isAvailable} />
+        <section className={styles.scheduleSection}>
+          <TodaySchedulePanel vetId={vetId} />
         </section>
 
         <section className={styles.consultationsSection}>

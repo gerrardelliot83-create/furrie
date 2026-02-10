@@ -18,8 +18,12 @@
   ],
   "crons": [
     {
-      "path": "/api/cron/reassign-stale",
-      "schedule": "* * * * *"
+      "path": "/api/cron/send-reminders",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/mark-missed",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

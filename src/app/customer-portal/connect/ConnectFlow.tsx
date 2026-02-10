@@ -13,11 +13,26 @@ import {
   SymptomChips,
   EmergencyDisclaimer,
   ConsultationSummary,
-  MatchingScreen,
+  TimeSlotSelector,
+  BookingConfirmation,
 } from '@/components/consultation';
 import styles from './ConnectFlow.module.css';
 
-type FlowStep = 'select-pet' | 'describe-concern' | 'review' | 'matching';
+type FlowStep = 'select-pet' | 'describe-concern' | 'select-time' | 'review' | 'confirmation';
+
+interface TimeSlot {
+  start: string;
+  end: string;
+  datetime: string;
+}
+
+interface BookedConsultation {
+  id: string;
+  consultationNumber: string;
+  scheduledAt: string;
+  petName: string;
+  vetName: string | null;
+}
 
 interface ConnectFlowProps {
   initialPets: Pet[];
@@ -37,24 +52,26 @@ export function ConnectFlow({ initialPets }: ConnectFlowProps) {
   );
   const [concernText, setConcernText] = useState('');
   const [symptoms, setSymptoms] = useState<string[]>([]);
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<TimeSlot | null>(null);
 
   // UI state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [consultationId, setConsultationId] = useState<string | null>(null);
+  const [bookedConsultation, setBookedConsultation] = useState<BookedConsultation | null>(null);
 
   const selectedPet = pets.find((p) => p.id === selectedPetId);
   const showEmergencyWarning = hasSevereSymptoms(symptoms);
 
-  // Step number for indicator
+  // Step number for indicator (5 steps now)
   const stepNumber = {
     'select-pet': 1,
     'describe-concern': 2,
-    'review': 3,
-    'matching': 4,
+    'select-time': 3,
+    'review': 4,
+    'confirmation': 5,
   }[currentStep];
 
-  const stepLabels = ['Pet', 'Concern', 'Review', 'Connect'];
+  const stepLabels = ['Pet', 'Concern', 'Time', 'Pay', 'Done'];
 
   // Navigation handlers
   const goToStep = (step: FlowStep) => {
@@ -83,34 +100,83 @@ export function ConnectFlow({ initialPets }: ConnectFlowProps) {
       setError('Please describe the concern or select at least one symptom');
       return;
     }
+    goToStep('select-time');
+  };
+
+  const handleTimeSlotSelect = (slot: TimeSlot) => {
+    setSelectedTimeSlot(slot);
     goToStep('review');
   };
 
-  const handleSubmitConsultation = async () => {
-    if (!selectedPetId) return;
+  const handleBookAndPay = async () => {
+    if (!selectedPetId || !selectedTimeSlot) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch('/api/consultations', {
+      // Step 1: Book the consultation slot
+      const bookResponse = await fetch('/api/consultations/book', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           petId: selectedPetId,
+          scheduledAt: selectedTimeSlot.datetime,
           concernText: concernText.trim() || null,
           symptomCategories: symptoms,
         }),
       });
 
-      const data = await response.json();
+      const bookData = await bookResponse.json();
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to create consultation');
+      if (!bookResponse.ok) {
+        throw new Error(bookData.error || 'Failed to book consultation');
       }
 
-      setConsultationId(data.consultation.id);
-      goToStep('matching');
+      // Step 2: Create payment order
+      const paymentResponse = await fetch('/api/payments/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          consultationId: bookData.consultation.id,
+          amount: bookData.payment.amount,
+          currency: bookData.payment.currency,
+          description: bookData.payment.description,
+        }),
+      });
+
+      const paymentData = await paymentResponse.json();
+
+      if (!paymentResponse.ok) {
+        throw new Error(paymentData.error || 'Failed to create payment order');
+      }
+
+      // In dev mode (SKIP_PAYMENTS=true), payment is auto-completed
+      if (paymentData.devMode) {
+        // Update consultation status to scheduled
+        await fetch(`/api/consultations/${bookData.consultation.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'scheduled' }),
+        });
+
+        // Show confirmation
+        setBookedConsultation({
+          id: bookData.consultation.id,
+          consultationNumber: bookData.consultation.consultationNumber,
+          scheduledAt: bookData.consultation.scheduledAt,
+          petName: bookData.consultation.pet.name,
+          vetName: bookData.consultation.vet?.name || null,
+        });
+        goToStep('confirmation');
+      } else {
+        // In production, redirect to payment gateway
+        if (paymentData.redirectUrl) {
+          window.location.href = paymentData.redirectUrl;
+        } else {
+          throw new Error('No payment redirect URL received');
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
@@ -118,22 +184,18 @@ export function ConnectFlow({ initialPets }: ConnectFlowProps) {
     }
   };
 
-  const handleCancelMatching = async () => {
-    if (consultationId) {
-      try {
-        await fetch(`/api/consultations/${consultationId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: 'cancelled' }),
-        });
-      } catch {
-        // Ignore cancel errors
-      }
-    }
+  // Format selected time for display in review step
+  const formatSelectedTime = () => {
+    if (!selectedTimeSlot) return '';
 
-    // Reset flow
-    setConsultationId(null);
-    goToStep('select-pet');
+    const date = new Date(selectedTimeSlot.datetime);
+    const dateStr = date.toLocaleDateString('en-IN', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    });
+
+    return `${dateStr} at ${selectedTimeSlot.start}`;
   };
 
   // Render current step
@@ -214,29 +276,64 @@ export function ConnectFlow({ initialPets }: ConnectFlowProps) {
           </div>
         );
 
+      case 'select-time':
+        return (
+          <TimeSlotSelector
+            onSelect={handleTimeSlotSelect}
+            onBack={() => goToStep('describe-concern')}
+            selectedSlot={selectedTimeSlot}
+          />
+        );
+
       case 'review':
         if (!selectedPet) return null;
         return (
           <div className={styles.stepContent}>
+            {/* Show selected time before summary */}
+            {selectedTimeSlot && (
+              <div className={styles.selectedTimeBox}>
+                <div className={styles.selectedTimeIcon}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                  </svg>
+                </div>
+                <div className={styles.selectedTimeText}>
+                  <span className={styles.selectedTimeLabel}>Appointment time:</span>
+                  <span className={styles.selectedTimeValue}>{formatSelectedTime()}</span>
+                </div>
+                <button
+                  type="button"
+                  className={styles.changeTimeButton}
+                  onClick={() => goToStep('select-time')}
+                >
+                  Change
+                </button>
+              </div>
+            )}
+
             <ConsultationSummary
               pet={selectedPet}
               concernText={concernText}
               symptoms={symptoms}
-              isPlusUser={false} // TODO: Phase 5 - Check subscription
-              onSubmit={handleSubmitConsultation}
-              onBack={() => goToStep('describe-concern')}
+              isPlusUser={false} // TODO: Check subscription
+              onSubmit={handleBookAndPay}
+              onBack={() => goToStep('select-time')}
               loading={loading}
             />
             {error && <p className={styles.error}>{error}</p>}
           </div>
         );
 
-      case 'matching':
+      case 'confirmation':
+        if (!bookedConsultation) return null;
         return (
-          <MatchingScreen
-            petName={selectedPet?.name || 'your pet'}
-            onCancel={handleCancelMatching}
-            consultationId={consultationId || undefined}
+          <BookingConfirmation
+            consultationId={bookedConsultation.id}
+            consultationNumber={bookedConsultation.consultationNumber}
+            scheduledAt={bookedConsultation.scheduledAt}
+            petName={bookedConsultation.petName}
+            vetName={bookedConsultation.vetName}
           />
         );
 
@@ -247,10 +344,10 @@ export function ConnectFlow({ initialPets }: ConnectFlowProps) {
 
   return (
     <div className={styles.container}>
-      {currentStep !== 'matching' && (
+      {currentStep !== 'confirmation' && (
         <StepIndicator
           currentStep={stepNumber}
-          totalSteps={4}
+          totalSteps={5}
           labels={stepLabels}
           className={styles.indicator}
         />

@@ -1,3 +1,10 @@
+/**
+ * @deprecated This component is DEPRECATED as of Feb 2026.
+ * The instant matching flow has been replaced with a scheduling-based system.
+ * Use TimeSlotSelector for time selection and BookingConfirmation for success screen.
+ * This file is kept for backwards compatibility during transition.
+ */
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';

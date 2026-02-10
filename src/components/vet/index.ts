@@ -1,8 +1,9 @@
-export { IncomingCallAlert } from './IncomingCallAlert';
+export { IncomingCallAlert } from './IncomingCallAlert'; // Deprecated - kept for backwards compatibility
 export { VetLoginForm } from './VetLoginForm';
 export { VetStatusToggle } from './VetStatusToggle';
 export { VetQuickStats } from './VetQuickStats';
-export { LiveQueuePanel } from './LiveQueuePanel';
+export { LiveQueuePanel } from './LiveQueuePanel'; // Deprecated - use TodaySchedulePanel instead
+export { TodaySchedulePanel } from './TodaySchedulePanel';
 export { RecentConsultationsList } from './RecentConsultationsList';
 export { WeeklyScheduleEditor } from './WeeklyScheduleEditor';
 export { TimeBlockEditor } from './TimeBlockEditor';

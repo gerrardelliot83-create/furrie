@@ -94,6 +94,8 @@ export type ConsultationStatus =
   | 'pending'
   | 'matching'
   | 'matched'
+  | 'accepted'
+  | 'scheduled'
   | 'in_progress'
   | 'completed'
   | 'missed'

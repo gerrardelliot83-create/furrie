@@ -1,0 +1,158 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-6) var(--space-4);
+  text-align: center;
+}
+
+/* Success Icon */
+.successIcon {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  border-radius: var(--radius-full);
+}
+
+/* Title */
+.title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.subtitle {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  margin: calc(-1 * var(--space-3)) 0 0 0;
+  max-width: 320px;
+}
+
+/* Details Card */
+.detailsCard {
+  width: 100%;
+  max-width: 400px;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}
+
+.detailRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-2) 0;
+}
+
+.detailLabel {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.detailValue {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  text-align: right;
+}
+
+.divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: var(--space-2) 0;
+}
+
+/* Calendar Button */
+.calendarButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.calendarButton:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.calendarButton:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 2px;
+}
+
+/* Info Box */
+.infoBox {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-info-bg);
+  border-radius: var(--radius-md);
+  text-align: left;
+  width: 100%;
+  max-width: 400px;
+}
+
+.infoIcon {
+  flex-shrink: 0;
+  color: var(--color-info);
+}
+
+.infoText {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: 0;
+  line-height: var(--line-height-relaxed);
+}
+
+/* Actions */
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 400px;
+}
+
+/* Tablet and up */
+@media (min-width: 768px) {
+  .container {
+    padding: var(--space-8) var(--space-6);
+  }
+
+  .title {
+    font-size: var(--font-size-3xl);
+  }
+
+  .subtitle {
+    font-size: var(--font-size-lg);
+    max-width: 400px;
+  }
+
+  .detailsCard {
+    padding: var(--space-5);
+  }
+
+  .detailRow {
+    padding: var(--space-3) 0;
+  }
+
+  .detailLabel,
+  .detailValue {
+    font-size: var(--font-size-base);
+  }
+}

@@ -1,3 +1,10 @@
+/**
+ * @deprecated This hook is DEPRECATED as of Feb 2026.
+ * The instant matching flow (where vets receive real-time incoming call alerts) has been
+ * replaced with a scheduling-based system. Vets now see scheduled appointments in TodaySchedulePanel.
+ * This file is kept for backwards compatibility during transition.
+ */
+
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';

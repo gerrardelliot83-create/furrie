@@ -9,3 +9,4 @@ export { Skeleton, SkeletonText, SkeletonAvatar, SkeletonCard, type SkeletonProp
 export { Badge, type BadgeProps } from './Badge';
 export { Avatar, type AvatarProps } from './Avatar';
 export { ToastProvider, useToast, type ToastData } from './Toast';
+export { Spinner, type SpinnerProps } from './Spinner';

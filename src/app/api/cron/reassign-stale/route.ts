@@ -1,19 +1,24 @@
+/**
+ * @deprecated This cron job is DEPRECATED as of Feb 2026.
+ * The instant matching flow has been replaced with a scheduling-based system.
+ * This endpoint is no longer configured in vercel.json but kept for any
+ * transitional consultations that may still be in 'matched' status.
+ * Use /api/cron/send-reminders and /api/cron/mark-missed for the scheduling flow.
+ */
+
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
 /**
  * GET /api/cron/reassign-stale
  *
- * Vercel Cron job that runs every minute to handle stale matched consultations.
+ * DEPRECATED - Vercel Cron job that handled stale matched consultations.
  * A consultation is "stale" if it has been in 'matched' status for more than 30 seconds
  * without the vet accepting.
  *
  * Actions:
  * 1. Find another available vet and reassign
  * 2. If no vets available, mark as 'no_vet_available' and notify customer
- *
- * Configuration in vercel.json:
- * { "crons": [{ "path": "/api/cron/reassign-stale", "schedule": "* * * * *" }] }
  */
 export async function GET(request: Request) {
   // Verify cron secret (set in Vercel environment)

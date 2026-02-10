@@ -44,8 +44,8 @@
   gap: var(--space-6);
 }
 
-.queueSection {
-  /* Left column - queue panel */
+.scheduleSection {
+  /* Left column - today's schedule panel */
 }
 
 .consultationsSection {

@@ -1,12 +1,10 @@
 'use client';
 
-import { type ReactNode, useState, useEffect, useCallback } from 'react';
+import { type ReactNode, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
-import { useVetNotifications } from '@/hooks/useVetNotifications';
-import { IncomingCallAlert } from '@/components/vet/IncomingCallAlert';
 import styles from './VetLayout.module.css';
 
 interface VetLayoutProps {
@@ -23,44 +21,8 @@ export function VetLayout({ children }: VetLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [vetId, setVetId] = useState<string | null>(null);
-  const [isMounted, setIsMounted] = useState(false);
-  const [isAccepting, setIsAccepting] = useState(false);
 
-  // CRITICAL: Mark mounted first, synchronously safe
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  // Fetch vet ID only after mount (browser-only)
-  useEffect(() => {
-    if (!isMounted) return;
-
-    const fetchVetId = async () => {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setVetId(user.id);
-      }
-    };
-
-    fetchVetId();
-  }, [isMounted]);
-
-  // Request notification permission only after mount (browser-only)
-  useEffect(() => {
-    if (!isMounted) return;
-
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      if (Notification.permission === 'default') {
-        Notification.requestPermission().then((permission) => {
-          console.log('Notification permission:', permission);
-        });
-      }
-    }
-  }, [isMounted]);
-
-  // Unlock AudioContext on first user interaction
+  // Unlock AudioContext on first user interaction (for video calls)
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -80,7 +42,6 @@ export function VetLayout({ children }: VetLayoutProps) {
         }
 
         window.__furrie_audio_unlocked = true;
-        console.log('AudioContext unlocked via user interaction');
 
         document.removeEventListener('click', unlockAudio);
         document.removeEventListener('touchstart', unlockAudio);
@@ -100,57 +61,6 @@ export function VetLayout({ children }: VetLayoutProps) {
       document.removeEventListener('keydown', unlockAudio);
     };
   }, []);
-
-  // Subscribe to vet notifications
-  const { incomingNotification, markAsRead, dismissNotification } = useVetNotifications(vetId);
-
-  // Handle accepting a consultation
-  const handleAcceptConsultation = useCallback(async () => {
-    if (!incomingNotification || isAccepting) return;
-
-    setIsAccepting(true);
-
-    try {
-      // Call server-side acceptance API
-      const response = await fetch(
-        `/api/consultations/${incomingNotification.data.consultationId}/accept`,
-        { method: 'POST' }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        // Handle specific error cases
-        if (data.code === 'REASSIGNED' || data.code === 'INVALID_STATUS') {
-          // Consultation was reassigned to another vet
-          console.warn('Consultation no longer available:', data);
-          dismissNotification();
-          setIsAccepting(false);
-          return;
-        }
-        throw new Error(data.error || 'Failed to accept');
-      }
-
-      // Success - mark notification as read
-      await markAsRead(incomingNotification.id);
-
-      // Navigate to room
-      router.push(`/consultations/${incomingNotification.data.consultationId}/room`);
-    } catch (error) {
-      console.error('Failed to accept consultation:', error);
-      setIsAccepting(false);
-      // Could show error toast here
-    }
-  }, [incomingNotification, isAccepting, markAsRead, router, dismissNotification]);
-
-  // Handle timeout (vet didn't respond in time)
-  const handleTimeout = useCallback(() => {
-    if (incomingNotification) {
-      // Mark as read (the system will reassign to another vet)
-      markAsRead(incomingNotification.id);
-    }
-    dismissNotification();
-  }, [incomingNotification, markAsRead, dismissNotification]);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -208,24 +118,6 @@ export function VetLayout({ children }: VetLayoutProps) {
         </header>
         <div className={styles.content}>{children}</div>
       </main>
-
-      {/* Incoming Consultation Alert - Full screen overlay */}
-      {/* CRITICAL: Triple guard for client-only content to prevent React hydration mismatch (Error #418) */}
-      {isMounted && vetId && incomingNotification && (
-        <IncomingCallAlert
-          consultationId={incomingNotification.data.consultationId}
-          customerName={incomingNotification.data.customerName || 'Pet Parent'}
-          petName={incomingNotification.data.petName}
-          petSpecies={incomingNotification.data.petSpecies}
-          petBreed={incomingNotification.data.petBreed}
-          concern={incomingNotification.body}
-          symptoms={incomingNotification.data.symptoms || []}
-          onAccept={handleAcceptConsultation}
-          onTimeout={handleTimeout}
-          timeoutSeconds={30}
-          isAccepting={isAccepting}
-        />
-      )}
     </div>
   );
 }

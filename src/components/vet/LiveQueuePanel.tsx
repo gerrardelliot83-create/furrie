@@ -1,3 +1,10 @@
+/**
+ * @deprecated This component is DEPRECATED as of Feb 2026.
+ * The instant matching flow has been replaced with a scheduling-based system.
+ * Use TodaySchedulePanel instead to show the vet's scheduled appointments.
+ * This file is kept for backwards compatibility during transition.
+ */
+
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';

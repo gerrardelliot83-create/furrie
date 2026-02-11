@@ -116,13 +116,20 @@ export async function POST(request: Request) {
         .single();
 
       if (payment?.consultation_id) {
-        await supabase
+        // FIX: Also update status to 'scheduled' after successful payment
+        const { error: consultationUpdateError } = await supabase
           .from('consultations')
           .update({
             payment_id: orderId,
             amount_paid: amount || payment.amount,
+            status: 'scheduled',
           })
-          .eq('id', payment.consultation_id);
+          .eq('id', payment.consultation_id)
+          .eq('status', 'pending'); // Optimistic lock - only update if still pending
+
+        if (consultationUpdateError) {
+          console.error('Failed to update consultation after payment:', consultationUpdateError);
+        }
       }
 
       if (payment?.subscription_id) {

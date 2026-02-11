@@ -49,21 +49,41 @@ export default async function VetDashboard() {
   const weekStart = new Date(todayStart);
   weekStart.setDate(weekStart.getDate() - weekStart.getDay());
 
-  // Fetch today's consultations count
-  const { count: todayCount } = await supabase
+  // Fetch today's consultations count (active + successfully closed)
+  const { count: todayActiveCount } = await supabase
     .from('consultations')
     .select('*', { count: 'exact', head: true })
     .eq('vet_id', user.id)
     .gte('created_at', todayStart.toISOString())
-    .in('status', ['completed', 'in_progress']);
+    .eq('status', 'active');
 
-  // Fetch this week's consultations count
-  const { count: weekCount } = await supabase
+  const { count: todayCompletedCount } = await supabase
+    .from('consultations')
+    .select('*', { count: 'exact', head: true })
+    .eq('vet_id', user.id)
+    .gte('created_at', todayStart.toISOString())
+    .eq('status', 'closed')
+    .eq('outcome', 'success');
+
+  const todayCount = (todayActiveCount || 0) + (todayCompletedCount || 0);
+
+  // Fetch this week's consultations count (active + successfully closed)
+  const { count: weekActiveCount } = await supabase
     .from('consultations')
     .select('*', { count: 'exact', head: true })
     .eq('vet_id', user.id)
     .gte('created_at', weekStart.toISOString())
-    .in('status', ['completed', 'in_progress']);
+    .eq('status', 'active');
+
+  const { count: weekCompletedCount } = await supabase
+    .from('consultations')
+    .select('*', { count: 'exact', head: true })
+    .eq('vet_id', user.id)
+    .gte('created_at', weekStart.toISOString())
+    .eq('status', 'closed')
+    .eq('outcome', 'success');
+
+  const weekCount = (weekActiveCount || 0) + (weekCompletedCount || 0);
 
   // Fetch recent consultations
   const { data: recentConsultations } = await supabase
@@ -94,6 +114,7 @@ export default async function VetDashboard() {
     petId: row.pet_id,
     type: row.type as 'direct_connect' | 'scheduled' | 'follow_up',
     status: row.status,
+    outcome: row.outcome,
     scheduledAt: row.scheduled_at,
     startedAt: row.started_at,
     endedAt: row.ended_at,

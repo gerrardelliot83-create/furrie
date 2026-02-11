@@ -252,13 +252,28 @@ export async function PATCH(
       );
     }
 
+    // Handle cancel action - converts to closed status with outcome
+    if (body.status === 'cancelled') {
+      // Only allow cancelling pending or scheduled consultations
+      if (!['pending', 'scheduled'].includes(existing.status)) {
+        return NextResponse.json(
+          {
+            error: `Cannot cancel consultation with status "${existing.status}"`,
+            code: 'INVALID_TRANSITION',
+          },
+          { status: 400 }
+        );
+      }
+      // Convert to new status system: cancelled -> closed + outcome
+      body.status = 'closed';
+      body.outcome = 'cancelled';
+    }
+
     // Validate status transitions for customers
-    if (body.status) {
+    if (body.status && body.status !== 'closed') {
       const allowedTransitions: Record<string, string[]> = {
-        pending: ['cancelled'],
-        matching: ['cancelled'],
-        matched: ['cancelled'],
-        // in_progress, completed, missed cannot be changed by customer
+        pending: ['scheduled'], // Only transition to scheduled (after payment)
+        // scheduled, active, and closed cannot be changed directly by customer
       };
 
       const currentStatus = existing.status;
@@ -292,6 +307,33 @@ export async function PATCH(
         { error: 'Failed to update consultation', code: 'UPDATE_ERROR' },
         { status: 500 }
       );
+    }
+
+    // If status changed to 'scheduled', create Daily.co room
+    if (body.status === 'scheduled' && updated.status === 'scheduled' && !updated.daily_room_name) {
+      try {
+        const { createRoom } = await import('@/lib/daily');
+
+        const room = await createRoom(
+          updated.id,
+          updated.duration_minutes || 30
+        );
+
+        // Store room details using admin client
+        await supabaseAdmin
+          .from('consultations')
+          .update({
+            daily_room_name: room.name,
+            daily_room_url: room.url,
+            room_created_at: new Date().toISOString(),
+          })
+          .eq('id', id);
+
+        console.log(`[PATCH] Created Daily room for consultation ${id}:`, room.name);
+      } catch (roomError) {
+        // Log error but don't fail the request - room can be created later when joining
+        console.error(`[PATCH] Failed to create Daily room for consultation ${id}:`, roomError);
+      }
     }
 
     return NextResponse.json({ consultation: updated });

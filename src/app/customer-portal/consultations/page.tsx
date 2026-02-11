@@ -42,10 +42,10 @@ export default async function ConsultationsPage({ searchParams }: ConsultationsP
     ? (params.tab as TabType)
     : 'upcoming';
 
-  // Define status filters for each tab
+  // Define status filters for each tab (using consolidated statuses)
   const statusFilters: Record<TabType, string[]> = {
-    upcoming: ['pending', 'matching', 'matched', 'in_progress', 'scheduled'],
-    past: ['completed', 'missed', 'cancelled', 'no_vet_available'],
+    upcoming: ['pending', 'scheduled', 'active'],
+    past: ['closed'],
     'follow-ups': [], // Follow-ups handled separately via follow_up_threads
   };
 

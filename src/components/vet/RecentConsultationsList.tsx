@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useTranslations } from 'next-intl';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import type { Consultation, ConsultationStatus } from '@/types';
+import type { Consultation } from '@/types';
+import { getStatusVariant, getStatusDisplayText } from '@/lib/utils/statusHelpers';
 import styles from './RecentConsultationsList.module.css';
 
 interface ConsultationWithRelations extends Consultation {
@@ -25,23 +25,6 @@ interface RecentConsultationsListProps {
 }
 
 export function RecentConsultationsList({ consultations }: RecentConsultationsListProps) {
-  const t = useTranslations('consultation');
-
-  const getStatusVariant = (status: ConsultationStatus): 'success' | 'warning' | 'error' | 'info' | 'neutral' => {
-    switch (status) {
-      case 'completed':
-        return 'success';
-      case 'in_progress':
-        return 'warning';
-      case 'cancelled':
-      case 'missed':
-      case 'no_vet_available':
-        return 'error';
-      default:
-        return 'neutral';
-    }
-  };
-
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-IN', {
@@ -113,8 +96,8 @@ export function RecentConsultationsList({ consultations }: RecentConsultationsLi
                   <td>{formatDate(consultation.startedAt || consultation.createdAt)}</td>
                   <td>{formatTime(consultation.startedAt || consultation.createdAt)}</td>
                   <td>
-                    <Badge variant={getStatusVariant(consultation.status)}>
-                      {t(consultation.status)}
+                    <Badge variant={getStatusVariant(consultation.status, consultation.outcome)}>
+                      {getStatusDisplayText(consultation.status, consultation.outcome)}
                     </Badge>
                   </td>
                   <td>

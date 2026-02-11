@@ -87,6 +87,12 @@ export default function VetVideoRoomPage() {
         const consultationData = await consultationResponse.json();
         const consultation = consultationData.consultation;
 
+        // Validate status - only scheduled and active consultations can be joined
+        const status = consultation.status;
+        if (status && !['scheduled', 'active'].includes(status)) {
+          throw new Error('This consultation is no longer active');
+        }
+
         setConsultationInfo({
           id: consultation.id,
           customerName: consultation.customer?.fullName || 'Customer',

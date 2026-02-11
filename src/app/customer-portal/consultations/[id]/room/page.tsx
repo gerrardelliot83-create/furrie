@@ -105,6 +105,11 @@ export default function CustomerVideoRoomPage() {
           if (consultationData.consultation?.vet) {
             setVetInfo({ name: consultationData.consultation.vet.fullName });
           }
+          // Validate status - only scheduled and active consultations can be joined
+          const status = consultationData.consultation?.status;
+          if (status && !['scheduled', 'active'].includes(status)) {
+            throw new Error('This consultation is no longer active');
+          }
         }
 
         setRoomState('prejoin');

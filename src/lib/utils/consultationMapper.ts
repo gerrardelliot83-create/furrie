@@ -1,4 +1,4 @@
-import type { Consultation } from '@/types';
+import type { Consultation, ConsultationOutcome } from '@/types';
 import type { Database } from '@/lib/database.types';
 
 type ConsultationRow = Database['public']['Tables']['consultations']['Row'];
@@ -17,6 +17,7 @@ export function mapConsultationFromDB(row: ConsultationRow): Consultation {
     petId: row.pet_id,
     type: row.type as Consultation['type'],
     status: row.status as Consultation['status'],
+    outcome: row.outcome as ConsultationOutcome | null,
     scheduledAt: row.scheduled_at,
     startedAt: row.started_at,
     endedAt: row.ended_at,
@@ -78,6 +79,7 @@ export function mapConsultationUpdateToDB(
   const update: ConsultationUpdate = {};
 
   if (data.status !== undefined) update.status = data.status;
+  if (data.outcome !== undefined) update.outcome = data.outcome;
   if (data.vetId !== undefined) update.vet_id = data.vetId;
   if (data.startedAt !== undefined) update.started_at = data.startedAt;
   if (data.endedAt !== undefined) update.ended_at = data.endedAt;

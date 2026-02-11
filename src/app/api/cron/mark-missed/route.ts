@@ -34,7 +34,7 @@ export async function GET(request: Request) {
       scheduled_at,
       pets!consultations_pet_id_fkey (name)
     `)
-    .in('status', ['scheduled', 'accepted'])
+    .eq('status', 'scheduled')
     .lt('scheduled_at', windowExpiredBefore.toISOString());
 
   if (fetchError) {
@@ -54,15 +54,16 @@ export async function GET(request: Request) {
   }> = [];
 
   for (const consultation of expiredConsultations) {
-    // Mark as missed
+    // Mark as closed with missed outcome
     const { error: updateError } = await supabaseAdmin
       .from('consultations')
       .update({
-        status: 'missed',
+        status: 'closed',
+        outcome: 'missed',
         updated_at: new Date().toISOString(),
       })
       .eq('id', consultation.id)
-      .in('status', ['scheduled', 'accepted']); // Only if still in these statuses
+      .eq('status', 'scheduled'); // Only if still scheduled
 
     if (updateError) {
       console.error(`Failed to mark consultation ${consultation.id} as missed:`, updateError);

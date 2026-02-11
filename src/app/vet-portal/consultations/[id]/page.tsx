@@ -6,6 +6,8 @@ import { getTranslations } from 'next-intl/server';
 import { createClient } from '@/lib/supabase/server';
 import { Badge } from '@/components/ui/Badge';
 import { FlagButton } from '@/components/vet/FlagButton';
+import { getStatusVariant, getStatusDisplayText } from '@/lib/utils/statusHelpers';
+import type { ConsultationStatus, ConsultationOutcome } from '@/types';
 import styles from './page.module.css';
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -18,27 +20,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 interface PageProps {
   params: Promise<{ id: string }>;
-}
-
-type ConsultationStatus = 'pending' | 'matching' | 'matched' | 'in_progress' | 'completed' | 'missed' | 'cancelled' | 'no_vet_available';
-
-function getStatusVariant(status: ConsultationStatus): 'success' | 'warning' | 'error' | 'info' | 'neutral' {
-  switch (status) {
-    case 'completed':
-      return 'success';
-    case 'in_progress':
-    case 'matched':
-      return 'info';
-    case 'pending':
-    case 'matching':
-      return 'warning';
-    case 'missed':
-    case 'cancelled':
-    case 'no_vet_available':
-      return 'error';
-    default:
-      return 'neutral';
-  }
 }
 
 function calculateAge(dateOfBirth: string | null, approximateAgeMonths: number | null): string {
@@ -153,7 +134,7 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
   const hasPrescription = consultation.prescriptions && consultation.prescriptions.length > 0;
   const rating = consultation.consultation_ratings?.[0];
   const flag = consultation.consultation_flags?.[0];
-  const isActive = ['in_progress', 'matched'].includes(consultation.status);
+  const isActive = ['scheduled', 'active'].includes(consultation.status);
 
   const dateFormatter = new Intl.DateTimeFormat('en-IN', {
     weekday: 'long',
@@ -181,8 +162,8 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
       <div className={styles.header}>
         <div className={styles.headerRow}>
           <h1 className={styles.title}>{t('consultationDetails')}</h1>
-          <Badge variant={getStatusVariant(consultation.status as ConsultationStatus)}>
-            {consultation.status.replace('_', ' ')}
+          <Badge variant={getStatusVariant(consultation.status as ConsultationStatus, consultation.outcome as ConsultationOutcome | null)}>
+            {getStatusDisplayText(consultation.status as ConsultationStatus, consultation.outcome as ConsultationOutcome | null)}
           </Badge>
         </div>
         <p className={styles.consultationNumber}>

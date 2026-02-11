@@ -49,7 +49,7 @@ export async function GET(request: Request) {
       pets!consultations_pet_id_fkey (name),
       profiles!consultations_customer_id_fkey (full_name)
     `)
-    .in('status', ['scheduled', 'accepted'])
+    .eq('status', 'scheduled')
     .eq('reminder_1h_sent', false)
     .gte('scheduled_at', oneHourWindowStart.toISOString())
     .lte('scheduled_at', oneHourWindowEnd.toISOString());
@@ -134,7 +134,7 @@ export async function GET(request: Request) {
       pets!consultations_pet_id_fkey (name),
       profiles!consultations_customer_id_fkey (full_name)
     `)
-    .in('status', ['scheduled', 'accepted'])
+    .eq('status', 'scheduled')
     .eq('reminder_15m_sent', false)
     .gte('scheduled_at', fifteenMinWindowStart.toISOString())
     .lte('scheduled_at', fifteenMinWindowEnd.toISOString());

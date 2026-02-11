@@ -81,7 +81,7 @@ export async function computeAvailableSlots(
     .select('vet_id, scheduled_at')
     .gte('scheduled_at', fromDate.toISOString())
     .lte('scheduled_at', toDate.toISOString())
-    .in('status', ['pending', 'scheduled', 'in_progress']);
+    .in('status', ['pending', 'scheduled', 'active']);
 
   if (consultationsError) {
     console.error('Error fetching existing consultations:', consultationsError);
@@ -212,7 +212,7 @@ export async function findAvailableVetForSlot(
       .select('id')
       .eq('vet_id', vet.id)
       .eq('scheduled_at', slotDatetime)
-      .in('status', ['pending', 'scheduled', 'in_progress'])
+      .in('status', ['pending', 'scheduled', 'active'])
       .maybeSingle();
 
     if (!existingBooking) {

@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import type { ConsultationWithRelations } from '@/lib/utils/consultationMapper';
 import { formatDate, formatTime, cn } from '@/lib/utils';
+import { getStatusVariant, getStatusDisplayText } from '@/lib/utils/statusHelpers';
+import type { ConsultationStatus, ConsultationOutcome } from '@/types';
 import { Badge } from '@/components/ui/Badge';
 import styles from './ConsultationCard.module.css';
 
@@ -13,22 +15,18 @@ interface ConsultationCardProps {
   className?: string;
 }
 
-const statusVariantMap: Record<string, 'neutral' | 'info' | 'success' | 'warning' | 'error'> = {
-  pending: 'neutral',
-  matching: 'info',
-  matched: 'info',
-  in_progress: 'warning',
-  completed: 'success',
-  missed: 'error',
-  cancelled: 'error',
-  no_vet_available: 'error',
-};
-
 export function ConsultationCard({ consultation, className }: ConsultationCardProps) {
   const t = useTranslations('consultation');
 
   const petPhoto = consultation.pet?.photoUrls?.[0];
-  const statusVariant = statusVariantMap[consultation.status] || 'neutral';
+  const statusVariant = getStatusVariant(
+    consultation.status as ConsultationStatus,
+    consultation.outcome as ConsultationOutcome | null
+  );
+  const statusText = getStatusDisplayText(
+    consultation.status as ConsultationStatus,
+    consultation.outcome as ConsultationOutcome | null
+  );
   const displayDate = consultation.scheduledAt || consultation.createdAt;
 
   return (
@@ -82,7 +80,7 @@ export function ConsultationCard({ consultation, className }: ConsultationCardPr
           <div className={styles.header}>
             <h3 className={styles.petName}>{consultation.pet?.name || 'Unknown Pet'}</h3>
             <Badge variant={statusVariant} size="sm">
-              {t(consultation.status)}
+              {statusText}
             </Badge>
           </div>
 

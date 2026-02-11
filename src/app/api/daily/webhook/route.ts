@@ -153,20 +153,21 @@ async function handleMeetingEnded(payload: {
     return;
   }
 
-  // Only complete if currently in_progress
-  if (consultation.status !== 'in_progress') {
-    console.log('Consultation not in_progress, skipping status update');
+  // Only complete if currently active
+  if (consultation.status !== 'active') {
+    console.log('Consultation not active, skipping status update');
     return;
   }
 
   // Calculate actual duration in minutes
   const actualDurationMinutes = Math.ceil(duration / 60);
 
-  // Update consultation status
+  // Update consultation status to closed with success outcome
   const { error: updateError } = await supabaseAdmin
     .from('consultations')
     .update({
-      status: 'completed',
+      status: 'closed',
+      outcome: 'success',
       ended_at: new Date().toISOString(),
       duration_minutes: actualDurationMinutes,
       updated_at: new Date().toISOString(),
@@ -212,34 +213,9 @@ async function handleParticipantJoined(payload: {
     return;
   }
 
-  // Fetch consultation
-  const { data: consultation, error: fetchError } = await supabaseAdmin
-    .from('consultations')
-    .select('status, customer_id, vet_id, started_at')
-    .eq('id', consultationId)
-    .single();
-
-  if (fetchError || !consultation) {
-    return;
-  }
-
-  // If vet joins and status is matched, update to in_progress
-  if (consultation.status === 'matched' && user_id === consultation.vet_id) {
-    const { error: updateError } = await supabaseAdmin
-      .from('consultations')
-      .update({
-        status: 'in_progress',
-        started_at: consultation.started_at || new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', consultationId);
-
-    if (updateError) {
-      console.error('Failed to start consultation:', updateError);
-    } else {
-      console.log('Consultation started:', consultationId);
-    }
-  }
+  // Note: Status transitions are now handled by the /join endpoint
+  // This webhook is primarily for logging and monitoring
+  console.log(`Participant ${user_id} joined consultation ${consultationId}`);
 }
 
 /**

@@ -55,7 +55,7 @@ export function LiveQueuePanel({ vetId, isAvailable }: LiveQueuePanelProps) {
         )
       `)
       .eq('vet_id', vetId)
-      .in('status', ['matched', 'in_progress'])
+      .in('status', ['scheduled', 'active'])
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -76,6 +76,7 @@ export function LiveQueuePanel({ vetId, isAvailable }: LiveQueuePanelProps) {
         petId: data.pet_id,
         type: data.type,
         status: data.status,
+        outcome: data.outcome,
         scheduledAt: data.scheduled_at,
         startedAt: data.started_at,
         endedAt: data.ended_at,
@@ -211,8 +212,8 @@ export function LiveQueuePanel({ vetId, isAvailable }: LiveQueuePanelProps) {
       <CardHeader>
         <div className={styles.headerRow}>
           <CardTitle>Live Queue</CardTitle>
-          <Badge variant={matchedConsultation.status === 'in_progress' ? 'warning' : 'success'}>
-            {matchedConsultation.status === 'in_progress' ? 'In Progress' : 'Matched'}
+          <Badge variant={matchedConsultation.status === 'active' ? 'warning' : 'success'}>
+            {matchedConsultation.status === 'active' ? 'In Progress' : 'Scheduled'}
           </Badge>
         </div>
       </CardHeader>
@@ -252,7 +253,7 @@ export function LiveQueuePanel({ vetId, isAvailable }: LiveQueuePanelProps) {
             onClick={handleJoinCall}
             className={styles.joinButton}
           >
-            {matchedConsultation.status === 'in_progress' ? 'Rejoin Call' : 'Join Call'}
+            {matchedConsultation.status === 'active' ? 'Rejoin Call' : 'Join Call'}
           </button>
         </div>
       </CardContent>

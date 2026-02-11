@@ -68,6 +68,7 @@ export interface Consultation {
   petId: string;
   type: 'direct_connect' | 'scheduled' | 'follow_up';
   status: ConsultationStatus;
+  outcome: ConsultationOutcome | null;
   scheduledAt: string | null;
   startedAt: string | null;
   endedAt: string | null;
@@ -90,17 +91,9 @@ export interface Consultation {
   updatedAt: string;
 }
 
-export type ConsultationStatus =
-  | 'pending'
-  | 'matching'
-  | 'matched'
-  | 'accepted'
-  | 'scheduled'
-  | 'in_progress'
-  | 'completed'
-  | 'missed'
-  | 'cancelled'
-  | 'no_vet_available';
+export type ConsultationStatus = 'pending' | 'scheduled' | 'active' | 'closed';
+
+export type ConsultationOutcome = 'success' | 'missed' | 'cancelled' | 'failed';
 
 export interface VetProfile {
   id: string;

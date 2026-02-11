@@ -100,7 +100,7 @@ export async function POST(
     }
 
     // Check consultation status
-    const validStatuses = ['scheduled', 'in_progress'];
+    const validStatuses = ['scheduled', 'active'];
     if (!validStatuses.includes(consultation.status)) {
       return NextResponse.json(
         {
@@ -191,12 +191,12 @@ export async function POST(
       );
     }
 
-    // Update consultation status to in_progress if first join
+    // Update consultation status to active if first join
     if (consultation.status === 'scheduled') {
       await supabaseAdmin
         .from('consultations')
         .update({
-          status: 'in_progress',
+          status: 'active',
           started_at: new Date().toISOString(),
         })
         .eq('id', id)
@@ -215,7 +215,7 @@ export async function POST(
       dailyDomain: DAILY_DOMAIN,
       consultation: {
         id: consultation.id,
-        status: consultation.status === 'scheduled' ? 'in_progress' : consultation.status,
+        status: consultation.status === 'scheduled' ? 'active' : consultation.status,
         scheduledAt: consultation.scheduled_at,
         durationMinutes: consultation.duration_minutes,
         pet: pet

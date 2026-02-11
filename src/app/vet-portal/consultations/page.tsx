@@ -18,26 +18,8 @@ interface PageProps {
   searchParams: Promise<{ status?: string }>;
 }
 
-type ConsultationStatus = 'pending' | 'matching' | 'matched' | 'in_progress' | 'completed' | 'missed' | 'cancelled' | 'no_vet_available';
-
-function getStatusVariant(status: ConsultationStatus): 'success' | 'warning' | 'error' | 'info' | 'neutral' {
-  switch (status) {
-    case 'completed':
-      return 'success';
-    case 'in_progress':
-    case 'matched':
-      return 'info';
-    case 'pending':
-    case 'matching':
-      return 'warning';
-    case 'missed':
-    case 'cancelled':
-    case 'no_vet_available':
-      return 'error';
-    default:
-      return 'neutral';
-  }
-}
+import { getStatusVariant, getStatusDisplayText } from '@/lib/utils/statusHelpers';
+import type { ConsultationStatus, ConsultationOutcome } from '@/types';
 
 function formatDuration(startedAt: string | null, endedAt: string | null): string {
   if (!startedAt || !endedAt) return '-';
@@ -99,11 +81,11 @@ export default async function VetConsultationsPage({ searchParams }: PageProps) 
     .eq('vet_id', user.id)
     .order('created_at', { ascending: false });
 
-  // Apply status filter
+  // Apply status filter (using consolidated statuses)
   if (statusFilter === 'in_progress') {
-    query = query.in('status', ['in_progress', 'matched', 'matching']);
+    query = query.eq('status', 'active');
   } else if (statusFilter === 'completed') {
-    query = query.eq('status', 'completed');
+    query = query.eq('status', 'closed').eq('outcome', 'success');
   }
   // 'all' or no filter shows everything
 
@@ -220,8 +202,8 @@ export default async function VetConsultationsPage({ searchParams }: PageProps) 
                       </Link>
                     </td>
                     <td className={styles.tableCell}>
-                      <Badge variant={getStatusVariant(consultation.status as ConsultationStatus)}>
-                        {consultation.status.replace('_', ' ')}
+                      <Badge variant={getStatusVariant(consultation.status as ConsultationStatus, consultation.outcome as ConsultationOutcome | null)}>
+                        {getStatusDisplayText(consultation.status as ConsultationStatus, consultation.outcome as ConsultationOutcome | null)}
                       </Badge>
                     </td>
                     <td className={styles.tableCell}>

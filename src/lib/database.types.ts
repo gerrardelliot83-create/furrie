@@ -192,6 +192,7 @@ export type Database = {
       }
       consultations: {
         Row: {
+          accepted_at: string | null
           amount_paid: number | null
           concern_text: string | null
           consultation_number: string
@@ -206,11 +207,15 @@ export type Database = {
           is_follow_up: boolean | null
           is_free: boolean | null
           is_priority: boolean | null
+          outcome: string | null
           parent_consultation_id: string | null
           payment_id: string | null
           pet_id: string
           recording_id: string | null
           recording_url: string | null
+          reminder_15m_sent: boolean | null
+          reminder_1h_sent: boolean | null
+          room_created_at: string | null
           scheduled_at: string | null
           started_at: string | null
           status: string
@@ -221,6 +226,7 @@ export type Database = {
           was_extended: boolean | null
         }
         Insert: {
+          accepted_at?: string | null
           amount_paid?: number | null
           concern_text?: string | null
           consultation_number?: string
@@ -235,11 +241,15 @@ export type Database = {
           is_follow_up?: boolean | null
           is_free?: boolean | null
           is_priority?: boolean | null
+          outcome?: string | null
           parent_consultation_id?: string | null
           payment_id?: string | null
           pet_id: string
           recording_id?: string | null
           recording_url?: string | null
+          reminder_15m_sent?: boolean | null
+          reminder_1h_sent?: boolean | null
+          room_created_at?: string | null
           scheduled_at?: string | null
           started_at?: string | null
           status?: string
@@ -250,6 +260,7 @@ export type Database = {
           was_extended?: boolean | null
         }
         Update: {
+          accepted_at?: string | null
           amount_paid?: number | null
           concern_text?: string | null
           consultation_number?: string
@@ -264,11 +275,15 @@ export type Database = {
           is_follow_up?: boolean | null
           is_free?: boolean | null
           is_priority?: boolean | null
+          outcome?: string | null
           parent_consultation_id?: string | null
           payment_id?: string | null
           pet_id?: string
           recording_id?: string | null
           recording_url?: string | null
+          reminder_15m_sent?: boolean | null
+          reminder_1h_sent?: boolean | null
+          room_created_at?: string | null
           scheduled_at?: string | null
           started_at?: string | null
           status?: string
@@ -1349,6 +1364,8 @@ export type Database = {
     Functions: {
       generate_consultation_number: { Args: never; Returns: string }
       generate_prescription_number: { Args: never; Returns: string }
+      is_admin: { Args: never; Returns: boolean }
+      is_vet: { Args: never; Returns: boolean }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
     }

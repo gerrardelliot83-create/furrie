@@ -8,6 +8,10 @@ import { mapConsultationWithRelationsFromDB } from '@/lib/utils/consultationMapp
 import { formatDate, formatTime, formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { JoinCallButton } from '@/components/consultation/JoinCallButton';
+import { CancelConsultationButton } from '@/components/consultation/CancelConsultationButton';
+import { getStatusVariant, getStatusDisplayText } from '@/lib/utils/statusHelpers';
+import type { ConsultationStatus, ConsultationOutcome } from '@/types';
 import styles from './ConsultationDetail.module.css';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -16,17 +20,6 @@ export async function generateMetadata(): Promise<Metadata> {
     title: t('consultations'),
   };
 }
-
-const statusVariantMap: Record<string, 'neutral' | 'info' | 'success' | 'warning' | 'error'> = {
-  pending: 'neutral',
-  matching: 'info',
-  matched: 'info',
-  in_progress: 'warning',
-  completed: 'success',
-  missed: 'error',
-  cancelled: 'error',
-  no_vet_available: 'error',
-};
 
 interface ConsultationDetailPageProps {
   params: Promise<{ id: string }>;
@@ -105,7 +98,14 @@ export default async function ConsultationDetailPage({ params }: ConsultationDet
   const hasRating = consultation.rating !== undefined;
   const hasPrescription = consultation.prescription !== undefined;
 
-  const statusVariant = statusVariantMap[consultation.status] || 'neutral';
+  const statusVariant = getStatusVariant(
+    consultation.status as ConsultationStatus,
+    consultation.outcome as ConsultationOutcome | null
+  );
+  const statusText = getStatusDisplayText(
+    consultation.status as ConsultationStatus,
+    consultation.outcome as ConsultationOutcome | null
+  );
   const petPhoto = consultation.pet?.photoUrls?.[0];
 
   return (
@@ -125,9 +125,29 @@ export default async function ConsultationDetailPage({ params }: ConsultationDet
           <h1 className={styles.title}>Consultation Details</h1>
         </div>
         <Badge variant={statusVariant} size="md">
-          {t(consultation.status)}
+          {statusText}
         </Badge>
       </header>
+
+      {/* Join Call Section - for scheduled/active consultations */}
+      {['scheduled', 'active'].includes(consultation.status) && consultation.scheduledAt && (
+        <section className={styles.card}>
+          <h2 className={styles.cardTitle}>Video Consultation</h2>
+          <JoinCallButton
+            consultationId={consultation.id}
+            scheduledAt={consultation.scheduledAt}
+            status={consultation.status}
+            userRole="customer"
+          />
+        </section>
+      )}
+
+      {/* Cancel Section - for pending/scheduled consultations */}
+      {['pending', 'scheduled'].includes(consultation.status) && (
+        <section className={styles.card}>
+          <CancelConsultationButton consultationId={consultation.id} />
+        </section>
+      )}
 
       {/* Pet Card */}
       <section className={styles.card}>
@@ -257,7 +277,7 @@ export default async function ConsultationDetailPage({ params }: ConsultationDet
       )}
 
       {/* SOAP Summary - Simplified for customer */}
-      {soapNote && consultation.status === 'completed' && (
+      {soapNote && consultation.status === 'closed' && consultation.outcome === 'success' && (
         <section className={styles.card}>
           <h2 className={styles.cardTitle}>Vet Summary</h2>
 
@@ -331,7 +351,7 @@ export default async function ConsultationDetailPage({ params }: ConsultationDet
       )}
 
       {/* Rating */}
-      {consultation.status === 'completed' && (
+      {consultation.status === 'closed' && consultation.outcome === 'success' && (
         <section className={styles.card}>
           <h2 className={styles.cardTitle}>Your Feedback</h2>
           {hasRating ? (

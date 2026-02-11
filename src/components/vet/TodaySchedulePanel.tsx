@@ -39,16 +39,20 @@ function getAppointmentStatus(consultation: ScheduledConsultation): AppointmentS
   const joinWindowStart = new Date(scheduledAt.getTime() - 5 * 60 * 1000);
   const joinWindowEnd = new Date(scheduledAt.getTime() + 45 * 60 * 1000);
 
-  if (consultation.status === 'completed') {
+  // Check closed status with outcome
+  if (consultation.status === 'closed') {
+    if (consultation.outcome === 'success') {
+      return 'completed';
+    }
+    if (consultation.outcome === 'missed') {
+      return 'missed';
+    }
+    // For other outcomes (cancelled, failed), treat as completed
     return 'completed';
   }
 
-  if (consultation.status === 'in_progress') {
+  if (consultation.status === 'active') {
     return 'in_progress';
-  }
-
-  if (consultation.status === 'missed') {
-    return 'missed';
   }
 
   if (now >= joinWindowStart && now <= joinWindowEnd) {
@@ -134,7 +138,7 @@ export function TodaySchedulePanel({ vetId }: TodaySchedulePanelProps) {
           )
         `)
         .eq('vet_id', vetId)
-        .in('status', ['scheduled', 'accepted', 'in_progress', 'completed', 'missed'])
+        .in('status', ['scheduled', 'active', 'closed'])
         .gte('scheduled_at', startOfDay.toISOString())
         .lt('scheduled_at', endOfDay.toISOString())
         .order('scheduled_at', { ascending: true });
@@ -156,6 +160,7 @@ export function TodaySchedulePanel({ vetId }: TodaySchedulePanelProps) {
         petId: item.pet_id,
         type: item.type,
         status: item.status as ConsultationStatus,
+        outcome: item.outcome,
         scheduledAt: item.scheduled_at,
         startedAt: item.started_at,
         endedAt: item.ended_at,
@@ -257,10 +262,10 @@ export function TodaySchedulePanel({ vetId }: TodaySchedulePanelProps) {
 
   // Separate active/upcoming from completed
   const activeConsultations = consultations.filter(
-    (c) => !['completed', 'missed'].includes(c.status)
+    (c) => c.status !== 'closed'
   );
   const completedConsultations = consultations.filter(
-    (c) => ['completed', 'missed'].includes(c.status)
+    (c) => c.status === 'closed'
   );
 
   return (
@@ -369,8 +374,8 @@ export function TodaySchedulePanel({ vetId }: TodaySchedulePanelProps) {
                     <span className={styles.completedPet}>
                       {consultation.pet?.name || 'Unknown Pet'}
                     </span>
-                    <Badge variant={consultation.status === 'completed' ? 'success' : 'error'}>
-                      {consultation.status === 'completed' ? 'Done' : 'Missed'}
+                    <Badge variant={consultation.outcome === 'success' ? 'success' : 'error'}>
+                      {consultation.outcome === 'success' ? 'Done' : 'Missed'}
                     </Badge>
                   </div>
                 ))}

@@ -60,9 +60,6 @@ export default async function ConsultationDetailPage({ params }: ConsultationDet
       profiles!consultations_vet_id_fkey (
         id, full_name, avatar_url
       ),
-      vet_profiles!consultations_vet_id_fkey (
-        qualifications, years_of_experience
-      ),
       consultation_ratings (rating, feedback_text),
       prescriptions (id, pdf_url, prescription_number),
       soap_notes (
@@ -78,8 +75,25 @@ export default async function ConsultationDetailPage({ params }: ConsultationDet
     .eq('customer_id', user.id)
     .single();
 
-  if (error || !data) {
+  if (error) {
+    console.error('Consultation fetch error:', error);
     notFound();
+  }
+
+  if (!data) {
+    console.error('No consultation found for id:', id, 'user:', user.id);
+    notFound();
+  }
+
+  // Fetch vet_profiles separately (no direct FK from consultations to vet_profiles)
+  let vetProfile: { qualifications: string | null; years_of_experience: number | null } | null = null;
+  if (data.vet_id) {
+    const { data: vp } = await supabase
+      .from('vet_profiles')
+      .select('qualifications, years_of_experience')
+      .eq('id', data.vet_id)
+      .single();
+    vetProfile = vp;
   }
 
   const consultation = mapConsultationWithRelationsFromDB(
@@ -88,7 +102,6 @@ export default async function ConsultationDetailPage({ params }: ConsultationDet
 
   // Extract additional data
   const soapNote = Array.isArray(data.soap_notes) ? data.soap_notes[0] : data.soap_notes;
-  const vetProfile = Array.isArray(data.vet_profiles) ? data.vet_profiles[0] : data.vet_profiles;
   const hasRating = consultation.rating !== undefined;
   const hasPrescription = consultation.prescription !== undefined;
 

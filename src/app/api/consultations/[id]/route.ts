@@ -91,9 +91,6 @@ export async function GET(
             full_name,
             avatar_url
           ),
-          vet_profiles!consultations_vet_id_fkey (
-            qualifications
-          ),
           consultation_ratings (
             rating,
             feedback_text
@@ -114,6 +111,18 @@ export async function GET(
           { error: 'You do not have permission to view this consultation', code: 'FORBIDDEN' },
           { status: 403 }
         );
+      }
+
+      // Fetch vet_profiles separately (no direct FK from consultations to vet_profiles)
+      if (data?.vet_id) {
+        const { data: vp } = await supabaseAdmin
+          .from('vet_profiles')
+          .select('qualifications')
+          .eq('id', data.vet_id)
+          .single();
+        if (vp) {
+          (data as Record<string, unknown>).vet_profiles = vp;
+        }
       }
 
       consultation = data;
@@ -137,9 +146,6 @@ export async function GET(
             full_name,
             avatar_url
           ),
-          vet_profiles!consultations_vet_id_fkey (
-            qualifications
-          ),
           consultation_ratings (
             rating,
             feedback_text
@@ -152,7 +158,20 @@ export async function GET(
         `
         )
         .eq('id', id)
+        .eq('customer_id', user.id)
         .single();
+
+      // Fetch vet_profiles separately (no direct FK from consultations to vet_profiles)
+      if (data?.vet_id) {
+        const { data: vp } = await supabase
+          .from('vet_profiles')
+          .select('qualifications')
+          .eq('id', data.vet_id)
+          .single();
+        if (vp) {
+          (data as Record<string, unknown>).vet_profiles = vp;
+        }
+      }
 
       consultation = data;
       queryError = error;

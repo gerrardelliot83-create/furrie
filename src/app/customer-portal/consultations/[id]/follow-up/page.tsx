@@ -42,9 +42,6 @@ export default async function CustomerFollowUpPage({ params }: PageProps) {
       profiles!consultations_vet_id_fkey (
         id,
         full_name
-      ),
-      vet_profiles!consultations_vet_id_fkey (
-        qualifications
       )
     `)
     .eq('id', consultationId)
@@ -53,6 +50,17 @@ export default async function CustomerFollowUpPage({ params }: PageProps) {
 
   if (consultationError || !consultation) {
     notFound();
+  }
+
+  // Fetch vet_profiles separately (no direct FK from consultations to vet_profiles)
+  let vetProfile: { qualifications: string | null } | null = null;
+  if (consultation.vet_id) {
+    const { data: vp } = await supabase
+      .from('vet_profiles')
+      .select('qualifications')
+      .eq('id', consultation.vet_id)
+      .single();
+    vetProfile = vp;
   }
 
   const pet = consultation.pets;
@@ -103,7 +111,7 @@ export default async function CustomerFollowUpPage({ params }: PageProps) {
               <div>
                 <p style={{ fontWeight: 600 }}>Dr. {vet.full_name || 'Veterinarian'}</p>
                 <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>
-                  {consultation.vet_profiles?.qualifications || 'Licensed Veterinarian'}
+                  {vetProfile?.qualifications || 'Licensed Veterinarian'}
                 </p>
               </div>
               <div style={{ marginLeft: 'auto' }}>

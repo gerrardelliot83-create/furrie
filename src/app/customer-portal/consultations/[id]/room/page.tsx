@@ -67,49 +67,35 @@ export default function CustomerVideoRoomPage() {
   const [vetInfo, setVetInfo] = useState<VetInfo | null>(null);
   const [callObject, setCallObject] = useState<ReturnType<typeof Daily.createCallObject> | null>(null);
 
-  // Fetch room token
+  // Join consultation - single call that handles room creation, token, and validation
   useEffect(() => {
-    const fetchToken = async () => {
+    const joinConsultation = async () => {
       try {
-        // First, ensure room exists
-        const createRoomResponse = await fetch('/api/daily/create-room', {
+        // Single call to join endpoint - handles room creation, token, and validation
+        const joinResponse = await fetchWithRetry(`/api/consultations/${consultationId}/join`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ consultationId }),
         });
 
-        if (!createRoomResponse.ok) {
-          const data = await createRoomResponse.json();
-          throw new Error(data.error || 'Failed to create room');
+        if (!joinResponse.ok) {
+          const data = await joinResponse.json();
+          throw new Error(data.error || 'Failed to join consultation');
         }
 
-        // Then fetch token
-        const tokenResponse = await fetch('/api/daily/token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ consultationId }),
+        const data = await joinResponse.json();
+
+        // Set token data from join response
+        setTokenData({
+          token: data.token,
+          roomUrl: data.roomUrl,
+          roomName: data.roomName,
+          isOwner: data.participant.isOwner,
+          userName: data.participant.name,
         });
 
-        if (!tokenResponse.ok) {
-          const data = await tokenResponse.json();
-          throw new Error(data.error || 'Failed to get meeting token');
-        }
-
-        const data: TokenResponse = await tokenResponse.json();
-        setTokenData(data);
-
-        // Fetch consultation details for vet info with retry logic
-        const consultationResponse = await fetchWithRetry(`/api/consultations/${consultationId}`);
-        if (consultationResponse.ok) {
-          const consultationData = await consultationResponse.json();
-          if (consultationData.consultation?.vet) {
-            setVetInfo({ name: consultationData.consultation.vet.fullName });
-          }
-          // Validate status - only scheduled and active consultations can be joined
-          const status = consultationData.consultation?.status;
-          if (status && !['scheduled', 'active'].includes(status)) {
-            throw new Error('This consultation is no longer active');
-          }
+        // Set vet info from join response
+        if (data.consultation?.vet) {
+          setVetInfo({ name: data.consultation.vet.name });
         }
 
         setRoomState('prejoin');
@@ -120,7 +106,7 @@ export default function CustomerVideoRoomPage() {
       }
     };
 
-    fetchToken();
+    joinConsultation();
   }, [consultationId]);
 
   // Create Daily call object

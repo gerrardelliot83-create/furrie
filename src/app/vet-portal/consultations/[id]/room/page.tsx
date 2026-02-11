@@ -74,61 +74,43 @@ export default function VetVideoRoomPage() {
   const [consultationInfo, setConsultationInfo] = useState<ConsultationInfo | null>(null);
   const [callObject, setCallObject] = useState<ReturnType<typeof Daily.createCallObject> | null>(null);
 
-  // Fetch room token and consultation info
+  // Join consultation - single call that handles room creation, token, and validation
   useEffect(() => {
-    const fetchData = async () => {
+    const joinConsultation = async () => {
       try {
-        // Fetch consultation details with retry logic for race conditions
-        const consultationResponse = await fetchWithRetry(`/api/consultations/${consultationId}`);
-        if (!consultationResponse.ok) {
-          const errorData = await consultationResponse.json().catch(() => ({}));
-          throw new Error(errorData.error || 'Consultation not found');
-        }
-        const consultationData = await consultationResponse.json();
-        const consultation = consultationData.consultation;
+        // Single call to join endpoint - handles room creation, token, and validation
+        const joinResponse = await fetchWithRetry(`/api/consultations/${consultationId}/join`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
 
-        // Validate status - only scheduled and active consultations can be joined
-        const status = consultation.status;
-        if (status && !['scheduled', 'active'].includes(status)) {
-          throw new Error('This consultation is no longer active');
+        if (!joinResponse.ok) {
+          const data = await joinResponse.json();
+          throw new Error(data.error || 'Failed to join consultation');
         }
 
+        const data = await joinResponse.json();
+
+        // Set consultation info from join response
         setConsultationInfo({
-          id: consultation.id,
-          customerName: consultation.customer?.fullName || 'Customer',
-          petName: consultation.pet?.name || 'Pet',
-          petSpecies: consultation.pet?.species || 'Unknown',
-          petBreed: consultation.pet?.breed || 'Unknown',
-          concern: consultation.concernText || 'General consultation',
-          symptoms: consultation.symptomCategories || [],
+          id: data.consultation.id,
+          customerName: data.consultation.pet?.name ? `${data.consultation.pet.name}'s parent` : 'Customer',
+          petName: data.consultation.pet?.name || 'Pet',
+          petSpecies: data.consultation.pet?.species || 'Unknown',
+          petBreed: data.consultation.pet?.breed || 'Unknown',
+          concern: 'General consultation', // Not returned by join endpoint
+          symptoms: [], // Not returned by join endpoint
         });
 
-        // Ensure room exists
-        const createRoomResponse = await fetch('/api/daily/create-room', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ consultationId }),
+        // Set token data from join response
+        setTokenData({
+          token: data.token,
+          roomUrl: data.roomUrl,
+          roomName: data.roomName,
+          isOwner: data.participant.isOwner,
+          userName: data.participant.name,
         });
 
-        if (!createRoomResponse.ok) {
-          const data = await createRoomResponse.json();
-          throw new Error(data.error || 'Failed to create room');
-        }
-
-        // Fetch token
-        const tokenResponse = await fetch('/api/daily/token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ consultationId }),
-        });
-
-        if (!tokenResponse.ok) {
-          const data = await tokenResponse.json();
-          throw new Error(data.error || 'Failed to get meeting token');
-        }
-
-        const data: TokenResponse = await tokenResponse.json();
-        setTokenData(data);
         setRoomState('ready');
       } catch (err) {
         console.error('Failed to setup video room:', err);
@@ -137,7 +119,7 @@ export default function VetVideoRoomPage() {
       }
     };
 
-    fetchData();
+    joinConsultation();
   }, [consultationId]);
 
   // Create Daily call object

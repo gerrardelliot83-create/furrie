@@ -154,7 +154,10 @@ export default async function VetConsultationsPage({ searchParams }: PageProps) 
                 const pet = consultation.pets;
                 const customer = consultation.profiles;
                 const rating = consultation.consultation_ratings?.[0]?.rating;
-                const createdAt = new Date(consultation.created_at);
+                // Use scheduled_at for scheduled consultations, fall back to created_at
+                const displayDate = consultation.scheduled_at
+                  ? new Date(consultation.scheduled_at)
+                  : new Date(consultation.created_at);
 
                 return (
                   <tr key={consultation.id} className={styles.tableRow}>
@@ -164,11 +167,11 @@ export default async function VetConsultationsPage({ searchParams }: PageProps) 
                         className={styles.rowLink}
                       >
                         <div className={styles.dateTime}>
-                          <span className={styles.date}>
-                            {dateFormatter.format(createdAt)}
+                          <span className={styles.date} suppressHydrationWarning>
+                            {dateFormatter.format(displayDate)}
                           </span>
-                          <span className={styles.time}>
-                            {timeFormatter.format(createdAt)}
+                          <span className={styles.time} suppressHydrationWarning>
+                            {timeFormatter.format(displayDate)}
                           </span>
                         </div>
                       </Link>

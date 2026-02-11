@@ -219,6 +219,17 @@ export default async function ConsultationDetailPage({ params }: ConsultationDet
           </span>
         </div>
 
+        {/* Show scheduled time for upcoming consultations */}
+        {consultation.scheduledAt && !consultation.startedAt && (
+          <div className={styles.detailRow}>
+            <span className={styles.detailLabel}>Scheduled Time</span>
+            <span className={styles.detailValue}>
+              {formatTime(consultation.scheduledAt)}
+            </span>
+          </div>
+        )}
+
+        {/* Show actual call time for completed consultations */}
         {consultation.startedAt && (
           <div className={styles.detailRow}>
             <span className={styles.detailLabel}>Time</span>

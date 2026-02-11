@@ -90,6 +90,14 @@ export function ConsultationCard({ consultation, className }: ConsultationCardPr
 
           <div className={styles.meta}>
             <span className={styles.date}>{formatDate(displayDate)}</span>
+            {/* Show scheduled time for upcoming consultations */}
+            {consultation.scheduledAt && !consultation.startedAt && (
+              <>
+                <span className={styles.separator}>at</span>
+                <span className={styles.time}>{formatTime(consultation.scheduledAt)}</span>
+              </>
+            )}
+            {/* Show started time for completed consultations */}
             {consultation.startedAt && (
               <>
                 <span className={styles.separator}>at</span>

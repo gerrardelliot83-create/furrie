@@ -151,7 +151,11 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
     timeZone: 'Asia/Kolkata',
   });
 
-  const createdAt = new Date(consultation.created_at);
+  // Use scheduled_at for scheduled consultations, fall back to created_at
+  const displayDate = consultation.scheduled_at
+    ? new Date(consultation.scheduled_at)
+    : new Date(consultation.created_at);
+  const hasScheduledTime = !!consultation.scheduled_at;
 
   return (
     <div className={styles.container}>
@@ -236,12 +240,20 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
           <h2 className={styles.cardTitle}>Details</h2>
           <div className={styles.detailsList}>
             <div className={styles.detailItem}>
-              <span className={styles.detailLabel}>Date</span>
-              <span className={styles.detailValue}>{dateFormatter.format(createdAt)}</span>
+              <span className={styles.detailLabel}>
+                {hasScheduledTime ? 'Scheduled Date' : 'Date'}
+              </span>
+              <span className={styles.detailValue} suppressHydrationWarning>
+                {dateFormatter.format(displayDate)}
+              </span>
             </div>
             <div className={styles.detailItem}>
-              <span className={styles.detailLabel}>Time</span>
-              <span className={styles.detailValue}>{timeFormatter.format(createdAt)}</span>
+              <span className={styles.detailLabel}>
+                {hasScheduledTime ? 'Scheduled Time' : 'Time'}
+              </span>
+              <span className={styles.detailValue} suppressHydrationWarning>
+                {timeFormatter.format(displayDate)}
+              </span>
             </div>
             <div className={styles.detailItem}>
               <span className={styles.detailLabel}>Type</span>

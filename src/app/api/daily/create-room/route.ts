@@ -69,7 +69,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify consultation status is appropriate for room creation
-    const validStatuses = ['matched', 'in_progress'];
+    // Updated to support new status values (scheduled, active) and legacy values (matched, in_progress)
+    const validStatuses = ['scheduled', 'active', 'matched', 'in_progress'];
     if (!validStatuses.includes(consultation.status)) {
       return NextResponse.json(
         { error: `Cannot create room for consultation with status: ${consultation.status}`, code: 'INVALID_STATUS' },

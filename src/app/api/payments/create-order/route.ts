@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 import { createOrder, SKIP_PAYMENTS, PAYMENT_GATEWAY } from '@/lib/payments';
 import type { CreateOrderRequest } from '@/lib/payments/types';
 
@@ -84,8 +85,9 @@ export async function POST(request: Request) {
     }
 
     // If in dev bypass mode and it's a consultation, mark as paid and scheduled
+    // Use supabaseAdmin to bypass RLS (customers don't have UPDATE policy on consultations)
     if (SKIP_PAYMENTS && body.consultationId) {
-      await supabase
+      await supabaseAdmin
         .from('consultations')
         .update({
           payment_id: orderResponse.orderId,

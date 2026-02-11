@@ -24,26 +24,27 @@ const nextConfig: NextConfig = {
 
   // Subdomain-based routing for local development
   // In production, Vercel handles this via vercel.json
+  // IMPORTANT: Exclude /api and /_next from rewrites - they should not be prefixed
   async rewrites() {
     return {
       beforeFiles: [
-        // Vet portal: vet.furrie.local -> /vet-portal
+        // Vet portal: vet.furrie.local -> /vet-portal (exclude /api and /_next)
         {
-          source: "/:path*",
+          source: "/((?!api|_next).*)",
           has: [{ type: "host", value: "vet.furrie.local" }],
-          destination: "/vet-portal/:path*",
+          destination: "/vet-portal/$1",
         },
         // Admin portal: admin.furrie.local -> /admin-portal
         {
-          source: "/:path*",
+          source: "/((?!api|_next).*)",
           has: [{ type: "host", value: "admin.furrie.local" }],
-          destination: "/admin-portal/:path*",
+          destination: "/admin-portal/$1",
         },
         // Customer portal: app.furrie.local -> /customer-portal
         {
-          source: "/:path*",
+          source: "/((?!api|_next).*)",
           has: [{ type: "host", value: "app.furrie.local" }],
-          destination: "/customer-portal/:path*",
+          destination: "/customer-portal/$1",
         },
       ],
       afterFiles: [],

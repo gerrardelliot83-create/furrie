@@ -1,19 +1,19 @@
 {
   "rewrites": [
     {
-      "source": "/:path*",
+      "source": "/((?!api|_next).*)",
       "has": [{ "type": "host", "value": "vet.furrie.in" }],
-      "destination": "/vet-portal/:path*"
+      "destination": "/vet-portal/$1"
     },
     {
-      "source": "/:path*",
+      "source": "/((?!api|_next).*)",
       "has": [{ "type": "host", "value": "admin.furrie.in" }],
-      "destination": "/admin-portal/:path*"
+      "destination": "/admin-portal/$1"
     },
     {
-      "source": "/:path*",
+      "source": "/((?!api|_next).*)",
       "has": [{ "type": "host", "value": "app.furrie.in" }],
-      "destination": "/customer-portal/:path*"
+      "destination": "/customer-portal/$1"
     }
   ],
   "crons": [

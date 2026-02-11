@@ -87,7 +87,9 @@ export async function POST(request: Request) {
     // If in dev bypass mode and it's a consultation, mark as paid and scheduled
     // Use supabaseAdmin to bypass RLS (customers don't have UPDATE policy on consultations)
     if (SKIP_PAYMENTS && body.consultationId) {
-      await supabaseAdmin
+      console.log('[create-order] SKIP_PAYMENTS mode: updating consultation status to scheduled');
+
+      const { data: updateData, error: updateError } = await supabaseAdmin
         .from('consultations')
         .update({
           payment_id: orderResponse.orderId,
@@ -95,7 +97,18 @@ export async function POST(request: Request) {
           status: 'scheduled',
         })
         .eq('id', body.consultationId)
-        .eq('status', 'pending'); // Only update if still pending (optimistic lock)
+        .eq('status', 'pending')
+        .select('id, status')
+        .single();
+
+      if (updateError) {
+        console.error('[create-order] Failed to update consultation status:', updateError);
+        // Don't fail the request, but log the error
+      } else if (updateData) {
+        console.log('[create-order] Successfully updated consultation:', updateData.id, 'to status:', updateData.status);
+      } else {
+        console.warn('[create-order] No rows updated - consultation may not be in pending status');
+      }
     }
 
     return NextResponse.json({

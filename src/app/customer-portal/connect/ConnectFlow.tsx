@@ -152,15 +152,9 @@ export function ConnectFlow({ initialPets }: ConnectFlowProps) {
       }
 
       // In dev mode (SKIP_PAYMENTS=true), payment is auto-completed
+      // The create-order API already updates the consultation status to 'scheduled'
       if (paymentData.devMode) {
-        // Update consultation status to scheduled
-        await fetch(`/api/consultations/${bookData.consultation.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: 'scheduled' }),
-        });
-
-        // Show confirmation
+        // Show confirmation - status was already updated server-side
         setBookedConsultation({
           id: bookData.consultation.id,
           consultationNumber: bookData.consultation.consultationNumber,

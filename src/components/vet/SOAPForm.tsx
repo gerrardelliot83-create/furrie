@@ -240,12 +240,13 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
     // Save notes first
     await saveNotes(false);
 
-    // Update consultation status to completed
+    // Update consultation status to closed with success outcome
     const supabase = createClient();
     const { error } = await supabase
       .from('consultations')
       .update({
-        status: 'completed',
+        status: 'closed',
+        outcome: 'success',
         ended_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })

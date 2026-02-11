@@ -1,7 +1,5 @@
 'use client';
 
-import { useCallback } from 'react';
-import { DiagnosisSearch } from './DiagnosisSearch';
 import styles from './SOAPSections.module.css';
 
 interface AssessmentData {
@@ -17,61 +15,34 @@ interface AssessmentSectionProps {
   petSpecies: 'dog' | 'cat';
 }
 
-export function AssessmentSection({ data, onChange, petSpecies }: AssessmentSectionProps) {
-  const handleAddDifferential = useCallback((diagnosis: string) => {
-    if (!data.differentialDiagnoses.includes(diagnosis)) {
-      onChange({
-        differentialDiagnoses: [...data.differentialDiagnoses, diagnosis],
-      });
-    }
-  }, [data.differentialDiagnoses, onChange]);
-
-  const handleRemoveDifferential = useCallback((index: number) => {
-    onChange({
-      differentialDiagnoses: data.differentialDiagnoses.filter((_, i) => i !== index),
-    });
-  }, [data.differentialDiagnoses, onChange]);
-
+export function AssessmentSection({ data, onChange }: AssessmentSectionProps) {
   return (
     <div className={styles.sectionGrid}>
       <div className={styles.fullWidth}>
         <label className={styles.label}>
           Provisional Diagnosis <span className={styles.required}>*</span>
         </label>
-        <DiagnosisSearch
+        <textarea
           value={data.provisionalDiagnosis}
-          onChange={(value) => onChange({ provisionalDiagnosis: value })}
-          species={petSpecies}
-          placeholder="Search or type diagnosis..."
+          onChange={(e) => onChange({ provisionalDiagnosis: e.target.value })}
+          placeholder="Enter provisional diagnosis..."
+          className={styles.textarea}
+          rows={2}
         />
       </div>
 
       <div className={styles.fullWidth}>
         <label className={styles.label}>Differential Diagnoses</label>
-        <div className={styles.differentialContainer}>
-          <DiagnosisSearch
-            value=""
-            onChange={handleAddDifferential}
-            species={petSpecies}
-            placeholder="Add differential diagnosis..."
-          />
-          {data.differentialDiagnoses.length > 0 && (
-            <div className={styles.tagList}>
-              {data.differentialDiagnoses.map((diagnosis, index) => (
-                <span key={index} className={styles.tag}>
-                  {diagnosis}
-                  <button
-                    type="button"
-                    className={styles.tagRemove}
-                    onClick={() => handleRemoveDifferential(index)}
-                  >
-                    x
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
+        <textarea
+          value={data.differentialDiagnoses.join('\n')}
+          onChange={(e) => onChange({
+            differentialDiagnoses: e.target.value.split('\n').filter(d => d.trim())
+          })}
+          placeholder="Enter each differential diagnosis on a new line..."
+          className={styles.textarea}
+          rows={3}
+        />
+        <p className={styles.hint}>Enter each diagnosis on a separate line</p>
       </div>
 
       <div className={styles.fullWidth}>

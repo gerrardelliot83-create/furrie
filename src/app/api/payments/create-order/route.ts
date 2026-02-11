@@ -55,14 +55,14 @@ export async function POST(request: Request) {
       );
     }
 
-    // Store payment record in database
-    const { error: dbError } = await supabase
+    // Store payment record using admin client (customers can't INSERT due to RLS)
+    const { data: paymentRecord, error: dbError } = await supabaseAdmin
       .from('payments')
       .insert({
         customer_id: user.id,
         consultation_id: body.consultationId || null,
         subscription_id: body.subscriptionId || null,
-        cashfree_order_id: orderResponse.orderId, // Using existing column name
+        cashfree_order_id: orderResponse.orderId,
         amount: orderRequest.amount,
         currency: orderRequest.currency,
         status: SKIP_PAYMENTS ? 'completed' : 'pending',
@@ -71,11 +71,12 @@ export async function POST(request: Request) {
           gateway: PAYMENT_GATEWAY,
           skip_payments: SKIP_PAYMENTS,
         },
-      });
+      })
+      .select('id')
+      .single();
 
     if (dbError) {
       console.error('Failed to store payment record:', dbError);
-      // Don't fail the request if DB storage fails in dev mode
       if (!SKIP_PAYMENTS) {
         return NextResponse.json(
           { error: 'Failed to create payment record', code: 'DB_ERROR' },
@@ -85,14 +86,16 @@ export async function POST(request: Request) {
     }
 
     // If in dev bypass mode and it's a consultation, mark as paid and scheduled
-    // Use supabaseAdmin to bypass RLS (customers don't have UPDATE policy on consultations)
     if (SKIP_PAYMENTS && body.consultationId) {
       console.log('[create-order] SKIP_PAYMENTS mode: updating consultation status to scheduled');
+
+      // Use the payment record's UUID (not the mock order ID string which isn't a valid UUID)
+      const paymentUuid = paymentRecord?.id || null;
 
       const { data: updateData, error: updateError } = await supabaseAdmin
         .from('consultations')
         .update({
-          payment_id: orderResponse.orderId,
+          payment_id: paymentUuid,
           amount_paid: orderRequest.amount,
           status: 'scheduled',
         })
@@ -103,7 +106,6 @@ export async function POST(request: Request) {
 
       if (updateError) {
         console.error('[create-order] Failed to update consultation status:', updateError);
-        // Don't fail the request, but log the error
       } else if (updateData) {
         console.log('[create-order] Successfully updated consultation:', updateData.id, 'to status:', updateData.status);
       } else {

@@ -83,15 +83,17 @@ export async function POST(request: Request) {
       }
     }
 
-    // If in dev bypass mode and it's a consultation, mark as paid
+    // If in dev bypass mode and it's a consultation, mark as paid and scheduled
     if (SKIP_PAYMENTS && body.consultationId) {
       await supabase
         .from('consultations')
         .update({
           payment_id: orderResponse.orderId,
           amount_paid: orderRequest.amount,
+          status: 'scheduled',
         })
-        .eq('id', body.consultationId);
+        .eq('id', body.consultationId)
+        .eq('status', 'pending'); // Only update if still pending (optimistic lock)
     }
 
     return NextResponse.json({

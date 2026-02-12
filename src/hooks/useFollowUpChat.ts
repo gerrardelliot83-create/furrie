@@ -161,12 +161,20 @@ export function useFollowUpChat(consultationId: string): UseFollowUpChatReturn {
   // Send message
   const sendMessage = useCallback(
     async (content: string, messageType: 'text' | 'image' = 'text', attachmentUrl?: string) => {
-      if (!threadId || isExpired) return;
+      if (!threadId) {
+        throw new Error('Chat not initialized');
+      }
+
+      if (isExpired) {
+        throw new Error('This follow-up chat has expired. Please schedule a new consultation if needed.');
+      }
 
       const supabase = supabaseRef.current;
 
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        throw new Error('Not authenticated');
+      }
 
       // Get user role from profile
       const { data: profile } = await supabase
@@ -188,7 +196,11 @@ export function useFollowUpChat(consultationId: string): UseFollowUpChatReturn {
 
       if (insertError) {
         console.error('Error sending message:', insertError);
-        throw new Error('Failed to send message');
+        // Check for common RLS failures (PostgreSQL permission denied error)
+        if (insertError.code === '42501') {
+          throw new Error('Unable to send message. The chat may have expired or is no longer active.');
+        }
+        throw new Error('Failed to send message. Please try again.');
       }
     },
     [threadId, isExpired]

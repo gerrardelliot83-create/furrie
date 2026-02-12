@@ -131,6 +131,19 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
     notFound();
   }
 
+  // Query follow_up_threads directly to check if chat is available
+  // This is more reliable than relying on the soap_notes nested query
+  const { data: followUpThread } = await supabase
+    .from('follow_up_threads')
+    .select('id, is_active, expires_at')
+    .eq('consultation_id', consultationId)
+    .single();
+
+  const hasFollowUpAccess = !!followUpThread && followUpThread.is_active;
+  const isThreadExpired = followUpThread?.expires_at
+    ? new Date(followUpThread.expires_at) < new Date()
+    : false;
+
   const pet = consultation.pets;
   const customer = consultation.profiles;
   const hasSoapNotes = consultation.soap_notes && consultation.soap_notes.length > 0;
@@ -328,13 +341,20 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
               {hasPrescription ? 'View Prescription' : 'Generate Prescription'}
             </Link>
 
-            {hasSoapNotes ? (
+            {hasFollowUpAccess && !isThreadExpired ? (
               <Link
                 href={`/consultations/${consultationId}/follow-up`}
                 className={styles.actionButtonSecondary}
               >
                 Follow-up Chat
               </Link>
+            ) : hasSoapNotes ? (
+              <span
+                className={styles.actionButtonDisabled}
+                title={isThreadExpired ? 'Chat window has expired' : 'Follow-up chat is being created...'}
+              >
+                Follow-up Chat{isThreadExpired ? ' (Expired)' : ''}
+              </span>
             ) : (
               <span
                 className={styles.actionButtonDisabled}

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 import {
   checkSoapExists,
   checkPlusSubscription,
@@ -98,8 +99,9 @@ export async function POST(request: NextRequest) {
     // Calculate expiry based on subscription
     const expiresAt = calculateThreadExpiry(isPlusUser);
 
-    // Create new thread
-    const { data: newThread, error: createError } = await supabase
+    // Create new thread using admin client to bypass RLS
+    // Authorization is already validated above (vet must be assigned to consultation)
+    const { data: newThread, error: createError } = await supabaseAdmin
       .from('follow_up_threads')
       .insert({
         consultation_id: consultationId,

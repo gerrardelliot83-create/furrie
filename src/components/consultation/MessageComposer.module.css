@@ -1,12 +1,97 @@
 /* MessageComposer.module.css */
-/* Chat message composer */
+/* Chat message composer with image upload */
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
 
 .container {
   display: flex;
   align-items: flex-end;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
+.hiddenInput {
+  display: none;
+}
+
+/* Image upload button */
+.imageButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background-color: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+
+.imageButton:hover:not(:disabled) {
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  border-color: var(--color-text-tertiary);
+}
+
+.imageButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.uploadSpinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid transparent;
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* Image preview */
+.imagePreview {
+  position: relative;
+  display: inline-block;
+  max-width: 200px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+}
+
+.previewImage {
+  display: block;
+  max-width: 100%;
+  max-height: 150px;
+  object-fit: cover;
+}
+
+.cancelImage {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: white;
+  border: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.cancelImage:hover {
+  background-color: rgba(0, 0, 0, 0.8);
+}
+
+/* Text input */
 .textarea {
   flex: 1;
   padding: var(--space-3);
@@ -37,6 +122,7 @@
   color: var(--color-text-tertiary);
 }
 
+/* Send button */
 .sendButton {
   display: flex;
   align-items: center;
@@ -74,5 +160,23 @@
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* Mobile optimizations */
+@media (max-width: 480px) {
+  .imageButton {
+    width: 40px;
+    height: 40px;
+  }
+
+  .sendButton {
+    width: 40px;
+    height: 40px;
+  }
+
+  .textarea {
+    min-height: 40px;
+    padding: var(--space-2) var(--space-3);
   }
 }

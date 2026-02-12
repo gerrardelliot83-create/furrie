@@ -8,10 +8,9 @@ export interface ChatMessage {
   threadId: string;
   senderId: string;
   senderRole: 'customer' | 'vet';
-  messageType: 'text' | 'image' | 'prescription' | 'system';
+  messageType: 'text' | 'image';
   content: string;
   attachmentUrl: string | null;
-  isRead: boolean;
   createdAt: string;
 }
 
@@ -20,10 +19,10 @@ interface UseFollowUpChatReturn {
   isLoading: boolean;
   error: string | null;
   sendMessage: (content: string, messageType?: 'text' | 'image', attachmentUrl?: string) => Promise<void>;
-  markAsRead: () => Promise<void>;
   threadId: string | null;
   threadExpiresAt: string | null;
   isExpired: boolean;
+  threadNotFound: boolean;
 }
 
 export function useFollowUpChat(consultationId: string): UseFollowUpChatReturn {
@@ -32,16 +31,18 @@ export function useFollowUpChat(consultationId: string): UseFollowUpChatReturn {
   const [threadExpiresAt, setThreadExpiresAt] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [threadNotFound, setThreadNotFound] = useState(false);
   const supabaseRef = useRef(createClient());
 
   // Check if thread is expired
   const isExpired = threadExpiresAt ? new Date(threadExpiresAt) < new Date() : false;
 
-  // Fetch or create thread and messages
+  // Fetch existing thread and messages (no auto-create)
   useEffect(() => {
     const fetchChat = async () => {
       setIsLoading(true);
       setError(null);
+      setThreadNotFound(false);
 
       const supabase = supabaseRef.current;
 
@@ -54,38 +55,31 @@ export function useFollowUpChat(consultationId: string): UseFollowUpChatReturn {
           return;
         }
 
-        // Check for existing thread
-        let { data: thread } = await supabase
+        // Check for existing thread (DO NOT create if not found)
+        const { data: thread, error: threadError } = await supabase
           .from('follow_up_threads')
           .select('*')
           .eq('consultation_id', consultationId)
           .single();
 
-        if (!thread) {
-          // Create new thread
-          const { data: newThread, error: createError } = await supabase
-            .from('follow_up_threads')
-            .insert({
-              consultation_id: consultationId,
-              expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
-            })
-            .select()
-            .single();
+        if (threadError || !thread) {
+          // Thread not found - chat not yet available
+          setThreadNotFound(true);
+          setIsLoading(false);
+          return;
+        }
 
-          if (createError) {
-            console.error('Error creating thread:', createError);
-            setError('Failed to create chat thread');
-            setIsLoading(false);
-            return;
-          }
-
-          thread = newThread;
+        // Verify user is a participant
+        if (thread.customer_id !== user.id && thread.vet_id !== user.id) {
+          setError('Not authorized to view this chat');
+          setIsLoading(false);
+          return;
         }
 
         setThreadId(thread.id);
         setThreadExpiresAt(thread.expires_at);
 
-        // Fetch messages
+        // Fetch messages with new column names
         const { data: messagesData, error: messagesError } = await supabase
           .from('follow_up_messages')
           .select('*')
@@ -101,11 +95,10 @@ export function useFollowUpChat(consultationId: string): UseFollowUpChatReturn {
               id: msg.id,
               threadId: msg.thread_id,
               senderId: msg.sender_id,
-              senderRole: msg.sender_role,
-              messageType: msg.message_type,
+              senderRole: msg.sender_role || 'customer',
+              messageType: msg.message_type || 'text',
               content: msg.content,
               attachmentUrl: msg.attachment_url,
-              isRead: msg.is_read,
               createdAt: msg.created_at,
             }))
           );
@@ -142,11 +135,10 @@ export function useFollowUpChat(consultationId: string): UseFollowUpChatReturn {
             id: payload.new.id,
             threadId: payload.new.thread_id,
             senderId: payload.new.sender_id,
-            senderRole: payload.new.sender_role,
-            messageType: payload.new.message_type,
+            senderRole: payload.new.sender_role || 'customer',
+            messageType: payload.new.message_type || 'text',
             content: payload.new.content,
             attachmentUrl: payload.new.attachment_url,
-            isRead: payload.new.is_read,
             createdAt: payload.new.created_at,
           };
 
@@ -176,6 +168,7 @@ export function useFollowUpChat(consultationId: string): UseFollowUpChatReturn {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Get user role from profile
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')
@@ -201,48 +194,14 @@ export function useFollowUpChat(consultationId: string): UseFollowUpChatReturn {
     [threadId, isExpired]
   );
 
-  // Mark messages as read
-  const markAsRead = useCallback(async () => {
-    if (!threadId) return;
-
-    const supabase = supabaseRef.current;
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    const myRole = profile?.role === 'vet' ? 'vet' : 'customer';
-    const otherRole = myRole === 'vet' ? 'customer' : 'vet';
-
-    // Mark messages from the other party as read
-    await supabase
-      .from('follow_up_messages')
-      .update({ is_read: true })
-      .eq('thread_id', threadId)
-      .eq('sender_role', otherRole)
-      .eq('is_read', false);
-
-    // Update local state
-    setMessages((prev) =>
-      prev.map((msg) =>
-        msg.senderRole === otherRole ? { ...msg, isRead: true } : msg
-      )
-    );
-  }, [threadId]);
-
   return {
     messages,
     isLoading,
     error,
     sendMessage,
-    markAsRead,
     threadId,
     threadExpiresAt,
     isExpired,
+    threadNotFound,
   };
 }

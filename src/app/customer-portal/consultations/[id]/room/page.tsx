@@ -4,7 +4,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { DailyProvider } from '@daily-co/daily-react';
 import Daily from '@daily-co/daily-js';
-import { PreJoinScreen, VideoRoom } from '@/components/consultation';
+import { VideoRoom } from '@/components/consultation';
+import { Button } from '@/components/ui/Button';
 import styles from './page.module.css';
 
 // Retry helper for handling race conditions in consultation fetch
@@ -42,7 +43,7 @@ async function fetchWithRetry(
   throw lastError || new Error('Request failed after retries');
 }
 
-type RoomState = 'loading' | 'error' | 'prejoin' | 'in-call' | 'left';
+type RoomState = 'loading' | 'error' | 'ready' | 'in-call' | 'left';
 
 interface TokenResponse {
   token: string;
@@ -98,7 +99,7 @@ export default function CustomerVideoRoomPage() {
           setVetInfo({ name: data.consultation.vet.name });
         }
 
-        setRoomState('prejoin');
+        setRoomState('ready');
       } catch (err) {
         console.error('Failed to setup video room:', err);
         setError(err instanceof Error ? err.message : 'Failed to setup video room');
@@ -199,15 +200,47 @@ export default function CustomerVideoRoomPage() {
     );
   }
 
-  // PreJoin state
-  if (roomState === 'prejoin' && tokenData) {
+  // Ready state - simple screen without video preview
+  if (roomState === 'ready' && tokenData) {
     return (
       <div className={styles.container}>
-        <PreJoinScreen
-          onJoin={handleJoin}
-          onCancel={handleCancel}
-          vetName={vetInfo?.name}
-        />
+        <div className={styles.readyScreen}>
+          <h1 className={styles.readyTitle}>Ready to Join</h1>
+
+          <div className={styles.vetCard}>
+            <div className={styles.vetAvatar}>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+            </div>
+            <div className={styles.vetInfo}>
+              <p className={styles.vetLabel}>Your Veterinarian</p>
+              <h2 className={styles.vetName}>
+                {vetInfo?.name ? `Dr. ${vetInfo.name}` : 'Your vet'}
+              </h2>
+              <p className={styles.vetStatus}>is waiting for you</p>
+            </div>
+          </div>
+
+          <div className={styles.notice}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            <span>This consultation may be recorded for quality and training purposes.</span>
+          </div>
+
+          <div className={styles.actions}>
+            <Button variant="ghost" onClick={handleCancel}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={handleJoin}>
+              Join Consultation
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }

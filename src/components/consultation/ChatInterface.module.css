@@ -25,6 +25,36 @@
   color: var(--color-error);
 }
 
+/* Chat not available state */
+.notAvailable {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8);
+  text-align: center;
+}
+
+.notAvailableIcon {
+  margin-bottom: var(--space-4);
+  color: var(--color-text-muted);
+}
+
+.notAvailableTitle {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.notAvailableText {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  max-width: 300px;
+  line-height: var(--line-height-relaxed);
+}
+
 .header {
   display: flex;
   justify-content: space-between;

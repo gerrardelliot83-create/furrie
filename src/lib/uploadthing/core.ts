@@ -60,6 +60,14 @@ export const ourFileRouter = {
       console.log('Consultation image uploaded:', file.ufsUrl);
       return { uploadedBy: metadata.userId, url: file.ufsUrl };
     }),
+
+  // Follow-up chat images
+  followUpImage: f({ image: { maxFileSize: '4MB', maxFileCount: 1 } })
+    .middleware(authMiddleware)
+    .onUploadComplete(async ({ metadata, file }) => {
+      console.log('Follow-up image uploaded:', file.ufsUrl);
+      return { uploadedBy: metadata.userId, url: file.ufsUrl };
+    }),
 } satisfies FileRouter;
 
 export type OurFileRouter = typeof ourFileRouter;

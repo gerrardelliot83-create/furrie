@@ -22,9 +22,9 @@ export function ChatInterface({
     isLoading,
     error,
     sendMessage,
-    markAsRead,
     threadExpiresAt,
     isExpired,
+    threadNotFound,
   } = useFollowUpChat(consultationId);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -33,11 +33,6 @@ export function ChatInterface({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
-
-  // Mark messages as read when component mounts or messages change
-  useEffect(() => {
-    markAsRead();
-  }, [messages, markAsRead]);
 
   const handleSendMessage = async (content: string, attachmentUrl?: string) => {
     const messageType = attachmentUrl ? 'image' : 'text';
@@ -73,6 +68,25 @@ export function ChatInterface({
     return (
       <div className={styles.container}>
         <div className={styles.error}>{error}</div>
+      </div>
+    );
+  }
+
+  if (threadNotFound) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.notAvailable}>
+          <div className={styles.notAvailableIcon}>
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              <line x1="9" y1="10" x2="15" y2="10" />
+            </svg>
+          </div>
+          <h3 className={styles.notAvailableTitle}>Chat Not Yet Available</h3>
+          <p className={styles.notAvailableText}>
+            Follow-up chat will be available once the veterinarian completes the consultation notes.
+          </p>
+        </div>
       </div>
     );
   }

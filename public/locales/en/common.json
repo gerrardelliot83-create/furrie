@@ -182,6 +182,28 @@
     "past": "Past",
     "followUps": "Follow-ups"
   },
+  "followUp": {
+    "title": "Follow-up Chat",
+    "openChat": "Open Chat",
+    "chatNotAvailable": "Chat not yet available",
+    "chatNotAvailableDescription": "Follow-up chat will be available once the veterinarian completes the consultation notes.",
+    "chatExpired": "Chat Expired",
+    "chatExpiredDescription": "This follow-up chat window has expired.",
+    "upgradeToPlusDescription": "Upgrade to Furrie Plus for unlimited follow-up chat access.",
+    "completeSoapFirst": "Complete SOAP notes first to enable follow-up chat",
+    "expiresIn": "Chat expires in {days} days",
+    "noExpiry": "Unlimited follow-up (Plus)",
+    "typeMessage": "Type a message...",
+    "addCaption": "Add a caption (optional)...",
+    "sendMessage": "Send message",
+    "attachImage": "Attach image",
+    "imageUploading": "Uploading image...",
+    "messageSent": "Message sent",
+    "messageFailed": "Failed to send message",
+    "imageUploadFailed": "Failed to upload image",
+    "imageTooLarge": "Image must be under 4MB",
+    "invalidImageType": "Please select an image file"
+  },
   "dashboard": {
     "greeting": "Hello, {name}",
     "goodMorning": "Good morning",

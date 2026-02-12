@@ -325,12 +325,21 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
               {hasPrescription ? 'View Prescription' : 'Generate Prescription'}
             </Link>
 
-            <Link
-              href={`/consultations/${consultationId}/follow-up`}
-              className={styles.actionButtonSecondary}
-            >
-              Follow-up Chat
-            </Link>
+            {hasSoapNotes ? (
+              <Link
+                href={`/consultations/${consultationId}/follow-up`}
+                className={styles.actionButtonSecondary}
+              >
+                Follow-up Chat
+              </Link>
+            ) : (
+              <span
+                className={styles.actionButtonDisabled}
+                title="Complete SOAP notes first to enable follow-up chat"
+              >
+                Follow-up Chat
+              </span>
+            )}
 
             {flag ? (
               <div className={styles.flagged}>

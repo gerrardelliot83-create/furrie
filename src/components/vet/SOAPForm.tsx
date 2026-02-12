@@ -258,6 +258,18 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
       return;
     }
 
+    // Create follow-up thread (non-blocking, don't fail if this fails)
+    try {
+      await fetch('/api/follow-up/thread', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ consultationId }),
+      });
+    } catch (threadError) {
+      // Log but don't block consultation completion
+      console.error('Failed to create follow-up thread:', threadError);
+    }
+
     toast('Consultation completed', 'success');
     router.push('/consultations');
   };

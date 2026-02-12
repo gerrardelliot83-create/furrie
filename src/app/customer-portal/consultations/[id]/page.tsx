@@ -345,6 +345,23 @@ export default async function ConsultationDetailPage({ params }: ConsultationDet
         </section>
       )}
 
+      {/* Follow-up Chat - only show if SOAP notes exist */}
+      {soapNote && consultation.status === 'closed' && consultation.outcome === 'success' && (
+        <section className={styles.card}>
+          <h2 className={styles.cardTitle}>Follow-up Chat</h2>
+          <div className={styles.followUpInfo}>
+            <p className={styles.followUpDescription}>
+              Have questions after your consultation? Chat with Dr. {consultation.vet?.fullName} about your pet&apos;s care.
+            </p>
+            <Link href={`/consultations/${consultation.id}/follow-up`}>
+              <Button variant="secondary" size="sm">
+                Open Chat
+              </Button>
+            </Link>
+          </div>
+        </section>
+      )}
+
       {/* Prescription */}
       {hasPrescription && consultation.prescription?.pdfUrl && (
         <section className={styles.card}>

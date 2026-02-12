@@ -1,10 +1,12 @@
 'use client';
 
+import { useRef, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import { VetStatusToggle } from '@/components/vet/VetStatusToggle';
-import { VetQuickStats } from '@/components/vet/VetQuickStats';
+import { VetQuickStats, type VetQuickStatsRef } from '@/components/vet/VetQuickStats';
 import { TodaySchedulePanel } from '@/components/vet/TodaySchedulePanel';
-import { RecentConsultationsList } from '@/components/vet/RecentConsultationsList';
+import { RecentConsultationsList, type RecentConsultationsListRef } from '@/components/vet/RecentConsultationsList';
+import { useVetDashboardRealtime } from '@/hooks/useVetDashboardRealtime';
 import type { Consultation } from '@/types';
 import styles from './VetDashboard.module.css';
 
@@ -42,6 +44,18 @@ export function VetDashboardContent({
   recentConsultations,
 }: VetDashboardContentProps) {
   const t = useTranslations('nav');
+  const statsRef = useRef<VetQuickStatsRef>(null);
+  const listRef = useRef<RecentConsultationsListRef>(null);
+
+  const handleConsultationChange = useCallback(() => {
+    statsRef.current?.refresh();
+    listRef.current?.refresh();
+  }, []);
+
+  useVetDashboardRealtime({
+    vetId,
+    onConsultationChange: handleConsultationChange,
+  });
 
   return (
     <div className={styles.container}>
@@ -57,10 +71,9 @@ export function VetDashboardContent({
 
       <section className={styles.statsSection}>
         <VetQuickStats
-          todayConsultations={stats.todayConsultations}
-          weekConsultations={stats.weekConsultations}
-          totalConsultations={stats.totalConsultations}
-          averageRating={stats.averageRating}
+          ref={statsRef}
+          vetId={vetId}
+          initialStats={stats}
         />
       </section>
 
@@ -70,7 +83,11 @@ export function VetDashboardContent({
         </section>
 
         <section className={styles.consultationsSection}>
-          <RecentConsultationsList consultations={recentConsultations} />
+          <RecentConsultationsList
+            ref={listRef}
+            vetId={vetId}
+            initialConsultations={recentConsultations}
+          />
         </section>
       </div>
     </div>

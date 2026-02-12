@@ -267,7 +267,14 @@ export default async function ConsultationDetailPage({ params }: ConsultationDet
       {/* Concern & Symptoms */}
       {(consultation.concernText || consultation.symptomCategories.length > 0) && (
         <section className={styles.card}>
-          <h2 className={styles.cardTitle}>Concern & Symptoms</h2>
+          <div className={styles.cardHeader}>
+            <h2 className={styles.cardTitle}>Concern & Symptoms</h2>
+            {consultation.status === 'scheduled' && (
+              <Link href={`/consultations/${consultation.id}/edit`}>
+                <Button variant="ghost" size="sm">Edit</Button>
+              </Link>
+            )}
+          </div>
 
           {consultation.concernText && (
             <div className={styles.concernText}>
@@ -290,7 +297,7 @@ export default async function ConsultationDetailPage({ params }: ConsultationDet
       {/* SOAP Summary - Simplified for customer */}
       {soapNote && consultation.status === 'closed' && consultation.outcome === 'success' && (
         <section className={styles.card}>
-          <h2 className={styles.cardTitle}>Vet Summary</h2>
+          <h2 className={styles.cardTitle}>Consultation Summary</h2>
 
           {soapNote.provisional_diagnosis && (
             <div className={styles.summarySection}>

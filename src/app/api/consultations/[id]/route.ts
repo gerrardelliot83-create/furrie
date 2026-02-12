@@ -252,6 +252,16 @@ export async function PATCH(
       );
     }
 
+    // Allow editing concerns only when status is 'scheduled'
+    if (body.concernText !== undefined || body.symptomCategories !== undefined) {
+      if (existing.status !== 'scheduled') {
+        return NextResponse.json(
+          { error: 'Cannot edit concerns after consultation has started', code: 'EDIT_NOT_ALLOWED' },
+          { status: 400 }
+        );
+      }
+    }
+
     // Handle cancel action - converts to closed status with outcome
     if (body.status === 'cancelled') {
       // Only allow cancelling pending or scheduled consultations

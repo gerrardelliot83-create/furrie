@@ -1,12 +1,16 @@
 import { NextResponse } from 'next/server';
 import { renderToBuffer } from '@react-pdf/renderer';
+import { UTApi } from 'uploadthing/server';
 import { createClient } from '@/lib/supabase/server';
 import { PrescriptionPDF } from '@/components/vet/PrescriptionPDF';
+import { sendPrescriptionEmail } from '@/lib/email';
 import {
   formatPrescriptionDate,
   generatePrescriptionNumber,
   type PrescriptionData,
 } from '@/lib/prescriptions/template';
+
+const utapi = new UTApi();
 
 // POST /api/prescriptions/generate-pdf - Generate prescription PDF
 export async function POST(request: Request) {
@@ -180,14 +184,35 @@ export async function POST(request: Request) {
       PrescriptionPDF({ data: prescriptionData })
     );
 
-    // Save prescription record to database
+    // Upload PDF to UploadThing using UTApi (server-side upload)
+    let pdfUrl = '';
+    try {
+      // Convert Buffer to Uint8Array for File constructor compatibility
+      const uint8Array = new Uint8Array(pdfBuffer);
+      const file = new File(
+        [uint8Array],
+        `prescription-${prescriptionNumber}.pdf`,
+        { type: 'application/pdf' }
+      );
+      const uploadResponse = await utapi.uploadFiles([file]);
+
+      if (uploadResponse[0]?.data?.ufsUrl) {
+        pdfUrl = uploadResponse[0].data.ufsUrl;
+        console.log('Prescription PDF uploaded:', pdfUrl);
+      }
+    } catch (uploadError) {
+      console.error('Failed to upload prescription PDF:', uploadError);
+      // Continue - we can still return the PDF directly
+    }
+
+    // Save prescription record to database with pdf_url
     const { error: saveError } = await supabase
       .from('prescriptions')
       .insert({
         consultation_id: consultationId,
         vet_id: user.id,
         prescription_number: prescriptionNumber,
-        pdf_url: '', // Will be updated after upload
+        pdf_url: pdfUrl,
         medications: soapNote.medications || [],
         diagnosis: soapNote.provisional_diagnosis,
         recommendations: prescriptionData.recommendations,
@@ -201,7 +226,31 @@ export async function POST(request: Request) {
       // Continue anyway - we can still return the PDF
     }
 
-    // Return PDF as response
+    // Fetch customer email and send prescription email
+    const { data: customerProfile } = await supabase
+      .from('profiles')
+      .select('email, full_name')
+      .eq('id', consultation.customer_id)
+      .single();
+
+    if (customerProfile?.email) {
+      try {
+        await sendPrescriptionEmail({
+          customerEmail: customerProfile.email,
+          customerName: customerProfile.full_name || 'Pet Parent',
+          petName: pet?.name || 'your pet',
+          vetName: profile.full_name || 'Your Veterinarian',
+          prescriptionNumber,
+          pdfBuffer: Buffer.from(pdfBuffer),
+        });
+        console.log('Prescription email sent to:', customerProfile.email);
+      } catch (emailError) {
+        console.error('Failed to send prescription email:', emailError);
+        // Don't fail - PDF was generated and uploaded successfully
+      }
+    }
+
+    // Return PDF as response for vet download
     // Convert Buffer to Uint8Array for NextResponse compatibility
     const uint8Array = new Uint8Array(pdfBuffer);
     return new NextResponse(uint8Array, {

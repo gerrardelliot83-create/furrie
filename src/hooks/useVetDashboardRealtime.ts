@@ -30,7 +30,7 @@ export function useVetDashboardRealtime({
   useEffect(() => {
     const supabase = createClient();
 
-    // Subscribe to broadcast channel for new consultation notifications
+    // Subscribe to broadcast channel for consultation notifications
     // This bypasses RLS issues since broadcasts don't go through postgres
     const broadcastChannel = supabase
       .channel(`vet:${vetId}:notifications`)
@@ -44,6 +44,10 @@ export function useVetDashboardRealtime({
             : 'New consultation assigned to you';
           toast(message, 'info');
         }
+        onConsultationChange();
+      })
+      .on('broadcast', { event: 'consultation_updated' }, () => {
+        // Trigger refresh when consultation status changes (e.g., payment completed)
         onConsultationChange();
       })
       .subscribe();

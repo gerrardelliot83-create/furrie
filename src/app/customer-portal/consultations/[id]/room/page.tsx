@@ -42,7 +42,7 @@ async function fetchWithRetry(
   throw lastError || new Error('Request failed after retries');
 }
 
-type RoomState = 'loading' | 'error' | 'prejoin' | 'joining' | 'in-call' | 'left';
+type RoomState = 'loading' | 'error' | 'prejoin' | 'in-call' | 'left';
 
 interface TokenResponse {
   token: string;
@@ -132,9 +132,7 @@ export default function CustomerVideoRoomPage() {
   }, [tokenData, callObject]);
 
   const handleJoin = useCallback(() => {
-    setRoomState('joining');
-    // The VideoRoom component will handle the actual join
-    setTimeout(() => setRoomState('in-call'), 100);
+    setRoomState('in-call'); // Direct transition, no intermediate state
   }, []);
 
   const handleLeave = useCallback(() => {
@@ -215,7 +213,7 @@ export default function CustomerVideoRoomPage() {
   }
 
   // In-call state
-  if ((roomState === 'joining' || roomState === 'in-call') && tokenData && callObject) {
+  if (roomState === 'in-call' && tokenData && callObject) {
     return (
       <DailyProvider callObject={callObject}>
         <VideoRoom

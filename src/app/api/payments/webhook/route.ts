@@ -116,7 +116,14 @@ export async function POST(request: Request) {
         .single();
 
       if (payment?.consultation_id) {
-        // FIX: Also update status to 'scheduled' after successful payment
+        // Get consultation details including vet_id for notification
+        const { data: consultation } = await supabase
+          .from('consultations')
+          .select('vet_id')
+          .eq('id', payment.consultation_id)
+          .single();
+
+        // Update status to 'scheduled' after successful payment
         const { error: consultationUpdateError } = await supabase
           .from('consultations')
           .update({
@@ -129,6 +136,22 @@ export async function POST(request: Request) {
 
         if (consultationUpdateError) {
           console.error('Failed to update consultation after payment:', consultationUpdateError);
+        } else if (consultation?.vet_id) {
+          // Send realtime notification to vet about status change
+          try {
+            const channel = supabase.channel(`vet:${consultation.vet_id}:notifications`);
+            await channel.send({
+              type: 'broadcast',
+              event: 'consultation_updated',
+              payload: {
+                consultationId: payment.consultation_id,
+                newStatus: 'scheduled',
+              },
+            });
+            await supabase.removeChannel(channel);
+          } catch (notifyError) {
+            console.error('Failed to send vet notification:', notifyError);
+          }
         }
       }
 

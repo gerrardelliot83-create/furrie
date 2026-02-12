@@ -10,6 +10,9 @@ import { getStatusVariant, getStatusDisplayText } from '@/lib/utils/statusHelper
 import type { ConsultationStatus, ConsultationOutcome } from '@/types';
 import styles from './page.module.css';
 
+// Force dynamic rendering to always get fresh data
+export const dynamic = 'force-dynamic';
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
   return {

@@ -1,6 +1,14 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy initialization to avoid build-time errors when env var is not available
+let resend: Resend | null = null;
+
+function getResendClient(): Resend {
+  if (!resend) {
+    resend = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resend;
+}
 
 export interface SendEmailOptions {
   to: string;
@@ -14,7 +22,8 @@ export interface SendEmailOptions {
 
 export async function sendEmail(options: SendEmailOptions) {
   try {
-    const { data, error } = await resend.emails.send({
+    const client = getResendClient();
+    const { data, error } = await client.emails.send({
       from: 'Furrie <prescriptions@furrie.in>',
       to: options.to,
       subject: options.subject,

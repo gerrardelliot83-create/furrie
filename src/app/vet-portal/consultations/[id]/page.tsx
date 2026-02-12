@@ -315,7 +315,7 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
               href={`/consultations/${consultationId}/soap`}
               className={hasSoapNotes ? styles.actionButtonSecondary : styles.actionButton}
             >
-              {hasSoapNotes ? 'View SOAP Notes' : 'Write SOAP Notes'}
+              {hasSoapNotes ? 'Edit SOAP Notes' : 'Write SOAP Notes'}
             </Link>
 
             <Link

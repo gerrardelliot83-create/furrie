@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
 import { createClient } from '@/lib/supabase/client';
+import { revalidateConsultationPath } from '@/app/actions/revalidate';
 import { SubjectiveSection } from './SubjectiveSection';
 import { ObjectiveSection } from './ObjectiveSection';
 import { AssessmentSection } from './AssessmentSection';
@@ -198,7 +199,9 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
     setLastSaved(new Date());
     setHasUnsavedChanges(false);
 
+    // Revalidate the consultation detail page cache (only for manual saves)
     if (!isAutoSave) {
+      await revalidateConsultationPath(consultationId);
       toast('Notes saved successfully', 'success');
     }
   }, [consultationId, vetId, formData, isSaving, toast]);
@@ -257,6 +260,9 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
       toast('Failed to complete consultation', 'error');
       return;
     }
+
+    // Revalidate the consultation detail page cache
+    await revalidateConsultationPath(consultationId);
 
     // Create follow-up thread (non-blocking, don't fail if this fails)
     try {

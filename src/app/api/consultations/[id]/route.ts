@@ -303,8 +303,9 @@ export async function PATCH(
     // Map update data
     const updateData = mapConsultationUpdateToDB(body);
 
-    // Perform update
-    const { data: updated, error: updateError } = await supabase
+    // Perform update using admin client (ownership already verified above)
+    // Regular client fails due to missing RLS UPDATE policy for customers
+    const { data: updated, error: updateError } = await supabaseAdmin
       .from('consultations')
       .update(updateData)
       .eq('id', id)

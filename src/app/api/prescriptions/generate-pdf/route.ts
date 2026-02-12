@@ -206,17 +206,27 @@ export async function POST(request: Request) {
     }
 
     // Save prescription record to database with pdf_url
+    // Using correct column names from schema: dietary_recommendations, lifestyle_recommendations, warning_signs
+    // Also including required fields: soap_note_id, customer_id, pet_id
     const { error: saveError } = await supabase
       .from('prescriptions')
       .insert({
         consultation_id: consultationId,
+        soap_note_id: soapNote.id,
         vet_id: user.id,
+        customer_id: consultation.customer_id,
+        pet_id: consultation.pet_id,
         prescription_number: prescriptionNumber,
         pdf_url: pdfUrl,
         medications: soapNote.medications || [],
-        diagnosis: soapNote.provisional_diagnosis,
-        recommendations: prescriptionData.recommendations,
-        warnings: prescriptionData.warnings,
+        dietary_recommendations: soapNote.dietary_recommendations || null,
+        lifestyle_recommendations: soapNote.lifestyle_modifications || null,
+        warning_signs: soapNote.warning_signs || null,
+        follow_up_recommendation: soapNote.follow_up_timeframe || null,
+        in_person_advisory: soapNote.in_person_visit_recommended
+          ? `${soapNote.in_person_urgency || 'Recommended'}`
+          : null,
+        status: 'finalized',
       })
       .select()
       .single();

@@ -208,6 +208,26 @@ export async function POST(request: Request) {
       );
     }
 
+    // Send realtime notification to vet via broadcast channel
+    // This bypasses RLS issues since broadcasts don't go through postgres
+    try {
+      const channel = supabaseAdmin.channel(`vet:${vetId}:notifications`);
+      await channel.send({
+        type: 'broadcast',
+        event: 'new_consultation',
+        payload: {
+          consultationId: consultation.id,
+          petName: pet?.name,
+          scheduledAt: body.scheduledAt,
+        },
+      });
+      // Unsubscribe after sending
+      await supabaseAdmin.removeChannel(channel);
+    } catch (notifyError) {
+      // Log but don't fail the booking
+      console.error('Failed to send vet notification:', notifyError);
+    }
+
     // Get consultation fee (could be from pricing config, hardcoded for MVP)
     const consultationFee = 499;
 

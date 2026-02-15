@@ -17,14 +17,20 @@ export function MessageBubble({ message, isOwn }: MessageBubbleProps) {
     });
   };
 
-  // Render image message
-  if (message.messageType === 'image' && message.attachmentUrl) {
+  // Render image message - only if BOTH messageType is 'image' AND attachmentUrl is a valid non-empty string
+  const isImageMessage =
+    message.messageType === 'image' &&
+    message.attachmentUrl &&
+    typeof message.attachmentUrl === 'string' &&
+    message.attachmentUrl.trim() !== '';
+
+  if (isImageMessage) {
     return (
       <div className={`${styles.messageRow} ${isOwn ? styles.own : ''}`}>
         <div className={`${styles.bubble} ${isOwn ? styles.ownBubble : ''}`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={message.attachmentUrl}
+            src={message.attachmentUrl!}
             alt="Shared image"
             className={styles.messageImage}
             onClick={() => window.open(message.attachmentUrl!, '_blank')}
@@ -33,7 +39,7 @@ export function MessageBubble({ message, isOwn }: MessageBubbleProps) {
             <p className={styles.messageText}>{message.content}</p>
           )}
         </div>
-        <span className={styles.time}>
+        <span className={styles.time} suppressHydrationWarning>
           {formatTime(message.createdAt)}
         </span>
       </div>
@@ -46,7 +52,7 @@ export function MessageBubble({ message, isOwn }: MessageBubbleProps) {
       <div className={`${styles.bubble} ${isOwn ? styles.ownBubble : ''}`}>
         <p className={styles.messageText}>{message.content}</p>
       </div>
-      <span className={styles.time}>
+      <span className={styles.time} suppressHydrationWarning>
         {formatTime(message.createdAt)}
       </span>
     </div>

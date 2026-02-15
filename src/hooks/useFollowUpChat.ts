@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 export interface ChatMessage {
   id: string;
@@ -33,6 +34,7 @@ export function useFollowUpChat(consultationId: string): UseFollowUpChatReturn {
   const [error, setError] = useState<string | null>(null);
   const [threadNotFound, setThreadNotFound] = useState(false);
   const supabaseRef = useRef(createClient());
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   // Check if thread is expired
   const isExpired = threadExpiresAt ? new Date(threadExpiresAt) < new Date() : false;
@@ -114,51 +116,37 @@ export function useFollowUpChat(consultationId: string): UseFollowUpChatReturn {
     fetchChat();
   }, [consultationId]);
 
-  // Subscribe to real-time messages
+  // Subscribe to real-time messages using Broadcast (no database replication setup required)
   useEffect(() => {
     if (!threadId) return;
 
     const supabase = supabaseRef.current;
 
-    const channel = supabase
-      .channel(`follow_up:${threadId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'follow_up_messages',
-          filter: `thread_id=eq.${threadId}`,
-        },
-        (payload) => {
-          const newMessage: ChatMessage = {
-            id: payload.new.id,
-            threadId: payload.new.thread_id,
-            senderId: payload.new.sender_id,
-            senderRole: payload.new.sender_role || 'customer',
-            messageType: payload.new.message_type || 'text',
-            content: payload.new.content,
-            attachmentUrl: payload.new.attachment_url,
-            createdAt: payload.new.created_at,
-          };
+    // Create and store channel reference for both subscribing and sending
+    const channel = supabase.channel(`follow_up:${threadId}`);
+    channelRef.current = channel;
 
-          setMessages((prev) => {
-            // Avoid duplicates
-            if (prev.some((m) => m.id === newMessage.id)) {
-              return prev;
-            }
-            return [...prev, newMessage];
-          });
-        }
-      )
+    channel
+      .on('broadcast', { event: 'new_message' }, (payload) => {
+        const newMessage = payload.payload as ChatMessage;
+
+        setMessages((prev) => {
+          // Avoid duplicates (message might already be there from optimistic update)
+          if (prev.some((m) => m.id === newMessage.id)) {
+            return prev;
+          }
+          return [...prev, newMessage];
+        });
+      })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
+      channelRef.current = null;
     };
   }, [threadId]);
 
-  // Send message
+  // Send message with optimistic updates and broadcast
   const sendMessage = useCallback(
     async (content: string, messageType: 'text' | 'image' = 'text', attachmentUrl?: string) => {
       if (!threadId) {
@@ -185,22 +173,72 @@ export function useFollowUpChat(consultationId: string): UseFollowUpChatReturn {
 
       const senderRole = profile?.role === 'vet' ? 'vet' : 'customer';
 
-      const { error: insertError } = await supabase.from('follow_up_messages').insert({
-        thread_id: threadId,
-        sender_id: user.id,
-        sender_role: senderRole,
-        message_type: messageType,
+      // Create optimistic message for immediate UI update
+      const optimisticId = `optimistic-${Date.now()}`;
+      const optimisticMessage: ChatMessage = {
+        id: optimisticId,
+        threadId,
+        senderId: user.id,
+        senderRole,
+        messageType,
         content,
-        attachment_url: attachmentUrl || null,
-      });
+        attachmentUrl: attachmentUrl || null,
+        createdAt: new Date().toISOString(),
+      };
+
+      // Add optimistic message immediately
+      setMessages((prev) => [...prev, optimisticMessage]);
+
+      const { data: insertedMessage, error: insertError } = await supabase
+        .from('follow_up_messages')
+        .insert({
+          thread_id: threadId,
+          sender_id: user.id,
+          sender_role: senderRole,
+          message_type: messageType,
+          content,
+          attachment_url: attachmentUrl || null,
+        })
+        .select()
+        .single();
 
       if (insertError) {
+        // Remove optimistic message on error
+        setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
         console.error('Error sending message:', insertError);
         // Check for common RLS failures (PostgreSQL permission denied error)
         if (insertError.code === '42501') {
           throw new Error('Unable to send message. The chat may have expired or is no longer active.');
         }
         throw new Error('Failed to send message. Please try again.');
+      }
+
+      // Replace optimistic message with real one and broadcast to other clients
+      if (insertedMessage) {
+        const realMessage: ChatMessage = {
+          id: insertedMessage.id,
+          threadId: insertedMessage.thread_id,
+          senderId: insertedMessage.sender_id,
+          senderRole: insertedMessage.sender_role || 'customer',
+          messageType: insertedMessage.message_type || 'text',
+          content: insertedMessage.content,
+          attachmentUrl: insertedMessage.attachment_url,
+          createdAt: insertedMessage.created_at,
+        };
+
+        // Replace optimistic message with real one
+        setMessages((prev) =>
+          prev.map((m) => (m.id === optimisticId ? realMessage : m))
+        );
+
+        // Broadcast to other clients (e.g., when customer sends, vet receives)
+        if (channelRef.current) {
+          await channelRef.current.send({
+            type: 'broadcast',
+            event: 'new_message',
+            payload: realMessage,
+          });
+        }
       }
     },
     [threadId, isExpired]

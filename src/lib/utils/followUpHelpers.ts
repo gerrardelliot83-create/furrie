@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -20,14 +21,15 @@ export async function checkSoapExists(consultationId: string): Promise<boolean> 
 }
 
 /**
- * Check if a customer has an active Plus subscription for a specific pet
+ * Check if a customer has an active Plus subscription for a specific pet.
+ * Accepts a pre-existing Supabase client to avoid creating a new one in API routes
+ * that already have one.
  */
-export async function checkPlusSubscription(
+export async function checkPlusSubscriptionWithClient(
+  supabase: SupabaseClient,
   customerId: string,
   petId: string
 ): Promise<boolean> {
-  const supabase = await createClient();
-
   const { data, error } = await supabase
     .from('subscriptions')
     .select('id, status, plan_type, expires_at')
@@ -55,6 +57,18 @@ export async function checkPlusSubscription(
   }
 
   return true;
+}
+
+/**
+ * Check if a customer has an active Plus subscription for a specific pet.
+ * Convenience wrapper that creates its own server Supabase client.
+ */
+export async function checkPlusSubscription(
+  customerId: string,
+  petId: string
+): Promise<boolean> {
+  const supabase = await createClient();
+  return checkPlusSubscriptionWithClient(supabase, customerId, petId);
 }
 
 /**

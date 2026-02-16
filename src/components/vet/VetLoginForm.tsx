@@ -48,7 +48,7 @@ export function VetLoginForm() {
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(value)) {
-      setEmailError('Please enter a valid email address');
+      setEmailError(t('invalidEmail'));
       return false;
     }
     setEmailError('');
@@ -61,7 +61,7 @@ export function VetLoginForm() {
       return false;
     }
     if (value.length < 6) {
-      setPasswordError('Password must be at least 6 characters');
+      setPasswordError(t('passwordTooShort'));
       return false;
     }
     setPasswordError('');
@@ -81,11 +81,13 @@ export function VetLoginForm() {
 
     if (error) {
       setIsSubmitting(false);
-      toast('Invalid email or password', 'error');
+      toast(t('invalidCredentials'), 'error');
       return;
     }
 
-    // Verify the user has vet role
+    // Client-side role check is a UX optimization to show an immediate error message.
+    // The middleware is the authoritative gate — it verifies the role server-side
+    // and redirects with cookie clearing if the user is on the wrong portal.
     const supabase = createClient();
 
     // Get the authenticated user's ID
@@ -93,7 +95,7 @@ export function VetLoginForm() {
 
     if (!user) {
       setIsSubmitting(false);
-      toast('Authentication failed. Please try again.', 'error');
+      toast(t('authFailed'), 'error');
       return;
     }
 
@@ -106,7 +108,7 @@ export function VetLoginForm() {
     setIsSubmitting(false);
 
     if (profileError || !profile) {
-      toast('Account not found. Please contact support.', 'error');
+      toast(t('accountNotFound'), 'error');
       await supabase.auth.signOut();
       return;
     }
@@ -119,7 +121,7 @@ export function VetLoginForm() {
     }
 
     // Successful vet login
-    toast('Welcome!', 'success');
+    toast(t('welcome'), 'success');
     router.push('/dashboard');
   };
 
@@ -128,7 +130,7 @@ export function VetLoginForm() {
       <div className={styles.header}>
         <h1 className={styles.title}>{t('login')}</h1>
         <p className={styles.subtitle}>
-          Enter your credentials to access the vet portal
+          {t('vetLoginSubtitle')}
         </p>
       </div>
 
@@ -149,8 +151,8 @@ export function VetLoginForm() {
         <Input
           name="password"
           type="password"
-          label={t('password') || 'Password'}
-          placeholder="Enter your password"
+          label={t('password')}
+          placeholder={t('passwordPlaceholder')}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           error={passwordError}
@@ -170,9 +172,9 @@ export function VetLoginForm() {
 
       <div className={styles.notice}>
         <p className={styles.noticeText}>
-          Vet accounts are provisioned by administrators.
+          {t('vetAccountsProvisioned')}
           <br />
-          Contact support if you need access.
+          {t('contactSupport')}
         </p>
       </div>
     </div>

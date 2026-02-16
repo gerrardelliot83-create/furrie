@@ -115,11 +115,18 @@ export async function middleware(request: NextRequest) {
   // If user exists, check role-based access
   if (user) {
     // Fetch user profile to get role
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single();
+
+    // If profile fetch fails, let request through rather than blocking.
+    // The page-level auth check will handle it.
+    if (profileError) {
+      console.error('Middleware: failed to fetch profile for user', user.id, profileError);
+      return supabaseResponse;
+    }
 
     const userRole = profile?.role || 'customer';
 
@@ -134,17 +141,18 @@ export async function middleware(request: NextRequest) {
       // Create a response that clears the auth cookies
       const response = NextResponse.redirect(url);
 
-      // Delete Supabase auth cookies to force re-login
-      // Cookie names based on Supabase SSR patterns
-      const cookiesToClear = [
-        'sb-access-token',
-        'sb-refresh-token',
-        `sb-${process.env.NEXT_PUBLIC_SUPABASE_URL?.split('//')[1]?.split('.')[0]}-auth-token`,
-      ];
-
-      cookiesToClear.forEach(cookieName => {
-        response.cookies.delete(cookieName);
-      });
+      // Delete all Supabase auth cookies to force re-login.
+      // Dynamically match sb-* patterns including chunked variants (.0, .1, etc.)
+      const allCookies = request.cookies.getAll();
+      for (const cookie of allCookies) {
+        if (
+          cookie.name === 'sb-access-token' ||
+          cookie.name === 'sb-refresh-token' ||
+          cookie.name.match(/^sb-.*-auth-token/)
+        ) {
+          response.cookies.delete(cookie.name);
+        }
+      }
 
       return response;
     }

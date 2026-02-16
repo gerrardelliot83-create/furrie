@@ -40,6 +40,22 @@ export default async function ConnectPage() {
 
   const pets = (petsData || []).map(mapPetFromDB);
 
+  // Fetch active Plus subscriptions for the user's pets
+  const { data: subscriptions } = await supabase
+    .from('subscriptions')
+    .select('pet_id, plan_type, status, expires_at')
+    .eq('customer_id', user.id)
+    .eq('status', 'active')
+    .eq('plan_type', 'plus');
+
+  const now = new Date();
+  const plusPetIds = (subscriptions || [])
+    .filter((sub) => {
+      if (!sub.expires_at) return true; // NULL = indefinite
+      return new Date(sub.expires_at) > now;
+    })
+    .map((sub) => sub.pet_id as string);
+
   return (
     <div className={styles.pageContainer}>
       <header className={styles.pageHeader}>
@@ -49,7 +65,7 @@ export default async function ConnectPage() {
         </p>
       </header>
 
-      <ConnectFlow initialPets={pets} />
+      <ConnectFlow initialPets={pets} plusPetIds={plusPetIds} />
     </div>
   );
 }

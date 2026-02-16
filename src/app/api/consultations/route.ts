@@ -5,6 +5,7 @@ import {
   mapConsultationToDB,
   mapConsultationWithRelationsFromDB,
 } from '@/lib/utils/consultationMapper';
+import { checkPlusSubscriptionWithClient } from '@/lib/utils/followUpHelpers';
 
 // GET /api/consultations - List user's consultations
 export async function GET(request: Request) {
@@ -158,6 +159,9 @@ export async function POST(request: Request) {
       );
     }
 
+    // Check if customer has active Plus subscription for this pet
+    const isPlusUser = await checkPlusSubscriptionWithClient(supabase, user.id, body.petId);
+
     // Map to database format
     const consultationData = mapConsultationToDB(
       {
@@ -165,9 +169,8 @@ export async function POST(request: Request) {
         concernText: body.concernText?.trim() || null,
         symptomCategories: body.symptomCategories || [],
         type: 'direct_connect',
-        // TODO: Phase 5 - Set isFree based on subscription/sachet check
-        isFree: false,
-        isPriority: false,
+        isFree: isPlusUser,
+        isPriority: isPlusUser,
       },
       user.id
     );

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
@@ -45,6 +45,7 @@ export function AuthForm() {
     return 0;
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const verifiedRef = useRef(false);
 
   // Check for error param (e.g., wrong account type)
   useEffect(() => {
@@ -121,21 +122,23 @@ export function AuthForm() {
   };
 
   const handleVerifyOtp = useCallback(async (code: string) => {
-    if (code.length !== 8) return;
+    if (code.length !== 8 || verifiedRef.current) return;
 
     setIsSubmitting(true);
     setOtpError('');
 
     const { error } = await verifyOtp(email, code);
-    setIsSubmitting(false);
 
     if (error) {
+      setIsSubmitting(false);
       setOtpError(t('invalidOtp'));
       setOtp(''); // Clear OTP on error
       return;
     }
 
-    // Successful login - redirect to dashboard
+    // Mark as verified to prevent double submission.
+    // Keep isSubmitting=true so the button stays disabled until navigation completes.
+    verifiedRef.current = true;
     toast(t('welcomeBack'), 'success');
     router.push('/dashboard');
   }, [email, verifyOtp, router, toast, t]);

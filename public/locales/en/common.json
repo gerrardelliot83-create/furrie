@@ -81,7 +81,19 @@
     "required": "This field is required",
     "adminLoginTitle": "Admin Portal",
     "adminLoginSubtitle": "Sign in to access the admin dashboard",
-    "unauthorized": "You are not authorized to access this portal"
+    "unauthorized": "You are not authorized to access this portal",
+    "vetLoginSubtitle": "Enter your credentials to access the vet portal",
+    "invalidCredentials": "Invalid email or password",
+    "authFailed": "Authentication failed. Please try again.",
+    "accountNotFound": "Account not found. Please contact support.",
+    "welcome": "Welcome!",
+    "passwordPlaceholder": "Enter your password",
+    "invalidEmail": "Please enter a valid email address",
+    "passwordTooShort": "Password must be at least 6 characters",
+    "vetAccountsProvisioned": "Vet accounts are provisioned by administrators.",
+    "contactSupport": "Contact support if you need access.",
+    "adminAccountsProvisioned": "Admin accounts are internally provisioned.",
+    "adminEmailPlaceholder": "admin@furrie.in"
   },
   "pets": {
     "myPets": "My Pets",

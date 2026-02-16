@@ -49,7 +49,7 @@ export function AdminLoginForm() {
     } else {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
-        setEmailError('Please enter a valid email address');
+        setEmailError(t('invalidEmail'));
         isValid = false;
       } else {
         setEmailError('');
@@ -101,7 +101,7 @@ export function AdminLoginForm() {
           name="email"
           type="email"
           label={t('email')}
-          placeholder="admin@furrie.in"
+          placeholder={t('adminEmailPlaceholder')}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           error={emailError}
@@ -114,7 +114,7 @@ export function AdminLoginForm() {
           name="password"
           type="password"
           label={t('password')}
-          placeholder="Enter your password"
+          placeholder={t('passwordPlaceholder')}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           error={passwordError}
@@ -134,7 +134,7 @@ export function AdminLoginForm() {
 
       <div className={styles.infoBox}>
         <p className={styles.infoText}>
-          Admin accounts are internally provisioned.
+          {t('adminAccountsProvisioned')}
         </p>
       </div>
     </div>

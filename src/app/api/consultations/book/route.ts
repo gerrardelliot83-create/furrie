@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { findAvailableVetForSlot, SCHEDULING_CONSTANTS } from '@/lib/scheduling';
+import { checkPlusSubscriptionWithClient } from '@/lib/utils/followUpHelpers';
 
 interface BookRequest {
   petId: string;
@@ -158,7 +159,12 @@ export async function POST(request: Request) {
       .eq('id', vetId)
       .single();
 
+    // Check if customer has active Plus subscription for this pet
+    const isPlusUser = await checkPlusSubscriptionWithClient(supabase, user.id, body.petId);
+
     // Create consultation
+    // Plus users: status='scheduled' directly (no payment needed), is_free=true, is_priority=true
+    // Free users: status='pending' (will change to 'scheduled' after payment)
     const { data: consultation, error: createError } = await supabaseAdmin
       .from('consultations')
       .insert({
@@ -166,13 +172,13 @@ export async function POST(request: Request) {
         vet_id: vetId,
         pet_id: body.petId,
         type: 'scheduled',
-        status: 'pending', // Will change to 'scheduled' after payment
+        status: isPlusUser ? 'scheduled' : 'pending',
         scheduled_at: body.scheduledAt,
         concern_text: body.concernText || null,
         symptom_categories: body.symptomCategories || [],
         duration_minutes: 30,
-        is_priority: false,
-        is_free: false,
+        is_priority: isPlusUser,
+        is_free: isPlusUser,
       })
       .select(
         `
@@ -228,10 +234,8 @@ export async function POST(request: Request) {
       console.error('Failed to send vet notification:', notifyError);
     }
 
-    // Get consultation fee (could be from pricing config, hardcoded for MVP)
-    const consultationFee = 499;
-
-    return NextResponse.json({
+    // Build response
+    const responseData: Record<string, unknown> = {
       consultation: {
         id: consultation.id,
         consultationNumber: consultation.consultation_number,
@@ -255,12 +259,20 @@ export async function POST(request: Request) {
             }
           : null,
       },
-      payment: {
+      isPlusUser,
+    };
+
+    // Only include payment info for non-Plus users
+    if (!isPlusUser) {
+      const consultationFee = 499;
+      responseData.payment = {
         amount: consultationFee,
         currency: 'INR',
         description: `Consultation for ${pet.name}`,
-      },
-    });
+      };
+    }
+
+    return NextResponse.json(responseData);
   } catch (error) {
     console.error('Error in POST /api/consultations/book:', error);
     return NextResponse.json(

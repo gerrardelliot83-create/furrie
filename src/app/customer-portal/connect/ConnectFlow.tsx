@@ -36,9 +36,10 @@ interface BookedConsultation {
 
 interface ConnectFlowProps {
   initialPets: Pet[];
+  plusPetIds?: string[];
 }
 
-export function ConnectFlow({ initialPets }: ConnectFlowProps) {
+export function ConnectFlow({ initialPets, plusPetIds = [] }: ConnectFlowProps) {
   const tCommon = useTranslations('common');
   const router = useRouter();
 
@@ -60,6 +61,7 @@ export function ConnectFlow({ initialPets }: ConnectFlowProps) {
   const [bookedConsultation, setBookedConsultation] = useState<BookedConsultation | null>(null);
 
   const selectedPet = pets.find((p) => p.id === selectedPetId);
+  const isPlusUser = selectedPetId ? plusPetIds.includes(selectedPetId) : false;
   const showEmergencyWarning = hasSevereSymptoms(symptoms);
 
   // Step number for indicator (5 steps now)
@@ -71,7 +73,7 @@ export function ConnectFlow({ initialPets }: ConnectFlowProps) {
     'confirmation': 5,
   }[currentStep];
 
-  const stepLabels = ['Pet', 'Concern', 'Time', 'Pay', 'Done'];
+  const stepLabels = ['Pet', 'Concern', 'Time', isPlusUser ? 'Review' : 'Pay', 'Done'];
 
   // Navigation handlers
   const goToStep = (step: FlowStep) => {
@@ -133,28 +135,9 @@ export function ConnectFlow({ initialPets }: ConnectFlowProps) {
         throw new Error(bookData.error || 'Failed to book consultation');
       }
 
-      // Step 2: Create payment order
-      const paymentResponse = await fetch('/api/payments/create-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          consultationId: bookData.consultation.id,
-          amount: bookData.payment.amount,
-          currency: bookData.payment.currency,
-          description: bookData.payment.description,
-        }),
-      });
-
-      const paymentData = await paymentResponse.json();
-
-      if (!paymentResponse.ok) {
-        throw new Error(paymentData.error || 'Failed to create payment order');
-      }
-
-      // In dev mode (SKIP_PAYMENTS=true), payment is auto-completed
-      // The create-order API already updates the consultation status to 'scheduled'
-      if (paymentData.devMode) {
-        // Show confirmation - status was already updated server-side
+      // Server response is authoritative for subscription status
+      if (bookData.isPlusUser) {
+        // Plus user: consultation is already status='scheduled', skip payment
         setBookedConsultation({
           id: bookData.consultation.id,
           consultationNumber: bookData.consultation.consultationNumber,
@@ -164,11 +147,43 @@ export function ConnectFlow({ initialPets }: ConnectFlowProps) {
         });
         goToStep('confirmation');
       } else {
-        // In production, redirect to payment gateway
-        if (paymentData.redirectUrl) {
-          window.location.href = paymentData.redirectUrl;
+        // Step 2: Create payment order for non-Plus users
+        const paymentResponse = await fetch('/api/payments/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            consultationId: bookData.consultation.id,
+            amount: bookData.payment.amount,
+            currency: bookData.payment.currency,
+            description: bookData.payment.description,
+          }),
+        });
+
+        const paymentData = await paymentResponse.json();
+
+        if (!paymentResponse.ok) {
+          throw new Error(paymentData.error || 'Failed to create payment order');
+        }
+
+        // In dev mode (SKIP_PAYMENTS=true), payment is auto-completed
+        // The create-order API already updates the consultation status to 'scheduled'
+        if (paymentData.devMode) {
+          // Show confirmation - status was already updated server-side
+          setBookedConsultation({
+            id: bookData.consultation.id,
+            consultationNumber: bookData.consultation.consultationNumber,
+            scheduledAt: bookData.consultation.scheduledAt,
+            petName: bookData.consultation.pet.name,
+            vetName: bookData.consultation.vet?.name || null,
+          });
+          goToStep('confirmation');
         } else {
-          throw new Error('No payment redirect URL received');
+          // In production, redirect to payment gateway
+          if (paymentData.redirectUrl) {
+            window.location.href = paymentData.redirectUrl;
+          } else {
+            throw new Error('No payment redirect URL received');
+          }
         }
       }
     } catch (err) {
@@ -310,7 +325,7 @@ export function ConnectFlow({ initialPets }: ConnectFlowProps) {
               pet={selectedPet}
               concernText={concernText}
               symptoms={symptoms}
-              isPlusUser={false} // TODO: Check subscription
+              isPlusUser={isPlusUser}
               onSubmit={handleBookAndPay}
               onBack={() => goToStep('select-time')}
               loading={loading}

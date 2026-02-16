@@ -89,6 +89,18 @@ export default async function ConsultationDetailPage({ params }: ConsultationDet
     vetProfile = vp;
   }
 
+  // Query follow_up_threads directly to check if chat is available
+  const { data: followUpThread } = await supabase
+    .from('follow_up_threads')
+    .select('id, is_active, expires_at')
+    .eq('consultation_id', id)
+    .single();
+
+  const hasFollowUpAccess = !!followUpThread && followUpThread.is_active;
+  const isThreadExpired = followUpThread?.expires_at
+    ? new Date(followUpThread.expires_at) < new Date()
+    : false;
+
   const consultation = mapConsultationWithRelationsFromDB(
     data as Parameters<typeof mapConsultationWithRelationsFromDB>[0]
   );
@@ -345,8 +357,8 @@ export default async function ConsultationDetailPage({ params }: ConsultationDet
         </section>
       )}
 
-      {/* Follow-up Chat - only show if SOAP notes exist */}
-      {soapNote && consultation.status === 'closed' && consultation.outcome === 'success' && (
+      {/* Follow-up Chat - show if thread exists and is active */}
+      {hasFollowUpAccess && !isThreadExpired && (
         <section className={styles.card}>
           <h2 className={styles.cardTitle}>Follow-up Chat</h2>
           <div className={styles.followUpInfo}>

@@ -35,86 +35,120 @@ export function useFollowUpChat(consultationId: string): UseFollowUpChatReturn {
   const [threadNotFound, setThreadNotFound] = useState(false);
   const supabaseRef = useRef(createClient());
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Check if thread is expired
   const isExpired = threadExpiresAt ? new Date(threadExpiresAt) < new Date() : false;
 
   // Fetch existing thread and messages (no auto-create)
-  useEffect(() => {
-    const fetchChat = async () => {
+  const fetchChat = useCallback(async (isPolling = false) => {
+    if (!isPolling) {
       setIsLoading(true);
       setError(null);
       setThreadNotFound(false);
+    }
 
-      const supabase = supabaseRef.current;
+    const supabase = supabaseRef.current;
 
-      try {
-        // Get current user
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          setError('Not authenticated');
-          setIsLoading(false);
-          return;
-        }
-
-        // Check for existing thread (DO NOT create if not found)
-        const { data: thread, error: threadError } = await supabase
-          .from('follow_up_threads')
-          .select('*')
-          .eq('consultation_id', consultationId)
-          .single();
-
-        if (threadError || !thread) {
-          // Thread not found - chat not yet available
-          setThreadNotFound(true);
-          setIsLoading(false);
-          return;
-        }
-
-        // Verify user is a participant
-        if (thread.customer_id !== user.id && thread.vet_id !== user.id) {
-          setError('Not authorized to view this chat');
-          setIsLoading(false);
-          return;
-        }
-
-        setThreadId(thread.id);
-        setThreadExpiresAt(thread.expires_at);
-
-        // Fetch messages with new column names
-        const { data: messagesData, error: messagesError } = await supabase
-          .from('follow_up_messages')
-          .select('*')
-          .eq('thread_id', thread.id)
-          .order('created_at', { ascending: true });
-
-        if (messagesError) {
-          console.error('Error fetching messages:', messagesError);
-          setError('Failed to load messages');
-        } else {
-          setMessages(
-            (messagesData || []).map((msg) => ({
-              id: msg.id,
-              threadId: msg.thread_id,
-              senderId: msg.sender_id,
-              senderRole: msg.sender_role || 'customer',
-              messageType: msg.message_type || 'text',
-              content: msg.content,
-              attachmentUrl: msg.attachment_url,
-              createdAt: msg.created_at,
-            }))
-          );
-        }
-      } catch (err) {
-        console.error('Error in fetchChat:', err);
-        setError('Failed to load chat');
-      } finally {
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setError('Not authenticated');
         setIsLoading(false);
+        return;
+      }
+
+      // Check for existing thread (DO NOT create if not found)
+      const { data: thread, error: threadError } = await supabase
+        .from('follow_up_threads')
+        .select('*')
+        .eq('consultation_id', consultationId)
+        .single();
+
+      if (threadError || !thread) {
+        // Thread not found - chat not yet available
+        setThreadNotFound(true);
+        setIsLoading(false);
+        return;
+      }
+
+      // Thread found - stop polling if running
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+
+      // Verify user is a participant
+      if (thread.customer_id !== user.id && thread.vet_id !== user.id) {
+        setError('Not authorized to view this chat');
+        setIsLoading(false);
+        return;
+      }
+
+      setThreadNotFound(false);
+      setThreadId(thread.id);
+      setThreadExpiresAt(thread.expires_at);
+
+      // Fetch messages with new column names
+      const { data: messagesData, error: messagesError } = await supabase
+        .from('follow_up_messages')
+        .select('*')
+        .eq('thread_id', thread.id)
+        .order('created_at', { ascending: true });
+
+      if (messagesError) {
+        console.error('Error fetching messages:', messagesError);
+        setError('Failed to load messages');
+      } else {
+        setMessages(
+          (messagesData || []).map((msg) => ({
+            id: msg.id,
+            threadId: msg.thread_id,
+            senderId: msg.sender_id,
+            senderRole: msg.sender_role || 'customer',
+            messageType: msg.message_type || 'text',
+            content: msg.content,
+            attachmentUrl: msg.attachment_url,
+            createdAt: msg.created_at,
+          }))
+        );
+      }
+    } catch (err) {
+      console.error('Error in fetchChat:', err);
+      if (!isPolling) {
+        setError('Failed to load chat');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [consultationId]);
+
+  // Initial fetch
+  useEffect(() => {
+    fetchChat();
+  }, [fetchChat]);
+
+  // Poll for thread when not found (auto-refresh every 5 seconds)
+  useEffect(() => {
+    if (threadNotFound && !pollIntervalRef.current) {
+      pollIntervalRef.current = setInterval(() => {
+        fetchChat(true);
+      }, 5000);
+    }
+
+    if (!threadNotFound && pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
       }
     };
-
-    fetchChat();
-  }, [consultationId]);
+  }, [threadNotFound, fetchChat]);
 
   // Subscribe to real-time messages using Broadcast (no database replication setup required)
   useEffect(() => {

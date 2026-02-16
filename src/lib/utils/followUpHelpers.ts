@@ -30,7 +30,7 @@ export async function checkPlusSubscription(
 
   const { data, error } = await supabase
     .from('subscriptions')
-    .select('id, status, ends_at')
+    .select('id, status, plan_type, expires_at')
     .eq('customer_id', customerId)
     .eq('pet_id', petId)
     .eq('status', 'active')
@@ -40,10 +40,16 @@ export async function checkPlusSubscription(
     return false;
   }
 
+  // Must be a Plus plan
+  if (data.plan_type !== 'plus') {
+    return false;
+  }
+
   // Check if subscription is still valid (not expired)
-  if (data.ends_at) {
-    const endsAt = new Date(data.ends_at);
-    if (endsAt < new Date()) {
+  // NULL expires_at means indefinite
+  if (data.expires_at) {
+    const expiresAt = new Date(data.expires_at);
+    if (expiresAt < new Date()) {
       return false;
     }
   }

@@ -5,7 +5,13 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  max-width: 75%;
+  max-width: 85%;
+}
+
+@media (min-width: 640px) {
+  .messageRow {
+    max-width: 65%;
+  }
 }
 
 .messageRow.own {

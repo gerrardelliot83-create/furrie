@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { MessageBubble } from './MessageBubble';
 import { MessageComposer } from './MessageComposer';
 import { useFollowUpChat } from '@/hooks/useFollowUpChat';
@@ -28,23 +28,16 @@ export function ChatInterface({
   } = useFollowUpChat(consultationId);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  // Scroll to bottom on new messages
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  const handleSendMessage = async (content: string, attachmentUrl?: string) => {
-    const messageType = attachmentUrl ? 'image' : 'text';
-    await sendMessage(content, messageType, attachmentUrl);
-  };
-
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   // Calculate time remaining for thread
-  const getTimeRemaining = () => {
+  const computeTimeRemaining = useCallback(() => {
     if (!threadExpiresAt) return null;
     const expiresAt = new Date(threadExpiresAt);
     const now = new Date();
     const diffMs = expiresAt.getTime() - now.getTime();
+
+    if (diffMs <= 0) return null;
+
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
     const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
 
@@ -54,6 +47,44 @@ export function ChatInterface({
       return `${diffHours} hour${diffHours > 1 ? 's' : ''} remaining`;
     }
     return 'Expiring soon';
+  }, [threadExpiresAt]);
+
+  const [timeRemaining, setTimeRemaining] = useState<string | null>(() => computeTimeRemaining());
+
+  // Real-time expiry countdown - updates every minute
+  useEffect(() => {
+    if (!threadExpiresAt || isExpired) return;
+
+    const interval = setInterval(() => {
+      setTimeRemaining(computeTimeRemaining());
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [threadExpiresAt, isExpired, computeTimeRemaining]);
+
+  // Update time remaining when threadExpiresAt changes
+  useEffect(() => {
+    setTimeRemaining(computeTimeRemaining());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [threadExpiresAt]);
+
+  // Smart auto-scroll: only scroll if user is already at bottom
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const isNearBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+
+    if (isNearBottom) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
+
+  const handleSendMessage = async (content: string, messageType?: 'text' | 'image', attachmentUrl?: string) => {
+    await sendMessage(content, messageType || 'text', attachmentUrl);
+    // Always scroll to bottom after sending own message
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   if (isLoading) {
@@ -96,8 +127,8 @@ export function ChatInterface({
       {/* Header with expiry info */}
       <div className={styles.header}>
         <h3 className={styles.headerTitle}>Follow-up Chat</h3>
-        {threadExpiresAt && !isExpired && (
-          <span className={styles.expiryBadge}>{getTimeRemaining()}</span>
+        {threadExpiresAt && !isExpired && timeRemaining && (
+          <span className={styles.expiryBadge}>{timeRemaining}</span>
         )}
         {isExpired && (
           <span className={styles.expiredBadge}>Chat expired</span>
@@ -105,7 +136,7 @@ export function ChatInterface({
       </div>
 
       {/* Messages area */}
-      <div className={styles.messagesContainer}>
+      <div className={styles.messagesContainer} ref={messagesContainerRef}>
         {messages.length === 0 ? (
           <div className={styles.emptyState}>
             <p>No messages yet.</p>

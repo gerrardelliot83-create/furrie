@@ -130,7 +130,7 @@
 @media (max-width: 640px) {
   .container {
     max-height: none;
-    height: calc(100vh - 200px);
+    height: calc(100dvh - 200px);
     border-radius: 0;
     border-left: none;
     border-right: none;

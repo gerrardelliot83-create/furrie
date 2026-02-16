@@ -17,12 +17,13 @@ export function MessageBubble({ message, isOwn }: MessageBubbleProps) {
     });
   };
 
-  // Render image message - only if BOTH messageType is 'image' AND attachmentUrl is a valid non-empty string
+  // Render image message - only if messageType is 'image' AND attachmentUrl is a valid URL
   const isImageMessage =
     message.messageType === 'image' &&
     message.attachmentUrl &&
     typeof message.attachmentUrl === 'string' &&
-    message.attachmentUrl.trim() !== '';
+    message.attachmentUrl.trim() !== '' &&
+    (message.attachmentUrl.startsWith('http://') || message.attachmentUrl.startsWith('https://'));
 
   if (isImageMessage) {
     return (

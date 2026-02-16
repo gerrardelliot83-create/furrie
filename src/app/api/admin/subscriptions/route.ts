@@ -229,7 +229,7 @@ export async function POST(request: Request) {
         status: 'active',
         starts_at: new Date().toISOString(),
         expires_at: expiresAt.toISOString(),
-        payment_method: 'manual',
+        pricing_factors: { source: 'manual_admin' },
       })
       .select()
       .single();

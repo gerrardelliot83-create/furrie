@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 
@@ -20,7 +20,6 @@ const COOLDOWN_STORAGE_KEY = 'furrie_otp_cooldown_until';
 
 export function AuthForm() {
   const t = useTranslations('auth');
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const { signInWithOtp, verifyOtp, loading, error: authError, clearError } = useAuth();
@@ -140,8 +139,11 @@ export function AuthForm() {
     // Keep isSubmitting=true so the button stays disabled until navigation completes.
     verifiedRef.current = true;
     toast(t('welcomeBack'), 'success');
-    router.push('/dashboard');
-  }, [email, verifyOtp, router, toast, t]);
+    // Hard navigation ensures cookies are fully attached to the request.
+    // router.push() does a soft client-side navigation where middleware may not
+    // see the freshly-set auth cookies yet, causing a redirect back to /login.
+    window.location.href = '/dashboard';
+  }, [email, verifyOtp, toast, t]);
 
   const handleResendOtp = async () => {
     if (resendTimer > 0) return;

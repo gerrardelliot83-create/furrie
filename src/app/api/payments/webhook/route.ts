@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/admin';
 import { verifyWebhookSignature, SKIP_PAYMENTS, PAYMENT_GATEWAY } from '@/lib/payments';
 import type { PaymentStatus } from '@/lib/payments/types';
+import {
+  sendBookingConfirmationEmail,
+  sendPaymentReceiptEmail,
+  sendVetNewBookingEmail,
+} from '@/lib/email';
 
 // Disable body parsing to get raw body for signature verification
 export const dynamic = 'force-dynamic';
@@ -151,6 +156,68 @@ export async function POST(request: Request) {
             await supabase.removeChannel(channel);
           } catch (notifyError) {
             console.error('Failed to send vet notification:', notifyError);
+          }
+
+          // Send emails after payment (non-blocking)
+          try {
+            // Fetch full consultation details for emails
+            const { data: fullConsultation } = await supabase
+              .from('consultations')
+              .select('consultation_number, scheduled_at, is_priority, pet_id, customer_id')
+              .eq('id', payment.consultation_id)
+              .single();
+
+            if (fullConsultation) {
+              // Fetch customer, vet, and pet details in parallel
+              const [customerResult, vetResult, petResult] = await Promise.all([
+                supabase.from('profiles').select('email, full_name').eq('id', fullConsultation.customer_id).single(),
+                supabase.from('profiles').select('email, full_name').eq('id', consultation.vet_id).single(),
+                supabase.from('pets').select('name, species').eq('id', fullConsultation.pet_id).single(),
+              ]);
+
+              const customerEmail = customerResult.data?.email;
+              const customerName = customerResult.data?.full_name || 'there';
+              const vetEmail = vetResult.data?.email;
+              const vetName = vetResult.data?.full_name || 'Doctor';
+              const petName = petResult.data?.name || 'your pet';
+              const petSpecies = petResult.data?.species || 'dog';
+
+              // Send booking confirmation to customer
+              if (customerEmail) {
+                await sendBookingConfirmationEmail(customerEmail, {
+                  customerName,
+                  petName,
+                  vetName,
+                  scheduledAt: fullConsultation.scheduled_at,
+                  consultationNumber: fullConsultation.consultation_number,
+                }).catch((e) => console.error('Booking confirmation email failed:', e));
+
+                // Send payment receipt
+                await sendPaymentReceiptEmail(customerEmail, {
+                  customerName,
+                  petName,
+                  consultationNumber: fullConsultation.consultation_number,
+                  amount: amount || payment.amount,
+                  paymentId: transactionId || orderId,
+                  paidAt: new Date().toISOString(),
+                }).catch((e) => console.error('Payment receipt email failed:', e));
+              }
+
+              // Send new booking email to vet
+              if (vetEmail) {
+                await sendVetNewBookingEmail(vetEmail, {
+                  vetName,
+                  customerName,
+                  petName,
+                  petSpecies,
+                  scheduledAt: fullConsultation.scheduled_at,
+                  consultationNumber: fullConsultation.consultation_number,
+                  isPriority: fullConsultation.is_priority || false,
+                }).catch((e) => console.error('Vet booking email failed:', e));
+              }
+            }
+          } catch (emailError) {
+            console.error('Failed to send payment emails:', emailError);
           }
         }
       }

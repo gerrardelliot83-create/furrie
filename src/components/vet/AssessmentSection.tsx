@@ -1,5 +1,6 @@
 'use client';
 
+import { DiagnosisSearch } from './DiagnosisSearch';
 import styles from './SOAPSections.module.css';
 
 interface AssessmentData {
@@ -7,6 +8,7 @@ interface AssessmentData {
   differentialDiagnoses: string[];
   confidenceLevel: 'low' | 'medium' | 'high' | null;
   teleconsultationLimitations: string;
+  isDiagnosisFromList?: boolean;
 }
 
 interface AssessmentSectionProps {
@@ -15,19 +17,19 @@ interface AssessmentSectionProps {
   petSpecies: 'dog' | 'cat';
 }
 
-export function AssessmentSection({ data, onChange }: AssessmentSectionProps) {
+export function AssessmentSection({ data, onChange, petSpecies }: AssessmentSectionProps) {
   return (
     <div className={styles.sectionGrid}>
       <div className={styles.fullWidth}>
         <label className={styles.label}>
           Provisional Diagnosis <span className={styles.required}>*</span>
         </label>
-        <textarea
+        <DiagnosisSearch
           value={data.provisionalDiagnosis}
-          onChange={(e) => onChange({ provisionalDiagnosis: e.target.value })}
-          placeholder="Enter provisional diagnosis..."
-          className={styles.textarea}
-          rows={2}
+          onChange={(value) => onChange({ provisionalDiagnosis: value })}
+          onSelectFromList={(isFromList) => onChange({ isDiagnosisFromList: isFromList })}
+          species={petSpecies}
+          placeholder="Search diagnoses or type custom..."
         />
       </div>
 

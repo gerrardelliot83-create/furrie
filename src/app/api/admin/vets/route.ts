@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { sendVetWelcomeEmail } from '@/lib/email';
 
 /**
  * Verify the requesting user is an admin.
@@ -170,6 +171,17 @@ export async function POST(request: Request) {
         { error: 'Failed to create vet profile data', code: 'VET_PROFILE_ERROR' },
         { status: 500 }
       );
+    }
+
+    // Send vet welcome email with credentials
+    try {
+      await sendVetWelcomeEmail(body.email, {
+        vetName: body.fullName,
+        email: body.email,
+        temporaryPassword: body.password,
+      });
+    } catch (emailError) {
+      console.error('Failed to send vet welcome email:', emailError);
     }
 
     return NextResponse.json(

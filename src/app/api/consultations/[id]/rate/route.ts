@@ -42,7 +42,7 @@ export async function POST(
     // Fetch consultation
     const { data: consultation, error: fetchError } = await supabase
       .from('consultations')
-      .select('id, customer_id, vet_id, status')
+      .select('id, customer_id, vet_id, status, outcome')
       .eq('id', consultationId)
       .single();
 
@@ -61,8 +61,8 @@ export async function POST(
       );
     }
 
-    // Verify consultation is completed
-    if (consultation.status !== 'completed') {
+    // Verify consultation is completed (status='closed', outcome='success')
+    if (consultation.status !== 'closed' || consultation.outcome !== 'success') {
       return NextResponse.json(
         { error: 'Can only rate completed consultations', code: 'INVALID_STATUS' },
         { status: 400 }

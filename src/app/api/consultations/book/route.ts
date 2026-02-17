@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { findAvailableVetForSlot, SCHEDULING_CONSTANTS } from '@/lib/scheduling';
 import { checkPlusSubscriptionWithClient } from '@/lib/utils/followUpHelpers';
+import { sendBookingConfirmationEmail, sendVetNewBookingEmail } from '@/lib/email';
 
 interface BookRequest {
   petId: string;
@@ -139,8 +140,11 @@ export async function POST(request: Request) {
       );
     }
 
-    // Find an available vet for this slot
-    const vetId = await findAvailableVetForSlot(body.scheduledAt);
+    // Check if customer has active Plus subscription BEFORE vet matching (affects ranking)
+    const isPlusUser = await checkPlusSubscriptionWithClient(supabase, user.id, body.petId);
+
+    // Find an available vet for this slot with load balancing + Plus priority
+    const vetId = await findAvailableVetForSlot(body.scheduledAt, [], isPlusUser);
 
     if (!vetId) {
       return NextResponse.json(
@@ -158,9 +162,6 @@ export async function POST(request: Request) {
       .select('id, full_name, avatar_url')
       .eq('id', vetId)
       .single();
-
-    // Check if customer has active Plus subscription for this pet
-    const isPlusUser = await checkPlusSubscriptionWithClient(supabase, user.id, body.petId);
 
     // Create consultation
     // Plus users: status='scheduled' directly (no payment needed), is_free=true, is_priority=true
@@ -232,6 +233,53 @@ export async function POST(request: Request) {
     } catch (notifyError) {
       // Log but don't fail the booking
       console.error('Failed to send vet notification:', notifyError);
+    }
+
+    // Send booking emails (non-blocking for Plus users who are immediately scheduled)
+    if (isPlusUser) {
+      // Get customer email for booking confirmation
+      const { data: customerProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('email, full_name')
+        .eq('id', user.id)
+        .single();
+
+      if (customerProfile?.email) {
+        try {
+          await sendBookingConfirmationEmail(customerProfile.email, {
+            customerName: customerProfile.full_name || 'there',
+            petName: pet.name,
+            vetName: vetProfile?.full_name || 'Your Vet',
+            scheduledAt: body.scheduledAt,
+            consultationNumber: consultation.consultation_number,
+          });
+        } catch (emailError) {
+          console.error('Failed to send booking confirmation email:', emailError);
+        }
+      }
+
+      // Send vet new booking email
+      const { data: vetUser } = await supabaseAdmin
+        .from('profiles')
+        .select('email, full_name')
+        .eq('id', vetId)
+        .single();
+
+      if (vetUser?.email) {
+        try {
+          await sendVetNewBookingEmail(vetUser.email, {
+            vetName: vetUser.full_name || 'Doctor',
+            customerName: customerProfile?.full_name || 'Customer',
+            petName: pet.name,
+            petSpecies: pet.species,
+            scheduledAt: body.scheduledAt,
+            consultationNumber: consultation.consultation_number,
+            isPriority: isPlusUser,
+          });
+        } catch (emailError) {
+          console.error('Failed to send vet new booking email:', emailError);
+        }
+      }
     }
 
     // Build response

@@ -88,20 +88,20 @@ async function getRecentActivity(supabase: Awaited<ReturnType<typeof createClien
   // Get recent consultations
   const { data: consultations } = await supabase
     .from('consultations')
-    .select('id, status, created_at, started_at, ended_at')
+    .select('id, status, outcome, created_at, started_at, ended_at')
     .order('updated_at', { ascending: false })
     .limit(5);
 
   if (consultations) {
     for (const c of consultations) {
-      if (c.status === 'completed' && c.ended_at) {
+      if (c.status === 'closed' && c.ended_at) {
         activities.push({
           id: `consult-completed-${c.id}`,
           type: 'consultation_completed',
           description: `Consultation ${c.id.substring(0, 8)} completed`,
           timestamp: c.ended_at,
         });
-      } else if (c.status === 'in_progress' && c.started_at) {
+      } else if (c.status === 'active' && c.started_at) {
         activities.push({
           id: `consult-started-${c.id}`,
           type: 'consultation_started',

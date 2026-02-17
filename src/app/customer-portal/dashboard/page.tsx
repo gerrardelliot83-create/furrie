@@ -73,7 +73,7 @@ export default async function CustomerDashboard() {
         id, full_name, avatar_url
       )
     `)
-    .in('status', ['pending', 'matching', 'matched', 'in_progress'])
+    .in('status', ['pending', 'scheduled', 'active'])
     .order('created_at', { ascending: false })
     .limit(3);
 
@@ -94,7 +94,8 @@ export default async function CustomerDashboard() {
       ),
       consultation_ratings (rating, feedback_text)
     `)
-    .eq('status', 'completed')
+    .eq('status', 'closed')
+    .eq('outcome', 'success')
     .order('ended_at', { ascending: false })
     .limit(3);
 

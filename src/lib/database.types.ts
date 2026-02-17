@@ -190,6 +190,139 @@ export type Database = {
           },
         ]
       }
+      consultation_treatment_records: {
+        Row: {
+          body_condition_score: string | null
+          chief_complaint: string | null
+          confidence_level: string | null
+          consultation_id: string
+          consultation_outcome: string | null
+          created_at: string | null
+          diagnosis_category: string | null
+          differential_diagnoses: string[] | null
+          dosage: string | null
+          duration: string | null
+          follow_up_required: boolean | null
+          frequency: string | null
+          id: string
+          in_person_urgency: string | null
+          in_person_visit_recommended: boolean | null
+          instructions: string | null
+          is_diagnosis_from_list: boolean | null
+          is_medication_from_list: boolean | null
+          medication_category: string | null
+          medication_name: string
+          pet_age_months: number | null
+          pet_breed: string | null
+          pet_existing_conditions: string[] | null
+          pet_gender: string | null
+          pet_id: string
+          pet_is_neutered: boolean | null
+          pet_known_allergies: string[] | null
+          pet_species: string
+          pet_weight_kg: number | null
+          provisional_diagnosis: string
+          route: string | null
+          symptom_categories: string[] | null
+          vet_id: string
+          vital_signs: Json | null
+        }
+        Insert: {
+          body_condition_score?: string | null
+          chief_complaint?: string | null
+          confidence_level?: string | null
+          consultation_id: string
+          consultation_outcome?: string | null
+          created_at?: string | null
+          diagnosis_category?: string | null
+          differential_diagnoses?: string[] | null
+          dosage?: string | null
+          duration?: string | null
+          follow_up_required?: boolean | null
+          frequency?: string | null
+          id?: string
+          in_person_urgency?: string | null
+          in_person_visit_recommended?: boolean | null
+          instructions?: string | null
+          is_diagnosis_from_list?: boolean | null
+          is_medication_from_list?: boolean | null
+          medication_category?: string | null
+          medication_name: string
+          pet_age_months?: number | null
+          pet_breed?: string | null
+          pet_existing_conditions?: string[] | null
+          pet_gender?: string | null
+          pet_id: string
+          pet_is_neutered?: boolean | null
+          pet_known_allergies?: string[] | null
+          pet_species: string
+          pet_weight_kg?: number | null
+          provisional_diagnosis: string
+          route?: string | null
+          symptom_categories?: string[] | null
+          vet_id: string
+          vital_signs?: Json | null
+        }
+        Update: {
+          body_condition_score?: string | null
+          chief_complaint?: string | null
+          confidence_level?: string | null
+          consultation_id?: string
+          consultation_outcome?: string | null
+          created_at?: string | null
+          diagnosis_category?: string | null
+          differential_diagnoses?: string[] | null
+          dosage?: string | null
+          duration?: string | null
+          follow_up_required?: boolean | null
+          frequency?: string | null
+          id?: string
+          in_person_urgency?: string | null
+          in_person_visit_recommended?: boolean | null
+          instructions?: string | null
+          is_diagnosis_from_list?: boolean | null
+          is_medication_from_list?: boolean | null
+          medication_category?: string | null
+          medication_name?: string
+          pet_age_months?: number | null
+          pet_breed?: string | null
+          pet_existing_conditions?: string[] | null
+          pet_gender?: string | null
+          pet_id?: string
+          pet_is_neutered?: boolean | null
+          pet_known_allergies?: string[] | null
+          pet_species?: string
+          pet_weight_kg?: number | null
+          provisional_diagnosis?: string
+          route?: string | null
+          symptom_categories?: string[] | null
+          vet_id?: string
+          vital_signs?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consultation_treatment_records_consultation_id_fkey"
+            columns: ["consultation_id"]
+            isOneToOne: false
+            referencedRelation: "consultations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultation_treatment_records_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultation_treatment_records_vet_id_fkey"
+            columns: ["vet_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       consultations: {
         Row: {
           accepted_at: string | null
@@ -326,27 +459,33 @@ export type Database = {
       }
       follow_up_messages: {
         Row: {
-          attachments: string[] | null
+          attachment_url: string | null
+          content: string
           created_at: string | null
           id: string
-          message: string
+          message_type: string | null
           sender_id: string
+          sender_role: string | null
           thread_id: string
         }
         Insert: {
-          attachments?: string[] | null
+          attachment_url?: string | null
+          content: string
           created_at?: string | null
           id?: string
-          message: string
+          message_type?: string | null
           sender_id: string
+          sender_role?: string | null
           thread_id: string
         }
         Update: {
-          attachments?: string[] | null
+          attachment_url?: string | null
+          content?: string
           created_at?: string | null
           id?: string
-          message?: string
+          message_type?: string | null
           sender_id?: string
+          sender_role?: string | null
           thread_id?: string
         }
         Relationships: [
@@ -496,6 +635,63 @@ export type Database = {
           {
             foreignKeyName: "incidents_resolved_by_fkey"
             columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      medication_submissions: {
+        Row: {
+          additional_data: Json | null
+          category: string | null
+          created_at: string | null
+          id: string
+          name: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          species: string | null
+          status: string
+          submitted_by: string
+          type: string
+        }
+        Insert: {
+          additional_data?: Json | null
+          category?: string | null
+          created_at?: string | null
+          id?: string
+          name: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          species?: string | null
+          status?: string
+          submitted_by: string
+          type: string
+        }
+        Update: {
+          additional_data?: Json | null
+          category?: string | null
+          created_at?: string | null
+          id?: string
+          name?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          species?: string | null
+          status?: string
+          submitted_by?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medication_submissions_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_submissions_submitted_by_fkey"
+            columns: ["submitted_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -1288,6 +1484,59 @@ export type Database = {
           },
           {
             foreignKeyName: "vaccination_schedules_vet_id_fkey"
+            columns: ["vet_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vet_prescribing_patterns: {
+        Row: {
+          created_at: string | null
+          diagnosis: string
+          dosage: string | null
+          duration: string | null
+          frequency: string | null
+          id: string
+          last_used_at: string | null
+          medication_name: string
+          pet_species: string
+          route: string | null
+          use_count: number | null
+          vet_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          diagnosis: string
+          dosage?: string | null
+          duration?: string | null
+          frequency?: string | null
+          id?: string
+          last_used_at?: string | null
+          medication_name: string
+          pet_species: string
+          route?: string | null
+          use_count?: number | null
+          vet_id: string
+        }
+        Update: {
+          created_at?: string | null
+          diagnosis?: string
+          dosage?: string | null
+          duration?: string | null
+          frequency?: string | null
+          id?: string
+          last_used_at?: string | null
+          medication_name?: string
+          pet_species?: string
+          route?: string | null
+          use_count?: number | null
+          vet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vet_prescribing_patterns_vet_id_fkey"
             columns: ["vet_id"]
             isOneToOne: false
             referencedRelation: "profiles"

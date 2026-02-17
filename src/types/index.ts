@@ -184,6 +184,7 @@ export interface PrescribedMedication {
   frequency: string;
   duration: string;
   instructions: string;
+  isFromList?: boolean;
 }
 
 export interface Notification {

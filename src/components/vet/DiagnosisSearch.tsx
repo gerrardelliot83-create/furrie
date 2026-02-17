@@ -1,12 +1,19 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { searchDiagnoses, type DiagnosisOption } from '@/lib/data/diagnoses';
+import { searchDiagnoses, DIAGNOSES, type DiagnosisOption } from '@/lib/data/diagnoses';
+import { createClient } from '@/lib/supabase/client';
 import styles from './DiagnosisSearch.module.css';
+
+interface FrequentDiagnosis {
+  diagnosis: string;
+  use_count: number;
+}
 
 interface DiagnosisSearchProps {
   value: string;
   onChange: (value: string) => void;
+  onSelectFromList?: (isFromList: boolean) => void;
   species: 'dog' | 'cat';
   placeholder?: string;
 }
@@ -14,20 +21,58 @@ interface DiagnosisSearchProps {
 export function DiagnosisSearch({
   value,
   onChange,
+  onSelectFromList,
   species,
   placeholder = 'Search diagnoses...',
 }: DiagnosisSearchProps) {
   const [inputValue, setInputValue] = useState(value);
   const [isOpen, setIsOpen] = useState(false);
   const [results, setResults] = useState<DiagnosisOption[]>([]);
+  const [frequentDiagnoses, setFrequentDiagnoses] = useState<FrequentDiagnosis[]>([]);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const frequentLoadedRef = useRef(false);
 
   // Sync external value changes
   useEffect(() => {
     setInputValue(value);
   }, [value]);
+
+  // Load frequent diagnoses on mount
+  useEffect(() => {
+    if (frequentLoadedRef.current) return;
+    frequentLoadedRef.current = true;
+
+    const loadFrequent = async () => {
+      try {
+        const supabase = createClient();
+        const { data } = await supabase
+          .from('vet_prescribing_patterns')
+          .select('diagnosis, use_count')
+          .eq('pet_species', species)
+          .order('use_count', { ascending: false })
+          .limit(5);
+
+        if (data && data.length > 0) {
+          // Deduplicate by diagnosis name
+          const seen = new Set<string>();
+          const unique: FrequentDiagnosis[] = [];
+          for (const row of data) {
+            if (!seen.has(row.diagnosis)) {
+              seen.add(row.diagnosis);
+              unique.push(row);
+            }
+          }
+          setFrequentDiagnoses(unique);
+        }
+      } catch {
+        // Non-critical — frequent diagnoses just won't show
+      }
+    };
+
+    loadFrequent();
+  }, [species]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -52,16 +97,27 @@ export function DiagnosisSearch({
       setHighlightedIndex(-1);
     } else {
       setResults([]);
-      setIsOpen(false);
+      setIsOpen(query.length === 0 && frequentDiagnoses.length > 0);
     }
-  }, [species]);
+  }, [species, frequentDiagnoses.length]);
 
   const handleSelect = useCallback((diagnosis: DiagnosisOption) => {
     setInputValue(diagnosis.name);
     onChange(diagnosis.name);
+    onSelectFromList?.(true);
     setIsOpen(false);
     setResults([]);
-  }, [onChange]);
+  }, [onChange, onSelectFromList]);
+
+  const handleSelectFrequent = useCallback((name: string) => {
+    setInputValue(name);
+    onChange(name);
+    onSelectFromList?.(true);
+    setIsOpen(false);
+  }, [onChange, onSelectFromList]);
+
+  const showFrequent = isOpen && inputValue.length < 2 && frequentDiagnoses.length > 0;
+  const totalItems = showFrequent ? frequentDiagnoses.length : results.length;
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (!isOpen) return;
@@ -70,7 +126,7 @@ export function DiagnosisSearch({
       case 'ArrowDown':
         e.preventDefault();
         setHighlightedIndex((prev) =>
-          prev < results.length - 1 ? prev + 1 : prev
+          prev < totalItems - 1 ? prev + 1 : prev
         );
         break;
       case 'ArrowUp':
@@ -79,11 +135,13 @@ export function DiagnosisSearch({
         break;
       case 'Enter':
         e.preventDefault();
-        if (highlightedIndex >= 0 && results[highlightedIndex]) {
+        if (showFrequent && highlightedIndex >= 0 && frequentDiagnoses[highlightedIndex]) {
+          handleSelectFrequent(frequentDiagnoses[highlightedIndex].diagnosis);
+        } else if (highlightedIndex >= 0 && results[highlightedIndex]) {
           handleSelect(results[highlightedIndex]);
         } else if (inputValue.trim()) {
-          // Allow custom text entry
           onChange(inputValue.trim());
+          onSelectFromList?.(false);
           setIsOpen(false);
         }
         break;
@@ -91,14 +149,43 @@ export function DiagnosisSearch({
         setIsOpen(false);
         break;
     }
-  }, [isOpen, results, highlightedIndex, inputValue, handleSelect, onChange]);
+  }, [isOpen, totalItems, showFrequent, results, frequentDiagnoses, highlightedIndex, inputValue, handleSelect, handleSelectFrequent, onChange, onSelectFromList]);
+
+  const handleSubmitNew = useCallback(async (name: string) => {
+    try {
+      await fetch('/api/submissions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'diagnosis',
+          name,
+          species,
+        }),
+      });
+    } catch {
+      // Silently fail — the diagnosis is still usable as free text
+    }
+
+    onChange(name);
+    onSelectFromList?.(false);
+    setIsOpen(false);
+  }, [onChange, onSelectFromList, species]);
 
   const handleBlur = useCallback(() => {
-    // Allow custom entry on blur
     if (inputValue.trim() && inputValue !== value) {
       onChange(inputValue.trim());
+      onSelectFromList?.(false);
     }
-  }, [inputValue, value, onChange]);
+  }, [inputValue, value, onChange, onSelectFromList]);
+
+  const handleFocus = useCallback(() => {
+    if (inputValue.length >= 2) {
+      setIsOpen(true);
+    } else if (inputValue.length === 0 && frequentDiagnoses.length > 0) {
+      setIsOpen(true);
+      setHighlightedIndex(-1);
+    }
+  }, [inputValue.length, frequentDiagnoses.length]);
 
   return (
     <div ref={containerRef} className={styles.container}>
@@ -108,14 +195,31 @@ export function DiagnosisSearch({
         value={inputValue}
         onChange={handleInputChange}
         onKeyDown={handleKeyDown}
-        onFocus={() => inputValue.length >= 2 && setIsOpen(true)}
+        onFocus={handleFocus}
         onBlur={handleBlur}
         placeholder={placeholder}
         className={styles.input}
         autoComplete="off"
       />
 
-      {isOpen && results.length > 0 && (
+      {showFrequent && (
+        <ul className={styles.dropdown}>
+          <li className={styles.sectionLabel}>Your frequent diagnoses</li>
+          {frequentDiagnoses.map((freq, index) => (
+            <li
+              key={freq.diagnosis}
+              className={`${styles.option} ${index === highlightedIndex ? styles.highlighted : ''}`}
+              onMouseDown={() => handleSelectFrequent(freq.diagnosis)}
+              onMouseEnter={() => setHighlightedIndex(index)}
+            >
+              <span className={styles.diagnosisName}>{freq.diagnosis}</span>
+              <span className={styles.diagnosisCategory}>{freq.use_count}x</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {isOpen && !showFrequent && (results.length > 0 || inputValue.length >= 2) && (
         <ul className={styles.dropdown}>
           {results.map((diagnosis, index) => (
             <li
@@ -128,6 +232,14 @@ export function DiagnosisSearch({
               <span className={styles.diagnosisCategory}>{diagnosis.category}</span>
             </li>
           ))}
+          {inputValue.length >= 3 && !DIAGNOSES.some(d => d.name.toLowerCase() === inputValue.toLowerCase()) && (
+            <li
+              className={styles.submitOption}
+              onMouseDown={() => handleSubmitNew(inputValue.trim())}
+            >
+              Submit &quot;{inputValue.trim()}&quot; as new diagnosis
+            </li>
+          )}
         </ul>
       )}
     </div>

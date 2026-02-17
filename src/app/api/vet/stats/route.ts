@@ -39,13 +39,13 @@ export async function GET() {
     const weekStart = new Date(todayStart);
     weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Start of week (Sunday)
 
-    // Fetch today's consultations count
+    // Fetch today's consultations count (closed with success + currently active)
     const { count: todayCount } = await supabase
       .from('consultations')
       .select('*', { count: 'exact', head: true })
       .eq('vet_id', user.id)
       .gte('created_at', todayStart.toISOString())
-      .in('status', ['completed', 'in_progress']);
+      .in('status', ['closed', 'active']);
 
     // Fetch this week's consultations count
     const { count: weekCount } = await supabase
@@ -53,7 +53,7 @@ export async function GET() {
       .select('*', { count: 'exact', head: true })
       .eq('vet_id', user.id)
       .gte('created_at', weekStart.toISOString())
-      .in('status', ['completed', 'in_progress']);
+      .in('status', ['closed', 'active']);
 
     // Get vet profile for total count and rating
     const { data: vetProfile } = await supabase

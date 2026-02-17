@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { sendMissedAppointmentEmail } from '@/lib/email';
 
 /**
  * GET /api/cron/mark-missed
@@ -86,7 +87,7 @@ export async function GET(request: Request) {
     let notifiedCustomer = false;
     let notifiedVet = false;
 
-    // Notify customer
+    // Notify customer (in-app)
     await supabaseAdmin.from('notifications').insert({
       user_id: consultation.customer_id,
       type: 'consultation_missed',
@@ -100,6 +101,21 @@ export async function GET(request: Request) {
       },
     });
     notifiedCustomer = true;
+
+    // Send missed email to customer
+    const { data: customerProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('email, full_name')
+      .eq('id', consultation.customer_id)
+      .single();
+
+    if (customerProfile?.email) {
+      await sendMissedAppointmentEmail(customerProfile.email, {
+        customerName: customerProfile.full_name || 'there',
+        petName,
+        scheduledAt: consultation.scheduled_at,
+      }).catch((e) => console.error('Missed appointment email failed:', e));
+    }
 
     // Notify vet if assigned
     if (consultation.vet_id) {

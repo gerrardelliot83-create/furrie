@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { sendPlusActivatedEmail } from '@/lib/email';
 
 /**
  * Verify the requesting user is an admin.
@@ -151,7 +152,7 @@ export async function POST(request: Request) {
     // Verify customer exists and has customer role
     const { data: customerProfile, error: customerError } = await supabaseAdmin
       .from('profiles')
-      .select('id, role, full_name')
+      .select('id, role, full_name, email')
       .eq('id', body.customerId)
       .single();
 
@@ -240,6 +241,19 @@ export async function POST(request: Request) {
         { error: 'Failed to create subscription', code: 'CREATE_ERROR' },
         { status: 500 }
       );
+    }
+
+    // Send Plus activated email to customer
+    if (customerProfile.email) {
+      try {
+        await sendPlusActivatedEmail(customerProfile.email, {
+          customerName: customerProfile.full_name || 'there',
+          petName: pet.name,
+          expiresAt: expiresAt.toISOString(),
+        });
+      } catch (emailError) {
+        console.error('Failed to send Plus activated email:', emailError);
+      }
     }
 
     return NextResponse.json(

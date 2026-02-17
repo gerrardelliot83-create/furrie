@@ -3,6 +3,7 @@ import {
   Page,
   Text,
   View,
+  Image,
   StyleSheet,
 } from '@react-pdf/renderer';
 import type { PrescriptionData } from '@/lib/prescriptions/template';
@@ -27,6 +28,10 @@ const styles = StyleSheet.create({
     borderBottomColor: '#770002',
   },
   logo: {
+    width: 120,
+    height: 57,
+  },
+  logoFallback: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#770002',
@@ -192,7 +197,11 @@ export function PrescriptionPDF({ data }: PrescriptionPDFProps) {
       <Page size="A4" style={styles.page}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.logo}>FURRIE</Text>
+          {/* eslint-disable-next-line jsx-a11y/alt-text */}
+          <Image
+            style={styles.logo}
+            src="/assets/furrie-logo.png"
+          />
           <View style={styles.prescriptionInfo}>
             <Text style={styles.prescriptionNumber}>
               Prescription #{data.prescriptionNumber}

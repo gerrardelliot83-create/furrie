@@ -21,6 +21,8 @@ interface PlanData {
 interface PlanSectionProps {
   data: PlanData;
   onChange: (updates: Partial<PlanData>) => void;
+  petSpecies?: 'dog' | 'cat';
+  diagnosis?: string;
 }
 
 const EMPTY_MEDICATION: PrescribedMedication = {
@@ -43,7 +45,7 @@ const FOLLOW_UP_OPTIONS = [
   'After completing treatment',
 ];
 
-export function PlanSection({ data, onChange }: PlanSectionProps) {
+export function PlanSection({ data, onChange, petSpecies, diagnosis }: PlanSectionProps) {
   const handleAddMedication = useCallback(() => {
     onChange({
       medications: [...data.medications, { ...EMPTY_MEDICATION }],
@@ -74,6 +76,8 @@ export function PlanSection({ data, onChange }: PlanSectionProps) {
               medication={medication}
               onChange={(med) => handleUpdateMedication(index, med)}
               onRemove={() => handleRemoveMedication(index)}
+              petSpecies={petSpecies}
+              diagnosis={diagnosis}
             />
           ))}
           <button

@@ -6,6 +6,7 @@ import {
   checkPlusSubscription,
   calculateThreadExpiry,
 } from '@/lib/utils/followUpHelpers';
+import { sendFollowUpAvailableEmail } from '@/lib/email';
 
 interface CreateThreadRequest {
   consultationId: string;
@@ -120,6 +121,39 @@ export async function POST(request: NextRequest) {
         { error: 'Failed to create follow-up thread', code: 'CREATE_FAILED' },
         { status: 500 }
       );
+    }
+
+    // Send follow-up available email to customer (non-blocking)
+    try {
+      const { data: customerProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('email, full_name')
+        .eq('id', consultation.customer_id)
+        .single();
+
+      const { data: vetProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('full_name')
+        .eq('id', consultation.vet_id)
+        .single();
+
+      const { data: petData } = await supabaseAdmin
+        .from('pets')
+        .select('name')
+        .eq('id', consultation.pet_id)
+        .single();
+
+      if (customerProfile?.email) {
+        await sendFollowUpAvailableEmail(customerProfile.email, {
+          customerName: customerProfile.full_name || 'there',
+          petName: petData?.name || 'your pet',
+          vetName: vetProfile?.full_name || 'your vet',
+          expiresAt: expiresAt || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          consultationId,
+        });
+      }
+    } catch (emailError) {
+      console.error('Failed to send follow-up email:', emailError);
     }
 
     return NextResponse.json({

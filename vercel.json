@@ -24,6 +24,18 @@
     {
       "path": "/api/cron/mark-missed",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/expire-subscriptions",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/expire-threads",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/cleanup-pending",
+      "schedule": "0 * * * *"
     }
   ]
 }

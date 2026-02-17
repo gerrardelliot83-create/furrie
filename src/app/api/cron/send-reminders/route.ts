@@ -1,5 +1,11 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import {
+  sendCustomerOneHourReminderEmail,
+  sendVetOneHourReminderEmail,
+  sendCustomerFifteenMinReminderEmail,
+  sendVetFifteenMinReminderEmail,
+} from '@/lib/email';
 
 /**
  * GET /api/cron/send-reminders
@@ -47,7 +53,7 @@ export async function GET(request: Request) {
       vet_id,
       scheduled_at,
       pets!consultations_pet_id_fkey (name),
-      profiles!consultations_customer_id_fkey (full_name)
+      profiles!consultations_customer_id_fkey (full_name, email)
     `)
     .eq('status', 'scheduled')
     .eq('reminder_1h_sent', false)
@@ -68,10 +74,11 @@ export async function GET(request: Request) {
     });
     // Supabase returns joined data as objects (not arrays) for !fkey syntax
     const petData = consultation.pets as unknown as { name: string } | null;
-    const profileData = consultation.profiles as unknown as { full_name: string } | null;
+    const profileData = consultation.profiles as unknown as { full_name: string; email: string } | null;
     const petName = petData?.name || 'your pet';
+    const customerName = profileData?.full_name || 'Pet parent';
 
-    // Send to customer
+    // Send in-app notification to customer
     await supabaseAdmin.from('notifications').insert({
       user_id: consultation.customer_id,
       type: 'consultation_reminder_1h',
@@ -91,9 +98,23 @@ export async function GET(request: Request) {
       userType: 'customer',
     });
 
+    // Send email reminder to customer
+    if (profileData?.email) {
+      // Fetch vet name for email
+      const { data: vetProfile } = consultation.vet_id
+        ? await supabaseAdmin.from('profiles').select('full_name').eq('id', consultation.vet_id).single()
+        : { data: null };
+
+      await sendCustomerOneHourReminderEmail(profileData.email, {
+        customerName,
+        petName,
+        vetName: vetProfile?.full_name || 'your vet',
+        scheduledAt: consultation.scheduled_at,
+      }).catch((e) => console.error('1h customer email failed:', e));
+    }
+
     // Send to vet if assigned
     if (consultation.vet_id) {
-      const customerName = profileData?.full_name || 'Pet parent';
       await supabaseAdmin.from('notifications').insert({
         user_id: consultation.vet_id,
         type: 'consultation_reminder_1h',
@@ -113,6 +134,22 @@ export async function GET(request: Request) {
         userId: consultation.vet_id,
         userType: 'vet',
       });
+
+      // Send email reminder to vet
+      const { data: vetUser } = await supabaseAdmin
+        .from('profiles')
+        .select('email, full_name')
+        .eq('id', consultation.vet_id)
+        .single();
+
+      if (vetUser?.email) {
+        await sendVetOneHourReminderEmail(vetUser.email, {
+          vetName: vetUser.full_name || 'Doctor',
+          petName,
+          customerName,
+          scheduledAt: consultation.scheduled_at,
+        }).catch((e) => console.error('1h vet email failed:', e));
+      }
     }
 
     // Mark reminder as sent
@@ -132,7 +169,7 @@ export async function GET(request: Request) {
       scheduled_at,
       daily_room_url,
       pets!consultations_pet_id_fkey (name),
-      profiles!consultations_customer_id_fkey (full_name)
+      profiles!consultations_customer_id_fkey (full_name, email)
     `)
     .eq('status', 'scheduled')
     .eq('reminder_15m_sent', false)
@@ -153,10 +190,11 @@ export async function GET(request: Request) {
     });
     // Supabase returns joined data as objects (not arrays) for !fkey syntax
     const petData15m = consultation.pets as unknown as { name: string } | null;
-    const profileData15m = consultation.profiles as unknown as { full_name: string } | null;
+    const profileData15m = consultation.profiles as unknown as { full_name: string; email: string } | null;
     const petName = petData15m?.name || 'your pet';
+    const customerName15m = profileData15m?.full_name || 'Pet parent';
 
-    // Send to customer
+    // Send in-app notification to customer
     await supabaseAdmin.from('notifications').insert({
       user_id: consultation.customer_id,
       type: 'consultation_reminder_15m',
@@ -177,20 +215,33 @@ export async function GET(request: Request) {
       userType: 'customer',
     });
 
+    // Send email with join link to customer
+    if (profileData15m?.email) {
+      const { data: vetProfile15m } = consultation.vet_id
+        ? await supabaseAdmin.from('profiles').select('full_name').eq('id', consultation.vet_id).single()
+        : { data: null };
+
+      await sendCustomerFifteenMinReminderEmail(profileData15m.email, {
+        customerName: customerName15m,
+        petName,
+        vetName: vetProfile15m?.full_name || 'your vet',
+        consultationId: consultation.id,
+      }).catch((e) => console.error('15m customer email failed:', e));
+    }
+
     // Send to vet if assigned
     if (consultation.vet_id) {
-      const customerName = profileData15m?.full_name || 'Pet parent';
       await supabaseAdmin.from('notifications').insert({
         user_id: consultation.vet_id,
         type: 'consultation_reminder_15m',
         title: 'Appointment starting soon',
-        body: `Consultation with ${customerName} for ${petName} starts in 15 minutes.`,
+        body: `Consultation with ${customerName15m} for ${petName} starts in 15 minutes.`,
         channel: 'in_app',
         data: {
           consultationId: consultation.id,
           scheduledAt: consultation.scheduled_at,
           petName,
-          customerName,
+          customerName: customerName15m,
           canJoinNow: true,
         },
       });
@@ -200,6 +251,22 @@ export async function GET(request: Request) {
         userId: consultation.vet_id,
         userType: 'vet',
       });
+
+      // Send email with join link to vet
+      const { data: vetUser15m } = await supabaseAdmin
+        .from('profiles')
+        .select('email, full_name')
+        .eq('id', consultation.vet_id)
+        .single();
+
+      if (vetUser15m?.email) {
+        await sendVetFifteenMinReminderEmail(vetUser15m.email, {
+          vetName: vetUser15m.full_name || 'Doctor',
+          petName,
+          customerName: customerName15m,
+          consultationId: consultation.id,
+        }).catch((e) => console.error('15m vet email failed:', e));
+      }
     }
 
     // Mark reminder as sent

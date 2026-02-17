@@ -44,6 +44,7 @@ interface FormData {
   differentialDiagnoses: string[];
   confidenceLevel: 'low' | 'medium' | 'high' | null;
   teleconsultationLimitations: string;
+  isDiagnosisFromList: boolean;
   // Plan
   medications: PrescribedMedication[];
   dietaryRecommendations: string;
@@ -97,6 +98,7 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
     differentialDiagnoses: initialData?.differentialDiagnoses || [],
     confidenceLevel: initialData?.confidenceLevel || null,
     teleconsultationLimitations: initialData?.teleconsultationLimitations || '',
+    isDiagnosisFromList: false,
     // Plan
     medications: initialData?.medications || [],
     dietaryRecommendations: initialData?.dietaryRecommendations || '',
@@ -276,6 +278,31 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
       console.error('Failed to create follow-up thread:', threadError);
     }
 
+    // Capture treatment analytics for intelligent autocomplete + AI/ML training
+    try {
+      await fetch('/api/analytics/capture-treatment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          consultationId,
+          isDiagnosisFromList: formData.isDiagnosisFromList,
+        }),
+      });
+    } catch (analyticsError) {
+      console.error('Failed to capture treatment analytics:', analyticsError);
+    }
+
+    // Send consultation completed email (non-blocking)
+    try {
+      await fetch('/api/email/consultation-completed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ consultationId }),
+      });
+    } catch (emailError) {
+      console.error('Failed to send completed email:', emailError);
+    }
+
     toast('Consultation completed', 'success');
     router.push('/consultations');
   };
@@ -385,6 +412,7 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
                   differentialDiagnoses: formData.differentialDiagnoses,
                   confidenceLevel: formData.confidenceLevel,
                   teleconsultationLimitations: formData.teleconsultationLimitations,
+                  isDiagnosisFromList: formData.isDiagnosisFromList,
                 }}
                 onChange={updateFormData}
                 petSpecies={petSpecies}
@@ -421,6 +449,8 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
                   additionalDiagnostics: formData.additionalDiagnostics,
                 }}
                 onChange={updateFormData}
+                petSpecies={petSpecies}
+                diagnosis={formData.provisionalDiagnosis}
               />
             </div>
           )}

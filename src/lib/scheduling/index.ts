@@ -162,22 +162,30 @@ export async function computeAvailableSlots(
 }
 
 /**
- * Find an available vet for a specific time slot
+ * Find an available vet for a specific time slot with load balancing
  *
- * Returns the vet ID if one is available, or null if no vet is available
+ * Algorithm:
+ * 1. Get all verified, available vets with their schedules and ratings
+ * 2. Filter to vets whose schedule covers this slot
+ * 3. Exclude vets already booked for this slot
+ * 4. Count each candidate's consultations for today (load metric)
+ * 5. Sort: Standard = by today's count ascending (least busy first)
+ *         Priority (Plus) = by average_rating descending, then count ascending
+ * 6. Return top-ranked vet
  */
 export async function findAvailableVetForSlot(
   slotDatetime: string,
-  excludeVetIds: string[] = []
+  excludeVetIds: string[] = [],
+  isPriority = false
 ): Promise<string | null> {
   const slotTime = new Date(slotDatetime);
   const dayOfWeekLower = getDayOfWeekLower(slotTime);
   const slotTimeStr = formatTimeHHMM(slotTime);
 
-  // Get all verified, available vets
+  // Get all verified, available vets with rating data
   let query = supabaseAdmin
     .from('vet_profiles')
-    .select('id, availability_schedule')
+    .select('id, availability_schedule, consultation_count, average_rating')
     .eq('is_verified', true)
     .eq('is_available', true);
 
@@ -192,7 +200,21 @@ export async function findAvailableVetForSlot(
     return null;
   }
 
-  // Check each vet's availability
+  // Filter to vets whose schedule covers this slot and who aren't booked
+  interface VetCandidate {
+    id: string;
+    averageRating: number;
+    todayCount: number;
+  }
+
+  const candidates: VetCandidate[] = [];
+
+  // Get today's date range for load counting
+  const todayStart = new Date(slotTime);
+  todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date(todayStart);
+  todayEnd.setDate(todayEnd.getDate() + 1);
+
   for (const vet of vets) {
     const schedule = vet.availability_schedule as AvailabilitySchedule | null;
     if (!schedule) continue;
@@ -215,13 +237,39 @@ export async function findAvailableVetForSlot(
       .in('status', ['pending', 'scheduled', 'active'])
       .maybeSingle();
 
-    if (!existingBooking) {
-      // Vet is available!
-      return vet.id;
-    }
+    if (existingBooking) continue;
+
+    // Count today's consultations for this vet
+    const { count: todayCount } = await supabaseAdmin
+      .from('consultations')
+      .select('id', { count: 'exact', head: true })
+      .eq('vet_id', vet.id)
+      .gte('scheduled_at', todayStart.toISOString())
+      .lt('scheduled_at', todayEnd.toISOString())
+      .in('status', ['pending', 'scheduled', 'active', 'closed']);
+
+    candidates.push({
+      id: vet.id,
+      averageRating: vet.average_rating || 0,
+      todayCount: todayCount || 0,
+    });
   }
 
-  return null;
+  if (candidates.length === 0) return null;
+
+  // Sort based on priority mode
+  if (isPriority) {
+    // Plus users: best-rated vet first, then least busy
+    candidates.sort((a, b) => {
+      if (b.averageRating !== a.averageRating) return b.averageRating - a.averageRating;
+      return a.todayCount - b.todayCount;
+    });
+  } else {
+    // Standard: least busy vet first (load balancing)
+    candidates.sort((a, b) => a.todayCount - b.todayCount);
+  }
+
+  return candidates[0].id;
 }
 
 /**

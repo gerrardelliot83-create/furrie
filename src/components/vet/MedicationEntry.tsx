@@ -1,17 +1,58 @@
 'use client';
 
 import type { PrescribedMedication } from '@/types';
+import type { MedicationOption } from '@/lib/data/medications';
+import { COMMON_DURATIONS } from '@/lib/data/medications';
+import { MedicationSearch } from './MedicationSearch';
+import { FieldAutocomplete } from './FieldAutocomplete';
 import styles from './MedicationEntry.module.css';
+
+const ROUTE_OPTIONS = [
+  'Oral',
+  'Topical',
+  'Injectable',
+  'Otic (Ear)',
+  'Ophthalmic (Eye)',
+  'Rectal',
+  'Inhalation',
+  'Subcutaneous',
+];
+
+const FREQUENCY_OPTIONS = [
+  'SID (once daily)',
+  'BID (twice daily)',
+  'TID (three times daily)',
+  'QID (four times daily)',
+  'Every other day',
+  'Weekly',
+  'Monthly',
+  'As needed',
+  'Once, repeat in 2-3 weeks',
+];
 
 interface MedicationEntryProps {
   medication: PrescribedMedication;
   onChange: (medication: PrescribedMedication) => void;
   onRemove: () => void;
+  petSpecies?: 'dog' | 'cat';
+  diagnosis?: string;
 }
 
-export function MedicationEntry({ medication, onChange, onRemove }: MedicationEntryProps) {
-  const handleFieldChange = (field: keyof PrescribedMedication, value: string) => {
+export function MedicationEntry({ medication, onChange, onRemove, petSpecies, diagnosis }: MedicationEntryProps) {
+  const handleFieldChange = (field: keyof PrescribedMedication, value: string | boolean) => {
     onChange({ ...medication, [field]: value });
+  };
+
+  const handleMedicationSelect = (med: MedicationOption) => {
+    // Auto-fill defaults from the known medication
+    onChange({
+      ...medication,
+      name: med.name,
+      dosage: med.commonDosages[0] || medication.dosage,
+      route: med.commonRoutes[0] || medication.route,
+      frequency: med.commonFrequencies[0] || medication.frequency,
+      isFromList: true,
+    });
   };
 
   return (
@@ -27,12 +68,14 @@ export function MedicationEntry({ medication, onChange, onRemove }: MedicationEn
         {/* Medication Name */}
         <div className={styles.fullWidth}>
           <label className={styles.label}>Medication Name</label>
-          <input
-            type="text"
+          <MedicationSearch
             value={medication.name}
-            onChange={(e) => handleFieldChange('name', e.target.value)}
-            placeholder="Enter medication name..."
-            className={styles.input}
+            onChange={(value) => handleFieldChange('name', value)}
+            onMedicationSelect={handleMedicationSelect}
+            onIsFromListChange={(isFromList) => handleFieldChange('isFromList', isFromList)}
+            placeholder="Search medications or type custom..."
+            petSpecies={petSpecies}
+            diagnosis={diagnosis}
           />
         </div>
 
@@ -51,36 +94,33 @@ export function MedicationEntry({ medication, onChange, onRemove }: MedicationEn
         {/* Route */}
         <div className={styles.field}>
           <label className={styles.label}>Route</label>
-          <input
-            type="text"
+          <FieldAutocomplete
             value={medication.route}
-            onChange={(e) => handleFieldChange('route', e.target.value)}
+            onChange={(value) => handleFieldChange('route', value)}
+            options={ROUTE_OPTIONS}
             placeholder="e.g., Oral"
-            className={styles.input}
           />
         </div>
 
         {/* Frequency */}
         <div className={styles.field}>
           <label className={styles.label}>Frequency</label>
-          <input
-            type="text"
+          <FieldAutocomplete
             value={medication.frequency}
-            onChange={(e) => handleFieldChange('frequency', e.target.value)}
+            onChange={(value) => handleFieldChange('frequency', value)}
+            options={FREQUENCY_OPTIONS}
             placeholder="e.g., Twice daily"
-            className={styles.input}
           />
         </div>
 
         {/* Duration */}
         <div className={styles.field}>
           <label className={styles.label}>Duration</label>
-          <input
-            type="text"
+          <FieldAutocomplete
             value={medication.duration}
-            onChange={(e) => handleFieldChange('duration', e.target.value)}
+            onChange={(value) => handleFieldChange('duration', value)}
+            options={COMMON_DURATIONS}
             placeholder="e.g., 7 days"
-            className={styles.input}
           />
         </div>
 

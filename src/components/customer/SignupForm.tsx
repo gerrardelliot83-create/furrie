@@ -104,6 +104,14 @@ export function SignupForm() {
 
     // Successful signup - redirect to dashboard (profile will be created by trigger)
     toast('Welcome to Furrie!', 'success');
+
+    // Send welcome email (non-blocking)
+    try {
+      fetch('/api/email/welcome', { method: 'POST' });
+    } catch {
+      // Silent — welcome email is non-critical
+    }
+
     router.push('/dashboard');
   }, [email, verifyOtp, router, toast, t]);
 

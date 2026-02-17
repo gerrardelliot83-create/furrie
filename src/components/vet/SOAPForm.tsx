@@ -268,11 +268,15 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
 
     // Create follow-up thread (non-blocking, don't fail if this fails)
     try {
-      await fetch('/api/follow-up/thread', {
+      const threadRes = await fetch('/api/follow-up/thread', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ consultationId }),
       });
+      if (!threadRes.ok) {
+        const errData = await threadRes.json().catch(() => ({}));
+        console.error('Follow-up thread creation failed:', threadRes.status, errData);
+      }
     } catch (threadError) {
       // Log but don't block consultation completion
       console.error('Failed to create follow-up thread:', threadError);
@@ -280,7 +284,7 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
 
     // Capture treatment analytics for intelligent autocomplete + AI/ML training
     try {
-      await fetch('/api/analytics/capture-treatment', {
+      const analyticsRes = await fetch('/api/analytics/capture-treatment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -288,17 +292,25 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
           isDiagnosisFromList: formData.isDiagnosisFromList,
         }),
       });
+      if (!analyticsRes.ok) {
+        const errData = await analyticsRes.json().catch(() => ({}));
+        console.error('Treatment analytics capture failed:', analyticsRes.status, errData);
+      }
     } catch (analyticsError) {
       console.error('Failed to capture treatment analytics:', analyticsError);
     }
 
     // Send consultation completed email (non-blocking)
     try {
-      await fetch('/api/email/consultation-completed', {
+      const emailRes = await fetch('/api/email/consultation-completed', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ consultationId }),
       });
+      if (!emailRes.ok) {
+        const errData = await emailRes.json().catch(() => ({}));
+        console.error('Consultation completed email failed:', emailRes.status, errData);
+      }
     } catch (emailError) {
       console.error('Failed to send completed email:', emailError);
     }

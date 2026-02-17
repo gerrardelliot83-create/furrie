@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { createOrder, SKIP_PAYMENTS, PAYMENT_GATEWAY } from '@/lib/payments';
+import { sendBookingConfirmationEmail, sendVetNewBookingEmail } from '@/lib/email';
 import type { CreateOrderRequest } from '@/lib/payments/types';
 
 export async function POST(request: Request) {
@@ -108,6 +109,60 @@ export async function POST(request: Request) {
         console.error('[create-order] Failed to update consultation status:', updateError);
       } else if (updateData) {
         console.log('[create-order] Successfully updated consultation:', updateData.id, 'to status:', updateData.status);
+
+        // Send booking confirmation emails (mirrors webhook behavior)
+        try {
+          const { data: consultation } = await supabaseAdmin
+            .from('consultations')
+            .select('consultation_number, scheduled_at, vet_id, pet_id, customer_id, is_priority')
+            .eq('id', body.consultationId)
+            .single();
+
+          if (consultation) {
+            const [customerResult, vetResult, petResult] = await Promise.all([
+              supabaseAdmin.from('profiles').select('email, full_name').eq('id', consultation.customer_id).single(),
+              supabaseAdmin.from('profiles').select('email, full_name').eq('id', consultation.vet_id).single(),
+              supabaseAdmin.from('pets').select('name, species').eq('id', consultation.pet_id).single(),
+            ]);
+
+            const customerEmail = customerResult.data?.email;
+            const customerName = customerResult.data?.full_name || 'there';
+            const vetEmail = vetResult.data?.email;
+            const vetName = vetResult.data?.full_name || 'Doctor';
+            const petName = petResult.data?.name || 'your pet';
+            const petSpecies = petResult.data?.species || 'dog';
+
+            if (customerEmail) {
+              const bookingEmailResult = await sendBookingConfirmationEmail(customerEmail, {
+                customerName,
+                petName,
+                vetName,
+                scheduledAt: consultation.scheduled_at,
+                consultationNumber: consultation.consultation_number,
+              });
+              if (!bookingEmailResult.success) {
+                console.error('[create-order] Booking confirmation email failed:', bookingEmailResult.error);
+              }
+            }
+
+            if (vetEmail) {
+              const vetEmailResult = await sendVetNewBookingEmail(vetEmail, {
+                vetName,
+                customerName,
+                petName,
+                petSpecies,
+                scheduledAt: consultation.scheduled_at,
+                consultationNumber: consultation.consultation_number,
+                isPriority: consultation.is_priority || false,
+              });
+              if (!vetEmailResult.success) {
+                console.error('[create-order] Vet booking email failed:', vetEmailResult.error);
+              }
+            }
+          }
+        } catch (emailError) {
+          console.error('[create-order] Failed to send booking emails:', emailError);
+        }
       } else {
         console.warn('[create-order] No rows updated - consultation may not be in pending status');
       }

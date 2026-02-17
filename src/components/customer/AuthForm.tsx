@@ -139,6 +139,10 @@ export function AuthForm() {
     // Keep isSubmitting=true so the button stays disabled until navigation completes.
     verifiedRef.current = true;
     toast(t('welcomeBack'), 'success');
+
+    // Send welcome email for new signups (non-blocking, endpoint is idempotent)
+    fetch('/api/email/welcome', { method: 'POST' }).catch(() => {});
+
     // Hard navigation ensures cookies are fully attached to the request.
     // router.push() does a soft client-side navigation where middleware may not
     // see the freshly-set auth cookies yet, causing a redirect back to /login.

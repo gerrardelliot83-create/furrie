@@ -24,7 +24,7 @@ export async function POST() {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('full_name, email')
+      .select('full_name, email, created_at')
       .eq('id', user.id)
       .single();
 
@@ -34,6 +34,15 @@ export async function POST() {
         { error: 'No email address found', code: 'NO_EMAIL' },
         { status: 400 }
       );
+    }
+
+    // Only send welcome email for new users (created within last 30 minutes)
+    if (profile?.created_at) {
+      const createdAt = new Date(profile.created_at);
+      const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000);
+      if (createdAt < thirtyMinAgo) {
+        return NextResponse.json({ success: true, skipped: 'returning_user' });
+      }
     }
 
     const result = await sendWelcomeEmail(email, {

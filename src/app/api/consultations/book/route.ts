@@ -245,16 +245,15 @@ export async function POST(request: Request) {
         .single();
 
       if (customerProfile?.email) {
-        try {
-          await sendBookingConfirmationEmail(customerProfile.email, {
-            customerName: customerProfile.full_name || 'there',
-            petName: pet.name,
-            vetName: vetProfile?.full_name || 'Your Vet',
-            scheduledAt: body.scheduledAt,
-            consultationNumber: consultation.consultation_number,
-          });
-        } catch (emailError) {
-          console.error('Failed to send booking confirmation email:', emailError);
+        const bookingEmailResult = await sendBookingConfirmationEmail(customerProfile.email, {
+          customerName: customerProfile.full_name || 'there',
+          petName: pet.name,
+          vetName: vetProfile?.full_name || 'Your Vet',
+          scheduledAt: body.scheduledAt,
+          consultationNumber: consultation.consultation_number,
+        });
+        if (!bookingEmailResult.success) {
+          console.error('Failed to send booking confirmation email:', bookingEmailResult.error);
         }
       }
 
@@ -266,18 +265,17 @@ export async function POST(request: Request) {
         .single();
 
       if (vetUser?.email) {
-        try {
-          await sendVetNewBookingEmail(vetUser.email, {
-            vetName: vetUser.full_name || 'Doctor',
-            customerName: customerProfile?.full_name || 'Customer',
-            petName: pet.name,
-            petSpecies: pet.species,
-            scheduledAt: body.scheduledAt,
-            consultationNumber: consultation.consultation_number,
-            isPriority: isPlusUser,
-          });
-        } catch (emailError) {
-          console.error('Failed to send vet new booking email:', emailError);
+        const vetEmailResult = await sendVetNewBookingEmail(vetUser.email, {
+          vetName: vetUser.full_name || 'Doctor',
+          customerName: customerProfile?.full_name || 'Customer',
+          petName: pet.name,
+          petSpecies: pet.species,
+          scheduledAt: body.scheduledAt,
+          consultationNumber: consultation.consultation_number,
+          isPriority: isPlusUser,
+        });
+        if (!vetEmailResult.success) {
+          console.error('Failed to send vet new booking email:', vetEmailResult.error);
         }
       }
     }

@@ -59,14 +59,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, reason: 'no_email' });
     }
 
-    await sendConsultationCompletedEmail(customerEmail, {
+    const result = await sendConsultationCompletedEmail(customerEmail, {
       customerName: customerResult.data?.full_name || 'there',
       petName: petResult.data?.name || 'your pet',
       vetName: vetResult.data?.full_name || 'your vet',
       consultationId,
     });
 
-    return NextResponse.json({ success: true });
+    if (!result.success) {
+      return NextResponse.json(
+        { error: result.error, code: 'EMAIL_SEND_FAILED' },
+        { status: 502 }
+      );
+    }
+
+    return NextResponse.json({ success: true, messageId: result.messageId });
   } catch (error) {
     console.error('Error sending completed email:', error);
     return NextResponse.json(

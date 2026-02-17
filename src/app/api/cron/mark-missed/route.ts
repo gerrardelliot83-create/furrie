@@ -110,11 +110,14 @@ export async function GET(request: Request) {
       .single();
 
     if (customerProfile?.email) {
-      await sendMissedAppointmentEmail(customerProfile.email, {
+      const emailResult = await sendMissedAppointmentEmail(customerProfile.email, {
         customerName: customerProfile.full_name || 'there',
         petName,
         scheduledAt: consultation.scheduled_at,
-      }).catch((e) => console.error('Missed appointment email failed:', e));
+      });
+      if (!emailResult.success) {
+        console.error('Missed appointment email failed:', emailResult.error);
+      }
     }
 
     // Notify vet if assigned

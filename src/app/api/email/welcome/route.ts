@@ -36,11 +36,18 @@ export async function POST() {
       );
     }
 
-    await sendWelcomeEmail(email, {
+    const result = await sendWelcomeEmail(email, {
       customerName: profile?.full_name || 'there',
     });
 
-    return NextResponse.json({ success: true });
+    if (!result.success) {
+      return NextResponse.json(
+        { error: result.error, code: 'EMAIL_SEND_FAILED' },
+        { status: 502 }
+      );
+    }
+
+    return NextResponse.json({ success: true, messageId: result.messageId });
   } catch (error) {
     console.error('Error sending welcome email:', error);
     return NextResponse.json(

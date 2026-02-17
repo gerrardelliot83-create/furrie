@@ -105,12 +105,15 @@ export async function GET(request: Request) {
         ? await supabaseAdmin.from('profiles').select('full_name').eq('id', consultation.vet_id).single()
         : { data: null };
 
-      await sendCustomerOneHourReminderEmail(profileData.email, {
+      const emailResult1hCustomer = await sendCustomerOneHourReminderEmail(profileData.email, {
         customerName,
         petName,
         vetName: vetProfile?.full_name || 'your vet',
         scheduledAt: consultation.scheduled_at,
-      }).catch((e) => console.error('1h customer email failed:', e));
+      });
+      if (!emailResult1hCustomer.success) {
+        console.error('1h customer email failed:', emailResult1hCustomer.error);
+      }
     }
 
     // Send to vet if assigned
@@ -143,12 +146,15 @@ export async function GET(request: Request) {
         .single();
 
       if (vetUser?.email) {
-        await sendVetOneHourReminderEmail(vetUser.email, {
+        const emailResult1hVet = await sendVetOneHourReminderEmail(vetUser.email, {
           vetName: vetUser.full_name || 'Doctor',
           petName,
           customerName,
           scheduledAt: consultation.scheduled_at,
-        }).catch((e) => console.error('1h vet email failed:', e));
+        });
+        if (!emailResult1hVet.success) {
+          console.error('1h vet email failed:', emailResult1hVet.error);
+        }
       }
     }
 
@@ -221,12 +227,15 @@ export async function GET(request: Request) {
         ? await supabaseAdmin.from('profiles').select('full_name').eq('id', consultation.vet_id).single()
         : { data: null };
 
-      await sendCustomerFifteenMinReminderEmail(profileData15m.email, {
+      const emailResult15mCustomer = await sendCustomerFifteenMinReminderEmail(profileData15m.email, {
         customerName: customerName15m,
         petName,
         vetName: vetProfile15m?.full_name || 'your vet',
         consultationId: consultation.id,
-      }).catch((e) => console.error('15m customer email failed:', e));
+      });
+      if (!emailResult15mCustomer.success) {
+        console.error('15m customer email failed:', emailResult15mCustomer.error);
+      }
     }
 
     // Send to vet if assigned
@@ -260,12 +269,15 @@ export async function GET(request: Request) {
         .single();
 
       if (vetUser15m?.email) {
-        await sendVetFifteenMinReminderEmail(vetUser15m.email, {
+        const emailResult15mVet = await sendVetFifteenMinReminderEmail(vetUser15m.email, {
           vetName: vetUser15m.full_name || 'Doctor',
           petName,
           customerName: customerName15m,
           consultationId: consultation.id,
-        }).catch((e) => console.error('15m vet email failed:', e));
+        });
+        if (!emailResult15mVet.success) {
+          console.error('15m vet email failed:', emailResult15mVet.error);
+        }
       }
     }
 

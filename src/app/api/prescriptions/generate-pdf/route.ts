@@ -244,18 +244,16 @@ export async function POST(request: Request) {
       .single();
 
     if (customerProfile?.email) {
-      try {
-        await sendPrescriptionEmail({
-          customerEmail: customerProfile.email,
-          customerName: customerProfile.full_name || 'Pet Parent',
-          petName: pet?.name || 'your pet',
-          vetName: profile.full_name || 'Your Veterinarian',
-          prescriptionNumber,
-          pdfBuffer: Buffer.from(pdfBuffer),
-        });
-        console.log('Prescription email sent to:', customerProfile.email);
-      } catch (emailError) {
-        console.error('Failed to send prescription email:', emailError);
+      const prescriptionEmailResult = await sendPrescriptionEmail({
+        customerEmail: customerProfile.email,
+        customerName: customerProfile.full_name || 'Pet Parent',
+        petName: pet?.name || 'your pet',
+        vetName: profile.full_name || 'Your Veterinarian',
+        prescriptionNumber,
+        pdfBuffer: Buffer.from(pdfBuffer),
+      });
+      if (!prescriptionEmailResult.success) {
+        console.error('Failed to send prescription email:', prescriptionEmailResult.error);
         // Don't fail - PDF was generated and uploaded successfully
       }
     }

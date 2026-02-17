@@ -174,14 +174,13 @@ export async function POST(request: Request) {
     }
 
     // Send vet welcome email with credentials
-    try {
-      await sendVetWelcomeEmail(body.email, {
-        vetName: body.fullName,
-        email: body.email,
-        temporaryPassword: body.password,
-      });
-    } catch (emailError) {
-      console.error('Failed to send vet welcome email:', emailError);
+    const welcomeEmailResult = await sendVetWelcomeEmail(body.email, {
+      vetName: body.fullName,
+      email: body.email,
+      temporaryPassword: body.password,
+    });
+    if (!welcomeEmailResult.success) {
+      console.error('Failed to send vet welcome email:', welcomeEmailResult.error);
     }
 
     return NextResponse.json(

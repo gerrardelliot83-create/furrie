@@ -144,16 +144,19 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (customerProfile?.email) {
-        await sendFollowUpAvailableEmail(customerProfile.email, {
+        const emailResult = await sendFollowUpAvailableEmail(customerProfile.email, {
           customerName: customerProfile.full_name || 'there',
           petName: petData?.name || 'your pet',
           vetName: vetProfile?.full_name || 'your vet',
           expiresAt: expiresAt || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
           consultationId,
         });
+        if (!emailResult.success) {
+          console.error('Failed to send follow-up email:', emailResult.error);
+        }
       }
     } catch (emailError) {
-      console.error('Failed to send follow-up email:', emailError);
+      console.error('Failed to send follow-up email (exception):', emailError);
     }
 
     return NextResponse.json({

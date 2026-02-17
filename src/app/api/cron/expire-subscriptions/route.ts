@@ -73,11 +73,14 @@ export async function GET(request: Request) {
       .single();
 
     if (customerProfile?.email) {
-      await sendSubscriptionExpiredEmail(customerProfile.email, {
+      const emailResult = await sendSubscriptionExpiredEmail(customerProfile.email, {
         customerName: customerProfile.full_name || 'there',
         petName,
         expiredAt: sub.expires_at,
-      }).catch((e) => console.error('Subscription expired email failed:', e));
+      });
+      if (!emailResult.success) {
+        console.error('Subscription expired email failed:', emailResult.error);
+      }
       notified = true;
     }
 

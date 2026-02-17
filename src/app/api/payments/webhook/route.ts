@@ -184,28 +184,34 @@ export async function POST(request: Request) {
 
               // Send booking confirmation to customer
               if (customerEmail) {
-                await sendBookingConfirmationEmail(customerEmail, {
+                const bookingEmailResult = await sendBookingConfirmationEmail(customerEmail, {
                   customerName,
                   petName,
                   vetName,
                   scheduledAt: fullConsultation.scheduled_at,
                   consultationNumber: fullConsultation.consultation_number,
-                }).catch((e) => console.error('Booking confirmation email failed:', e));
+                });
+                if (!bookingEmailResult.success) {
+                  console.error('Booking confirmation email failed:', bookingEmailResult.error);
+                }
 
                 // Send payment receipt
-                await sendPaymentReceiptEmail(customerEmail, {
+                const receiptEmailResult = await sendPaymentReceiptEmail(customerEmail, {
                   customerName,
                   petName,
                   consultationNumber: fullConsultation.consultation_number,
                   amount: amount || payment.amount,
                   paymentId: transactionId || orderId,
                   paidAt: new Date().toISOString(),
-                }).catch((e) => console.error('Payment receipt email failed:', e));
+                });
+                if (!receiptEmailResult.success) {
+                  console.error('Payment receipt email failed:', receiptEmailResult.error);
+                }
               }
 
               // Send new booking email to vet
               if (vetEmail) {
-                await sendVetNewBookingEmail(vetEmail, {
+                const vetBookingEmailResult = await sendVetNewBookingEmail(vetEmail, {
                   vetName,
                   customerName,
                   petName,
@@ -213,7 +219,10 @@ export async function POST(request: Request) {
                   scheduledAt: fullConsultation.scheduled_at,
                   consultationNumber: fullConsultation.consultation_number,
                   isPriority: fullConsultation.is_priority || false,
-                }).catch((e) => console.error('Vet booking email failed:', e));
+                });
+                if (!vetBookingEmailResult.success) {
+                  console.error('Vet booking email failed:', vetBookingEmailResult.error);
+                }
               }
             }
           } catch (emailError) {

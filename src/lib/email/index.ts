@@ -6,7 +6,11 @@ let resend: Resend | null = null;
 
 function getResendClient(): Resend {
   if (!resend) {
-    resend = new Resend(process.env.RESEND_API_KEY);
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) {
+      console.error('[EMAIL FATAL] RESEND_API_KEY is not set. All emails will fail.');
+    }
+    resend = new Resend(apiKey);
   }
   return resend;
 }
@@ -38,13 +42,29 @@ export async function sendEmail(options: SendEmailOptions) {
     });
 
     if (error) {
-      console.error('Email send error:', error);
+      const resendError = error as { statusCode?: number; name?: string; message: string };
+      console.error('[EMAIL ERROR]', {
+        to: options.to,
+        subject: options.subject,
+        statusCode: resendError.statusCode,
+        errorName: resendError.name,
+        errorMessage: resendError.message,
+      });
       return { success: false, error: error.message };
     }
 
+    console.log('[EMAIL SENT]', {
+      to: options.to,
+      subject: options.subject,
+      messageId: data?.id,
+    });
     return { success: true, messageId: data?.id };
   } catch (err) {
-    console.error('Email send exception:', err);
+    console.error('[EMAIL EXCEPTION]', {
+      to: options.to,
+      subject: options.subject,
+      error: err instanceof Error ? err.message : String(err),
+    });
     return { success: false, error: 'Failed to send email' };
   }
 }

@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { searchDiagnoses, DIAGNOSES, type DiagnosisOption } from '@/lib/data/diagnoses';
 import { createClient } from '@/lib/supabase/client';
+import { useToast } from '@/components/ui/Toast';
 import styles from './DiagnosisSearch.module.css';
 
 interface FrequentDiagnosis {
@@ -33,6 +34,7 @@ export function DiagnosisSearch({
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const frequentLoadedRef = useRef(false);
+  const { toast } = useToast();
 
   // Sync external value changes
   useEffect(() => {
@@ -153,7 +155,7 @@ export function DiagnosisSearch({
 
   const handleSubmitNew = useCallback(async (name: string) => {
     try {
-      await fetch('/api/submissions', {
+      const response = await fetch('/api/submissions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -162,14 +164,22 @@ export function DiagnosisSearch({
           species,
         }),
       });
+
+      if (response.status === 409) {
+        toast('Already submitted for review', 'info');
+      } else if (response.ok) {
+        toast('Submitted for review', 'success');
+      } else {
+        toast('Submission failed', 'error');
+      }
     } catch {
-      // Silently fail — the diagnosis is still usable as free text
+      // Network error — the diagnosis is still usable as free text
     }
 
     onChange(name);
     onSelectFromList?.(false);
     setIsOpen(false);
-  }, [onChange, onSelectFromList, species]);
+  }, [onChange, onSelectFromList, species, toast]);
 
   const handleBlur = useCallback(() => {
     if (inputValue.trim() && inputValue !== value) {

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
+import { NotificationBell } from '@/components/ui/NotificationBell/NotificationBell';
 import styles from './VetLayout.module.css';
 
 interface VetLayoutProps {
@@ -115,6 +116,7 @@ export function VetLayout({ children }: VetLayoutProps) {
       <main className={styles.main}>
         <header className={styles.topBar}>
           <h1 className={styles.pageTitle}>Vet Dashboard</h1>
+          <NotificationBell />
         </header>
         <div className={styles.content}>{children}</div>
       </main>

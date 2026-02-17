@@ -8,6 +8,26 @@
   background-color: var(--color-bg-secondary);
 }
 
+/* Mobile Header - visible on mobile only */
+.mobileHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--color-bg-primary);
+  border-bottom: 1px solid var(--color-border);
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+}
+
+.mobileLogoLink {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
 /* Desktop Sidebar - hidden on mobile */
 .sidebar {
   display: none;
@@ -99,7 +119,15 @@
     z-index: var(--z-sticky);
   }
 
+  /* Hide mobile header on tablet+ */
+  .mobileHeader {
+    display: none;
+  }
+
   .sidebarHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     padding: var(--space-6) var(--space-5);
     border-bottom: 1px solid var(--color-border);
   }

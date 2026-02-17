@@ -4,6 +4,7 @@ import { type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { NotificationBell } from '@/components/ui/NotificationBell/NotificationBell';
 import styles from './CustomerLayout.module.css';
 
 interface CustomerLayoutProps {
@@ -23,12 +24,21 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
 
   return (
     <div className={styles.layout}>
+      {/* Mobile Header */}
+      <header className={styles.mobileHeader}>
+        <Link href="/dashboard" className={styles.mobileLogoLink}>
+          Furrie
+        </Link>
+        <NotificationBell />
+      </header>
+
       {/* Desktop Sidebar */}
       <aside className={styles.sidebar}>
         <div className={styles.sidebarHeader}>
           <Link href="/dashboard" className={styles.logo}>
             Furrie
           </Link>
+          <NotificationBell />
         </div>
         <nav className={styles.sidebarNav}>
           {navItems.map((item) => {

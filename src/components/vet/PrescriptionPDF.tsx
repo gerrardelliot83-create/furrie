@@ -200,7 +200,7 @@ export function PrescriptionPDF({ data }: PrescriptionPDFProps) {
           {/* eslint-disable-next-line jsx-a11y/alt-text */}
           <Image
             style={styles.logo}
-            src="/assets/furrie-logo.png"
+            src="/assets/furrie-logo-dark.png"
           />
           <View style={styles.prescriptionInfo}>
             <Text style={styles.prescriptionNumber}>

@@ -105,9 +105,9 @@ export function SignupForm() {
     // Successful signup - redirect to dashboard (profile will be created by trigger)
     toast('Welcome to Furrie!', 'success');
 
-    // Send welcome email (non-blocking)
+    // Send welcome email — must await so router.push doesn't cancel the request
     try {
-      fetch('/api/email/welcome', { method: 'POST' });
+      await fetch('/api/email/welcome', { method: 'POST' });
     } catch {
       // Silent — welcome email is non-critical
     }

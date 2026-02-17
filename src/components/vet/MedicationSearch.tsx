@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { searchMedications, MEDICATIONS, type MedicationOption } from '@/lib/data/medications';
 import { createClient } from '@/lib/supabase/client';
+import { useToast } from '@/components/ui/Toast';
 import styles from './MedicationSearch.module.css';
 
 interface PreviousMedication {
@@ -40,6 +41,7 @@ export function MedicationSearch({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   // Sync external value changes
   useEffect(() => {
@@ -166,7 +168,7 @@ export function MedicationSearch({
 
   const handleSubmitNew = useCallback(async (name: string) => {
     try {
-      await fetch('/api/submissions', {
+      const response = await fetch('/api/submissions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -174,14 +176,22 @@ export function MedicationSearch({
           name,
         }),
       });
+
+      if (response.status === 409) {
+        toast('Already submitted for review', 'info');
+      } else if (response.ok) {
+        toast('Submitted for review', 'success');
+      } else {
+        toast('Submission failed', 'error');
+      }
     } catch {
-      // Silently fail — the medication is still usable as free text
+      // Network error — the medication is still usable as free text
     }
 
     onChange(name);
     onIsFromListChange?.(false);
     setIsOpen(false);
-  }, [onChange, onIsFromListChange]);
+  }, [onChange, onIsFromListChange, toast]);
 
   const handleBlur = useCallback(() => {
     if (inputValue.trim() && inputValue !== value) {

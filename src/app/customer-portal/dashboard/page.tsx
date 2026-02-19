@@ -52,52 +52,54 @@ export default async function CustomerDashboard() {
   const userName = profile?.full_name || 'there';
   const greeting = getGreeting();
 
-  // Fetch user's pets (limit 4 for dashboard)
-  const { data: petsData } = await supabase
-    .from('pets')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(4);
+  // Run all queries in parallel for faster dashboard load
+  const [
+    { data: petsData },
+    { data: upcomingData },
+    { data: recentData },
+  ] = await Promise.all([
+    supabase
+      .from('pets')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(4),
+    supabase
+      .from('consultations')
+      .select(`
+        *,
+        pets!consultations_pet_id_fkey (
+          id, name, species, breed, photo_urls
+        ),
+        profiles!consultations_vet_id_fkey (
+          id, full_name, avatar_url
+        )
+      `)
+      .in('status', ['pending', 'scheduled', 'active'])
+      .order('created_at', { ascending: false })
+      .limit(3),
+    supabase
+      .from('consultations')
+      .select(`
+        *,
+        pets!consultations_pet_id_fkey (
+          id, name, species, breed, photo_urls
+        ),
+        profiles!consultations_vet_id_fkey (
+          id, full_name, avatar_url
+        ),
+        consultation_ratings (rating, feedback_text)
+      `)
+      .eq('status', 'closed')
+      .eq('outcome', 'success')
+      .order('ended_at', { ascending: false })
+      .limit(3),
+  ]);
 
   const pets = (petsData || []).map(mapPetFromDB);
-
-  // Fetch upcoming consultations (pending, matching, matched, scheduled)
-  const { data: upcomingData } = await supabase
-    .from('consultations')
-    .select(`
-      *,
-      pets!consultations_pet_id_fkey (
-        id, name, species, breed, photo_urls
-      ),
-      profiles!consultations_vet_id_fkey (
-        id, full_name, avatar_url
-      )
-    `)
-    .in('status', ['pending', 'scheduled', 'active'])
-    .order('created_at', { ascending: false })
-    .limit(3);
 
   const upcomingConsultations = (upcomingData || []).map((row) =>
     mapConsultationWithRelationsFromDB(row as Parameters<typeof mapConsultationWithRelationsFromDB>[0])
   );
-
-  // Fetch recent completed consultations
-  const { data: recentData } = await supabase
-    .from('consultations')
-    .select(`
-      *,
-      pets!consultations_pet_id_fkey (
-        id, name, species, breed, photo_urls
-      ),
-      profiles!consultations_vet_id_fkey (
-        id, full_name, avatar_url
-      ),
-      consultation_ratings (rating, feedback_text)
-    `)
-    .eq('status', 'closed')
-    .eq('outcome', 'success')
-    .order('ended_at', { ascending: false })
-    .limit(3);
 
   const recentConsultations = (recentData || []).map((row) =>
     mapConsultationWithRelationsFromDB(row as Parameters<typeof mapConsultationWithRelationsFromDB>[0])
@@ -199,6 +201,9 @@ export default async function CustomerDashboard() {
         <section className={styles.section}>
           <div className={styles.sectionHeader}>
             <h2 className={styles.sectionTitle}>Upcoming Consultations</h2>
+            <Link href="/consultations" className={styles.viewAllLink}>
+              View All
+            </Link>
           </div>
           <div className={styles.consultationsList}>
             {upcomingConsultations.map((consultation) => (

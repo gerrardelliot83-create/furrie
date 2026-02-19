@@ -22,11 +22,24 @@ export function PetList({ initialPets }: PetListProps) {
   const [pets, setPets] = useState<Pet[]>(initialPets);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [petToDelete, setPetToDelete] = useState<Pet | null>(null);
+  const [consultationCount, setConsultationCount] = useState<number>(0);
 
-  const handleDeleteClick = useCallback((id: string) => {
+  const handleDeleteClick = useCallback(async (id: string) => {
     const pet = pets.find((p) => p.id === id);
     if (pet) {
       setPetToDelete(pet);
+      // Check how many consultations reference this pet
+      try {
+        const response = await fetch(`/api/pets/${id}/consultation-count`);
+        if (response.ok) {
+          const data = await response.json();
+          setConsultationCount(data.count || 0);
+        } else {
+          setConsultationCount(0);
+        }
+      } catch {
+        setConsultationCount(0);
+      }
       setDeleteModalOpen(true);
     }
   }, [pets]);
@@ -75,6 +88,11 @@ export function PetList({ initialPets }: PetListProps) {
             Are you sure you want to delete <strong>{petToDelete?.name}</strong>?
             This action cannot be undone.
           </p>
+          {consultationCount > 0 && (
+            <p className={styles.deleteWarning}>
+              This pet has {consultationCount} consultation{consultationCount !== 1 ? 's' : ''}. Deleting will not remove consultation history.
+            </p>
+          )}
           <div className={styles.deleteActions}>
             <Button
               variant="ghost"

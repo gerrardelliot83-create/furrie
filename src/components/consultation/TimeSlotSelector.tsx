@@ -152,9 +152,14 @@ export function TimeSlotSelector({
         <p className={styles.emptyText}>
           All our veterinarians are fully booked for the next 7 days. Please check back later.
         </p>
-        <Button variant="secondary" onClick={onBack}>
-          {tCommon('back')}
-        </Button>
+        <div className={styles.emptyActions}>
+          <Button variant="primary" onClick={fetchSlots}>
+            Refresh Availability
+          </Button>
+          <Button variant="secondary" onClick={onBack}>
+            {tCommon('back')}
+          </Button>
+        </div>
       </div>
     );
   }
@@ -202,7 +207,7 @@ export function TimeSlotSelector({
                   )}
                   onClick={() => handleSlotClick(slot)}
                 >
-                  {slot.start}
+                  {slot.start} IST
                 </button>
               );
             })}
@@ -222,7 +227,7 @@ export function TimeSlotSelector({
           <div className={styles.summaryText}>
             <span className={styles.summaryLabel}>Selected time:</span>
             <span className={styles.summaryValue}>
-              {formatDateDisplay(selectedDate || '')} at {localSelectedSlot.start}
+              {formatDateDisplay(selectedDate || '')} at {localSelectedSlot.start} IST
             </span>
           </div>
         </div>

@@ -76,6 +76,15 @@
   color: var(--color-text-primary);
 }
 
+.warningMessage {
+  font-size: var(--font-size-sm);
+  color: var(--color-warning, #b45309);
+  padding: var(--space-3) var(--space-4);
+  background-color: rgba(234, 179, 8, 0.1);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--color-warning, #eab308);
+}
+
 .successMessage {
   padding: var(--space-4);
   background-color: rgba(34, 197, 94, 0.1);

@@ -65,7 +65,13 @@ export function EditConcernForm({ consultationId, initialConcern, initialSymptom
       </div>
 
       <div className={styles.actions}>
-        <Button type="button" variant="ghost" onClick={() => router.back()}>
+        <Button type="button" variant="ghost" onClick={() => {
+          if (window.history.length > 1) {
+            router.back();
+          } else {
+            router.push(`/consultations/${consultationId}`);
+          }
+        }}>
           Cancel
         </Button>
         <Button type="submit" variant="primary" loading={isSaving}>

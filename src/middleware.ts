@@ -114,21 +114,36 @@ export async function middleware(request: NextRequest) {
 
   // If user exists, check role-based access
   if (user) {
-    // Fetch user profile to get role
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
+    // Try to read role from app_metadata (cached in JWT, no DB query needed).
+    // Falls back to a profile query only if app_metadata.role is not set.
+    let userRole = (user.app_metadata?.role as string) || '';
 
-    // If profile fetch fails, let request through rather than blocking.
-    // The page-level auth check will handle it.
-    if (profileError) {
-      console.error('Middleware: failed to fetch profile for user', user.id, profileError);
-      return supabaseResponse;
+    if (!userRole) {
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError) {
+        console.error('Middleware: failed to fetch profile for user', user.id, profileError);
+        return supabaseResponse;
+      }
+
+      userRole = profile?.role || 'customer';
+
+      // Cache role in app_metadata so future requests skip the DB query.
+      // Uses admin client if available, otherwise non-blocking best-effort.
+      try {
+        const { createClient: createAdminClient } = await import('@/lib/supabase/admin');
+        const adminClient = createAdminClient();
+        await adminClient.auth.admin.updateUserById(user.id, {
+          app_metadata: { role: userRole },
+        });
+      } catch {
+        // Non-critical: role will be fetched from DB next time
+      }
     }
-
-    const userRole = profile?.role || 'customer';
 
     // Check if user's role matches the portal they're accessing
     if (!isRoleAllowedOnPortal(userRole, portal)) {

@@ -56,6 +56,16 @@ export default async function ConnectPage() {
     })
     .map((sub) => sub.pet_id as string);
 
+  // Check for pending consultations (payment abandoned)
+  const { data: pendingConsultation } = await supabase
+    .from('consultations')
+    .select('id, consultation_number, pet_id, scheduled_at, status')
+    .eq('customer_id', user.id)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   return (
     <div className={styles.pageContainer}>
       <header className={styles.pageHeader}>
@@ -65,7 +75,16 @@ export default async function ConnectPage() {
         </p>
       </header>
 
-      <ConnectFlow initialPets={pets} plusPetIds={plusPetIds} />
+      <ConnectFlow
+        initialPets={pets}
+        plusPetIds={plusPetIds}
+        pendingConsultation={pendingConsultation ? {
+          id: pendingConsultation.id,
+          consultationNumber: pendingConsultation.consultation_number,
+          petId: pendingConsultation.pet_id,
+          scheduledAt: pendingConsultation.scheduled_at,
+        } : undefined}
+      />
     </div>
   );
 }

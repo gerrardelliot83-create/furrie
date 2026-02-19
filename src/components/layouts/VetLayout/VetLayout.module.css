@@ -97,6 +97,10 @@
   background-color: var(--color-success);
 }
 
+.statusDotUnavailable {
+  background-color: var(--color-text-tertiary);
+}
+
 .logoutButton {
   display: flex;
   align-items: center;

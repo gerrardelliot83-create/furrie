@@ -2,11 +2,19 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { DailyProvider } from '@daily-co/daily-react';
-import Daily from '@daily-co/daily-js';
-import { VideoRoom } from '@/components/consultation';
+import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/Button';
 import styles from './page.module.css';
+
+// Lazy-load Daily SDK and VideoRoom — only fetched when user clicks "Join"
+const DailyProvider = dynamic(
+  () => import('@daily-co/daily-react').then(mod => ({ default: mod.DailyProvider })),
+  { ssr: false }
+);
+const VideoRoom = dynamic(
+  () => import('@/components/consultation').then(mod => ({ default: mod.VideoRoom })),
+  { ssr: false }
+);
 
 // Retry helper for handling race conditions in consultation fetch
 async function fetchWithRetry(
@@ -72,7 +80,8 @@ export default function VetVideoRoomPage() {
   const [error, setError] = useState<string | null>(null);
   const [tokenData, setTokenData] = useState<TokenResponse | null>(null);
   const [consultationInfo, setConsultationInfo] = useState<ConsultationInfo | null>(null);
-  const [callObject, setCallObject] = useState<ReturnType<typeof Daily.createCallObject> | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [callObject, setCallObject] = useState<any>(null);
 
   // Join consultation - single call that handles room creation, token, and validation
   useEffect(() => {
@@ -122,14 +131,16 @@ export default function VetVideoRoomPage() {
     joinConsultation();
   }, [consultationId]);
 
-  // Create Daily call object
+  // Create Daily call object — SDK loaded dynamically only when needed
   useEffect(() => {
     if (tokenData && !callObject) {
-      const daily = Daily.createCallObject({
-        showLeaveButton: false,
-        showFullscreenButton: false,
+      import('@daily-co/daily-js').then((DailyModule) => {
+        const daily = DailyModule.default.createCallObject({
+          showLeaveButton: false,
+          showFullscreenButton: false,
+        });
+        setCallObject(daily);
       });
-      setCallObject(daily);
     }
 
     return () => {

@@ -68,6 +68,14 @@ export const ourFileRouter = {
       console.log('Follow-up image uploaded:', file.ufsUrl);
       return { uploadedBy: metadata.userId, url: file.ufsUrl };
     }),
+
+  // Consultation video uploads
+  consultationVideo: f({ video: { maxFileSize: '64MB', maxFileCount: 1 } })
+    .middleware(authMiddleware)
+    .onUploadComplete(async ({ metadata, file }) => {
+      console.log('Consultation video uploaded:', file.ufsUrl);
+      return { uploadedBy: metadata.userId, url: file.ufsUrl };
+    }),
 } satisfies FileRouter;
 
 export type OurFileRouter = typeof ourFileRouter;

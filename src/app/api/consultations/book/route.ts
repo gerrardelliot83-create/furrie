@@ -5,11 +5,19 @@ import { findAvailableVetForSlot, SCHEDULING_CONSTANTS } from '@/lib/scheduling'
 import { checkPlusSubscriptionWithClient } from '@/lib/utils/followUpHelpers';
 import { sendBookingConfirmationEmail, sendVetNewBookingEmail } from '@/lib/email';
 
+interface MediaUploadRef {
+  url: string;
+  mediaType: 'photo' | 'video';
+  fileName?: string;
+  fileSizeBytes?: number;
+}
+
 interface BookRequest {
   petId: string;
   scheduledAt: string; // ISO datetime string
   concernText?: string;
   symptomCategories?: string[];
+  media?: MediaUploadRef[];
 }
 
 /**
@@ -277,6 +285,36 @@ export async function POST(request: Request) {
         if (!vetEmailResult.success) {
           console.error('Failed to send vet new booking email:', vetEmailResult.error);
         }
+      }
+    }
+
+    // Create in-app notification for booking confirmation
+    try {
+      await supabaseAdmin.from('notifications').insert({
+        user_id: user.id,
+        type: 'booking_confirmation',
+        title: 'Booking Confirmed',
+        message: `Your consultation for ${pet.name} has been booked${isPlusUser ? '' : ' (pending payment)'}.`,
+        data: { consultationId: consultation.id },
+      });
+    } catch (notifyErr) {
+      console.error('Failed to create booking notification:', notifyErr);
+    }
+
+    // Save uploaded media if any
+    if (body.media && body.media.length > 0) {
+      try {
+        const mediaInserts = body.media.map((m) => ({
+          consultation_id: consultation.id,
+          uploaded_by: user.id,
+          media_type: m.mediaType,
+          url: m.url,
+          file_name: m.fileName || null,
+          file_size_bytes: m.fileSizeBytes || null,
+        }));
+        await supabaseAdmin.from('consultation_media').insert(mediaInserts);
+      } catch (mediaErr) {
+        console.error('Failed to save consultation media:', mediaErr);
       }
     }
 

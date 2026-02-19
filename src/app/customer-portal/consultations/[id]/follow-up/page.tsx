@@ -113,6 +113,14 @@ export default async function CustomerFollowUpPage({ params }: PageProps) {
                 <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>
                   {vetProfile?.qualifications || 'Licensed Veterinarian'}
                 </p>
+                {consultation.scheduled_at && (
+                  <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-tertiary)', marginTop: 'var(--space-1)' }}>
+                    Consulted: {new Date(consultation.scheduled_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })}
+                    {consultation.started_at && consultation.ended_at && (
+                      <> | {Math.round((new Date(consultation.ended_at).getTime() - new Date(consultation.started_at).getTime()) / 60000)} min</>
+                    )}
+                  </p>
+                )}
               </div>
               <div style={{ marginLeft: 'auto' }}>
                 <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-tertiary)' }}>

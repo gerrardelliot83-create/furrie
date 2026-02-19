@@ -89,3 +89,9 @@
   border-color: var(--color-primary);
   background-color: rgba(119, 0, 2, 0.05);
 }
+
+.validationError {
+  font-size: var(--font-size-sm);
+  color: var(--color-error);
+  margin: 0;
+}

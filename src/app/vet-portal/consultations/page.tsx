@@ -15,8 +15,10 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 interface PageProps {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; page?: string; search?: string }>;
 }
+
+const PAGE_SIZE = 20;
 
 import { getStatusVariant, getStatusDisplayText } from '@/lib/utils/statusHelpers';
 import type { ConsultationStatus, ConsultationOutcome } from '@/types';
@@ -31,7 +33,8 @@ function formatDuration(startedAt: string | null, endedAt: string | null): strin
 }
 
 export default async function VetConsultationsPage({ searchParams }: PageProps) {
-  const { status: statusFilter } = await searchParams;
+  const { status: statusFilter, page: pageParam, search: searchQuery } = await searchParams;
+  const currentPage = Math.max(1, parseInt(pageParam || '1', 10));
   const t = await getTranslations('consultation');
   const tEmpty = await getTranslations('empty');
 
@@ -58,26 +61,22 @@ export default async function VetConsultationsPage({ searchParams }: PageProps) 
     redirect('/login?error=wrong_account');
   }
 
-  // Build query with optional status filter
+  // Build query with optional status filter, search, and pagination
   let query = supabase
     .from('consultations')
     .select(`
-      *,
+      id, status, outcome, scheduled_at, created_at, started_at, ended_at,
+      concern_text, symptom_categories,
       pets!consultations_pet_id_fkey (
-        id,
-        name,
-        species,
-        breed,
-        photo_urls
+        id, name, species, breed
       ),
       profiles!consultations_customer_id_fkey (
-        id,
-        full_name
+        id, full_name
       ),
       consultation_ratings (
         rating
       )
-    `)
+    `, { count: 'exact' })
     .eq('vet_id', user.id)
     .order('created_at', { ascending: false });
 
@@ -87,9 +86,21 @@ export default async function VetConsultationsPage({ searchParams }: PageProps) 
   } else if (statusFilter === 'completed') {
     query = query.eq('status', 'closed').eq('outcome', 'success');
   }
-  // 'all' or no filter shows everything
 
-  const { data: consultations, error: consultationsError } = await query;
+  // Apply search filter — match pet name or customer name via concern_text (full text)
+  if (searchQuery) {
+    query = query.or(
+      `concern_text.ilike.%${searchQuery}%,pets.name.ilike.%${searchQuery}%`
+    );
+  }
+
+  // Apply pagination
+  const from = (currentPage - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+  query = query.range(from, to);
+
+  const { data: consultations, count: totalCount, error: consultationsError } = await query;
+  const totalPages = Math.ceil((totalCount || 0) / PAGE_SIZE);
 
   if (consultationsError) {
     console.error('Error fetching consultations:', consultationsError);
@@ -134,9 +145,33 @@ export default async function VetConsultationsPage({ searchParams }: PageProps) 
             Completed
           </Link>
         </div>
+
+        {/* Search bar */}
+        <form action="/consultations" method="get" className={styles.searchForm}>
+          {statusFilter && <input type="hidden" name="status" value={statusFilter} />}
+          <input
+            type="text"
+            name="search"
+            placeholder="Search by pet name or concern..."
+            defaultValue={searchQuery || ''}
+            className={styles.searchInput}
+          />
+          <button type="submit" className={styles.searchButton}>
+            Search
+          </button>
+          {searchQuery && (
+            <Link
+              href={`/consultations${statusFilter ? `?status=${statusFilter}` : ''}`}
+              className={styles.clearSearch}
+            >
+              Clear
+            </Link>
+          )}
+        </form>
       </div>
 
       {consultations && consultations.length > 0 ? (
+        <>
         <div className={styles.tableWrapper}>
           <table className={styles.table}>
             <thead className={styles.tableHead}>
@@ -151,8 +186,8 @@ export default async function VetConsultationsPage({ searchParams }: PageProps) 
             </thead>
             <tbody>
               {consultations.map((consultation) => {
-                const pet = consultation.pets;
-                const customer = consultation.profiles;
+                const pet = Array.isArray(consultation.pets) ? consultation.pets[0] : consultation.pets;
+                const customer = Array.isArray(consultation.profiles) ? consultation.profiles[0] : consultation.profiles;
                 const rating = consultation.consultation_ratings?.[0]?.rating;
                 // Use scheduled_at for scheduled consultations, fall back to created_at
                 const displayDate = consultation.scheduled_at
@@ -228,6 +263,40 @@ export default async function VetConsultationsPage({ searchParams }: PageProps) 
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className={styles.pagination}>
+            {currentPage > 1 && (
+              <Link
+                href={`/consultations?${new URLSearchParams({
+                  ...(statusFilter ? { status: statusFilter } : {}),
+                  ...(searchQuery ? { search: searchQuery } : {}),
+                  page: String(currentPage - 1),
+                }).toString()}`}
+                className={styles.paginationButton}
+              >
+                Previous
+              </Link>
+            )}
+            <span className={styles.paginationInfo}>
+              Page {currentPage} of {totalPages}
+            </span>
+            {currentPage < totalPages && (
+              <Link
+                href={`/consultations?${new URLSearchParams({
+                  ...(statusFilter ? { status: statusFilter } : {}),
+                  ...(searchQuery ? { search: searchQuery } : {}),
+                  page: String(currentPage + 1),
+                }).toString()}`}
+                className={styles.paginationButton}
+              >
+                Next
+              </Link>
+            )}
+          </div>
+        )}
+        </>
       ) : (
         <div className={styles.emptyState}>
           <div className={styles.emptyIcon}>—</div>

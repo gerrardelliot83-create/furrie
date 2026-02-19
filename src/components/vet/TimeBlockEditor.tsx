@@ -1,12 +1,26 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import type { TimeSlot } from '@/types';
 import styles from './TimeBlockEditor.module.css';
 
 interface TimeBlockEditorProps {
   slots: TimeSlot[];
   onChange: (slots: TimeSlot[]) => void;
+}
+
+const MIN_BLOCK_MINUTES = 30;
+
+/** Check if two time slots overlap */
+function slotsOverlap(a: TimeSlot, b: TimeSlot): boolean {
+  return a.start < b.end && b.start < a.end;
+}
+
+/** Get duration in minutes between two HH:MM time strings */
+function getDurationMinutes(start: string, end: string): number {
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  return (eh * 60 + em) - (sh * 60 + sm);
 }
 
 const TIME_OPTIONS = [
@@ -21,6 +35,28 @@ const TIME_OPTIONS = [
 ];
 
 export function TimeBlockEditor({ slots, onChange }: TimeBlockEditorProps) {
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  /** Validate all slots and update state. Returns true if valid. */
+  const validateSlots = useCallback((newSlots: TimeSlot[]): boolean => {
+    for (let i = 0; i < newSlots.length; i++) {
+      const slot = newSlots[i];
+      const duration = getDurationMinutes(slot.start, slot.end);
+      if (duration < MIN_BLOCK_MINUTES) {
+        setValidationError(`Block ${i + 1} must be at least ${MIN_BLOCK_MINUTES} minutes.`);
+        return false;
+      }
+      for (let j = i + 1; j < newSlots.length; j++) {
+        if (slotsOverlap(slot, newSlots[j])) {
+          setValidationError(`Block ${i + 1} overlaps with Block ${j + 1}. Please adjust the times.`);
+          return false;
+        }
+      }
+    }
+    setValidationError(null);
+    return true;
+  }, []);
+
   const handleAddSlot = useCallback(() => {
     // Find a reasonable default time that doesn't overlap
     let startTime = '09:00';
@@ -46,9 +82,10 @@ export function TimeBlockEditor({ slots, onChange }: TimeBlockEditorProps) {
     (index: number, field: 'start' | 'end', value: string) => {
       const newSlots = [...slots];
       newSlots[index] = { ...newSlots[index], [field]: value };
+      validateSlots(newSlots);
       onChange(newSlots);
     },
-    [slots, onChange]
+    [slots, onChange, validateSlots]
   );
 
   const formatTime = (time: string) => {
@@ -120,6 +157,9 @@ export function TimeBlockEditor({ slots, onChange }: TimeBlockEditorProps) {
       >
         + Add Time Block
       </button>
+      {validationError && (
+        <p className={styles.validationError}>{validationError}</p>
+      )}
     </div>
   );
 }

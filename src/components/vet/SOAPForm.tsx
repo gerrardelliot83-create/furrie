@@ -242,6 +242,24 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
       return;
     }
 
+    // Warn about empty optional sections
+    const missingSections: string[] = [];
+    if (!formData.vitalSigns.temperature && !formData.vitalSigns.heartRate && !formData.vitalSigns.respiratoryRate && !formData.vitalSigns.weight) {
+      missingSections.push('Vital Signs');
+    }
+    if (!formData.generalAppearance && !formData.bodyConditionScore) {
+      missingSections.push('Objective Findings');
+    }
+    if (!formData.dietaryRecommendations && !formData.homeCareInstructions && !formData.followUpTimeframe) {
+      missingSections.push('Plan');
+    }
+    if (missingSections.length > 0) {
+      const proceed = window.confirm(
+        `You haven't filled in: ${missingSections.join(', ')}. Continue anyway?`
+      );
+      if (!proceed) return;
+    }
+
     // Save notes first
     await saveNotes(false);
 

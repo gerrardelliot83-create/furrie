@@ -41,7 +41,19 @@ export function ProfileContent({ profile, hasActiveSubscription = false }: Profi
     setError(null);
   };
 
+  const validatePhone = (phone: string): boolean => {
+    if (!phone) return true; // Phone is optional
+    const indianMobileRegex = /^[6-9]\d{9}$/;
+    return indianMobileRegex.test(phone);
+  };
+
   const handleSaveProfile = async () => {
+    // Validate phone before saving
+    if (formData.phone && !validatePhone(formData.phone)) {
+      setError('Please enter a valid 10-digit Indian mobile number');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 

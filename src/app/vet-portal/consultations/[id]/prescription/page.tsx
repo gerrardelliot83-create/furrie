@@ -30,33 +30,52 @@ export default function PrescriptionPage({ params }: PageProps) {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [existingPrescription, setExistingPrescription] = useState<ExistingPrescription | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasSoapNotes, setHasSoapNotes] = useState(false);
+  const [isAlreadyCompleted, setIsAlreadyCompleted] = useState(false);
 
-  // Load existing prescription on mount
+  // Load existing prescription, SOAP notes, and consultation status on mount
   useEffect(() => {
-    const loadExistingPrescription = async () => {
+    const loadData = async () => {
       try {
         const supabase = createClient();
-        const { data, error } = await supabase
-          .from('prescriptions')
-          .select('id, prescription_number, pdf_url, created_at')
-          .eq('consultation_id', consultationId)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+        const [prescriptionResult, soapResult, consultationResult] = await Promise.all([
+          supabase
+            .from('prescriptions')
+            .select('id, prescription_number, pdf_url, created_at')
+            .eq('consultation_id', consultationId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+          supabase
+            .from('soap_notes')
+            .select('id')
+            .eq('consultation_id', consultationId)
+            .limit(1)
+            .maybeSingle(),
+          supabase
+            .from('consultations')
+            .select('status, outcome')
+            .eq('id', consultationId)
+            .single(),
+        ]);
 
-        if (error) {
-          console.error('Error loading prescription:', error);
-        } else if (data) {
-          setExistingPrescription(data);
+        if (prescriptionResult.data) {
+          setExistingPrescription(prescriptionResult.data);
+        }
+        if (soapResult.data) {
+          setHasSoapNotes(true);
+        }
+        if (consultationResult.data?.status === 'closed' && consultationResult.data?.outcome === 'success') {
+          setIsAlreadyCompleted(true);
         }
       } catch (error) {
-        console.error('Error loading prescription:', error);
+        console.error('Error loading prescription data:', error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadExistingPrescription();
+    loadData();
   }, [consultationId]);
 
   const handleGeneratePdf = async () => {
@@ -103,7 +122,7 @@ export default function PrescriptionPage({ params }: PageProps) {
         setExistingPrescription(data);
       }
 
-      toast('Prescription generated successfully', 'success');
+      toast('Prescription generated and emailed to customer', 'success');
     } catch (error) {
       console.error('Error generating prescription:', error);
       toast(
@@ -224,6 +243,12 @@ export default function PrescriptionPage({ params }: PageProps) {
               </ul>
             )}
 
+            {!hasSoapNotes && !isLoading && (
+              <p className={styles.warningMessage}>
+                Please complete SOAP notes first before generating a prescription.
+              </p>
+            )}
+
             <div className={styles.actions}>
               {isLoading ? (
                 <Button variant="primary" disabled>
@@ -234,6 +259,7 @@ export default function PrescriptionPage({ params }: PageProps) {
                   variant="primary"
                   onClick={handleGeneratePdf}
                   loading={isGenerating}
+                  disabled={!hasSoapNotes}
                 >
                   {isGenerating
                     ? 'Generating...'
@@ -269,13 +295,19 @@ export default function PrescriptionPage({ params }: PageProps) {
         >
           Back to SOAP Notes
         </Button>
-        <Button
-          variant="primary"
-          onClick={handleFinishConsultation}
-          loading={isFinishing}
-        >
-          {isFinishing ? 'Finishing...' : 'Finish Consultation'}
-        </Button>
+        {isAlreadyCompleted ? (
+          <Button variant="secondary" disabled>
+            Consultation Already Completed
+          </Button>
+        ) : (
+          <Button
+            variant="primary"
+            onClick={handleFinishConsultation}
+            loading={isFinishing}
+          >
+            {isFinishing ? 'Finishing...' : 'Finish Consultation'}
+          </Button>
+        )}
       </div>
     </div>
   );

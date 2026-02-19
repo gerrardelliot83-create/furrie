@@ -144,6 +144,13 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
     ? new Date(followUpThread.expires_at) < new Date()
     : false;
 
+  // Fetch consultation media
+  const { data: mediaData } = await supabase
+    .from('consultation_media')
+    .select('id, url, media_type, file_name, file_size_bytes, created_at')
+    .eq('consultation_id', consultationId)
+    .order('created_at', { ascending: true });
+
   const pet = consultation.pets;
   const customer = consultation.profiles;
   const hasSoapNotes = consultation.soap_notes && consultation.soap_notes.length > 0;
@@ -235,6 +242,12 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
               </div>
             </div>
           </div>
+          <Link
+            href={`/patients/${pet?.id}`}
+            className={styles.viewPetLink}
+          >
+            View Full Pet Profile
+          </Link>
         </div>
 
         {/* Customer Info Card */}
@@ -314,6 +327,54 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
           </div>
         )}
 
+        {/* Customer Media */}
+        {mediaData && mediaData.length > 0 && (
+          <div className={styles.detailsCard}>
+            <h2 className={styles.cardTitle}>Customer Media</h2>
+            {mediaData.filter((m) => m.media_type === 'photo').length > 0 && (
+              <div className={styles.mediaGallery}>
+                {mediaData
+                  .filter((m) => m.media_type === 'photo')
+                  .map((m) => (
+                    <a
+                      key={m.id}
+                      href={m.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={styles.mediaThumb}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={m.url}
+                        alt={m.file_name || 'Consultation photo'}
+                        className={styles.mediaThumbImage}
+                      />
+                    </a>
+                  ))}
+              </div>
+            )}
+            {mediaData.filter((m) => m.media_type === 'video').length > 0 && (
+              <div className={styles.mediaVideos}>
+                {mediaData
+                  .filter((m) => m.media_type === 'video')
+                  .map((m) => (
+                    <div key={m.id} className={styles.mediaVideoItem}>
+                      <video
+                        src={m.url}
+                        controls
+                        preload="metadata"
+                        className={styles.mediaVideoPlayer}
+                      />
+                      {m.file_name && (
+                        <span className={styles.mediaVideoName}>{m.file_name}</span>
+                      )}
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Actions Card */}
         <div className={styles.actionsCard}>
           <h2 className={styles.cardTitle}>Actions</h2>
@@ -340,6 +401,17 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
             >
               {hasPrescription ? 'View Prescription' : 'Generate Prescription'}
             </Link>
+
+            {consultation.recording_url && (
+              <a
+                href={consultation.recording_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={styles.actionButtonSecondary}
+              >
+                View Recording
+              </a>
+            )}
 
             {hasFollowUpAccess && !isThreadExpired ? (
               <Link

@@ -9,11 +9,7 @@ import {
   type KeyboardEvent,
   type ChangeEvent,
 } from 'react';
-import {
-  getBreedsBySpecies,
-  searchBreeds,
-  type Breed,
-} from '@/lib/data/breeds';
+import type { Breed } from '@/lib/data/breeds';
 import { cn } from '@/lib/utils';
 import styles from './BreedSelect.module.css';
 
@@ -73,15 +69,33 @@ export function BreedSelect({
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [focusedIndex, setFocusedIndex] = useState(-1);
+  const [breedModule, setBreedModule] = useState<{
+    getBreedsBySpecies: typeof import('@/lib/data/breeds').getBreedsBySpecies;
+    searchBreeds: typeof import('@/lib/data/breeds').searchBreeds;
+  } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
+  // Lazy-load breed data only when dropdown opens for the first time
+  useEffect(() => {
+    if (isOpen && !breedModule) {
+      import('@/lib/data/breeds').then((mod) => {
+        setBreedModule({ getBreedsBySpecies: mod.getBreedsBySpecies, searchBreeds: mod.searchBreeds });
+      });
+    }
+  }, [isOpen, breedModule]);
+
   // Get breeds based on species and search, memoized to prevent unnecessary recalculations
   const { groupedBreeds, flattenedBreeds } = useMemo(() => {
-    const allBreeds = getBreedsBySpecies(species);
+    if (!breedModule) {
+      const empty: GroupedBreeds = { indianNative: [], foundInIndia: [], rare: [], other: [] };
+      return { groupedBreeds: empty, flattenedBreeds: [] as Breed[] };
+    }
+
+    const allBreeds = breedModule.getBreedsBySpecies(species);
     const filtered = searchQuery
-      ? searchBreeds(searchQuery, species)
+      ? breedModule.searchBreeds(searchQuery, species)
       : allBreeds;
     const grouped = groupBreeds(filtered);
 
@@ -94,7 +108,7 @@ export function BreedSelect({
     ];
 
     return { groupedBreeds: grouped, flattenedBreeds: flattened };
-  }, [species, searchQuery]);
+  }, [species, searchQuery, breedModule]);
 
   // Close dropdown when clicking outside
   useEffect(() => {

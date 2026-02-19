@@ -3,6 +3,8 @@
 import {
   useState,
   useCallback,
+  useEffect,
+  useRef,
   type FormEvent,
   type ChangeEvent,
 } from 'react';
@@ -78,6 +80,19 @@ export function PetForm({ pet, mode, className }: PetFormProps) {
     insurancePolicyNumber: pet?.insurancePolicyNumber || '',
   });
 
+  const isDirtyRef = useRef(false);
+
+  // Track unsaved changes for beforeunload warning
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirtyRef.current) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
+
   const [errors, setErrors] = useState<FormErrors>({});
   const [expandedSections, setExpandedSections] = useState({
     basic: true,
@@ -114,6 +129,7 @@ export function PetForm({ pet, mode, className }: PetFormProps) {
   const updateFormData = useCallback(
     <K extends keyof Partial<Pet>>(key: K, value: Pet[K]) => {
       setFormData((prev) => ({ ...prev, [key]: value }));
+      isDirtyRef.current = true;
       if (errors[key as keyof FormErrors]) {
         setErrors((prev) => ({ ...prev, [key]: undefined }));
       }
@@ -191,8 +207,19 @@ export function PetForm({ pet, mode, className }: PetFormProps) {
     [formData.currentMedications, updateFormData]
   );
 
+  const [vaccinationDateError, setVaccinationDateError] = useState('');
+
   const handleAddVaccination = useCallback(() => {
     if (!newVaccination.name.trim() || !newVaccination.date) return;
+
+    // Validate that next due date is after date given
+    if (newVaccination.nextDueDate && newVaccination.date) {
+      if (newVaccination.nextDueDate <= newVaccination.date) {
+        setVaccinationDateError('Next due date must be after the date given');
+        return;
+      }
+    }
+    setVaccinationDateError('');
 
     const vaccination: VaccinationRecord = {
       ...newVaccination,
@@ -260,6 +287,7 @@ export function PetForm({ pet, mode, className }: PetFormProps) {
         if (error) {
           showError(error);
         } else if (newPet) {
+          isDirtyRef.current = false;
           success('Pet added successfully');
           router.push(`/pets/${newPet.id}`);
         }
@@ -268,6 +296,7 @@ export function PetForm({ pet, mode, className }: PetFormProps) {
         if (error) {
           showError(error);
         } else if (updatedPet) {
+          isDirtyRef.current = false;
           success('Pet updated successfully');
           router.push(`/pets/${updatedPet.id}`);
         }
@@ -675,6 +704,9 @@ export function PetForm({ pet, mode, className }: PetFormProps) {
                   Add
                 </Button>
               </div>
+              {vaccinationDateError && (
+                <span className={styles.errorText}>{vaccinationDateError}</span>
+              )}
             </div>
 
             <div className={styles.fieldGroup}>
@@ -801,7 +833,14 @@ export function PetForm({ pet, mode, className }: PetFormProps) {
         <Button
           type="button"
           variant="ghost"
-          onClick={() => router.back()}
+          onClick={() => {
+            isDirtyRef.current = false;
+            if (window.history.length > 1) {
+              router.back();
+            } else {
+              router.push('/pets');
+            }
+          }}
           disabled={loading}
         >
           {tCommon('cancel')}

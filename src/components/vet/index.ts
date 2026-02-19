@@ -1,4 +1,3 @@
-export { IncomingCallAlert } from './IncomingCallAlert'; // Deprecated - kept for backwards compatibility
 export { VetLoginForm } from './VetLoginForm';
 export { VetStatusToggle } from './VetStatusToggle';
 export { VetQuickStats } from './VetQuickStats';

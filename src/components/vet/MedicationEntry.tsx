@@ -44,13 +44,13 @@ export function MedicationEntry({ medication, onChange, onRemove, petSpecies, di
   };
 
   const handleMedicationSelect = (med: MedicationOption) => {
-    // Auto-fill defaults from the known medication
+    // Only auto-fill fields that are currently empty to avoid overwriting custom entries
     onChange({
       ...medication,
       name: med.name,
-      dosage: med.commonDosages[0] || medication.dosage,
-      route: med.commonRoutes[0] || medication.route,
-      frequency: med.commonFrequencies[0] || medication.frequency,
+      dosage: medication.dosage || med.commonDosages[0] || '',
+      route: medication.route || med.commonRoutes[0] || '',
+      frequency: medication.frequency || med.commonFrequencies[0] || '',
       isFromList: true,
     });
   };

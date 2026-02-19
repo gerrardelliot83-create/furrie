@@ -85,6 +85,13 @@
   max-width: 280px;
 }
 
+.emptyActions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: center;
+}
+
 /* Date Selector */
 .dateSelector {
   overflow: hidden;

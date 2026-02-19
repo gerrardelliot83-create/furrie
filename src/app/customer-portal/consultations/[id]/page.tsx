@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { JoinCallButton } from '@/components/consultation/JoinCallButton';
 import { CancelConsultationButton } from '@/components/consultation/CancelConsultationButton';
+import { MediaUpload } from '@/components/consultation/MediaUpload';
 import { getStatusVariant, getStatusDisplayText } from '@/lib/utils/statusHelpers';
 import type { ConsultationStatus, ConsultationOutcome } from '@/types';
 import styles from './ConsultationDetail.module.css';
@@ -88,6 +89,22 @@ export default async function ConsultationDetailPage({ params }: ConsultationDet
       .single();
     vetProfile = vp;
   }
+
+  // Fetch consultation media
+  const { data: mediaData } = await supabase
+    .from('consultation_media')
+    .select('id, url, media_type, file_name, file_size_bytes, created_at')
+    .eq('consultation_id', id)
+    .order('created_at', { ascending: true });
+
+  const consultationMedia = (mediaData || []).map((m) => ({
+    id: m.id,
+    url: m.url,
+    mediaType: m.media_type as 'photo' | 'video',
+    fileName: m.file_name,
+    fileSizeBytes: m.file_size_bytes,
+    createdAt: m.created_at || '',
+  }));
 
   // Query follow_up_threads directly to check if chat is available
   const { data: followUpThread } = await supabase
@@ -303,6 +320,18 @@ export default async function ConsultationDetailPage({ params }: ConsultationDet
               ))}
             </div>
           )}
+        </section>
+      )}
+
+      {/* Media Uploads */}
+      {(consultationMedia.length > 0 || ['pending', 'scheduled', 'active'].includes(consultation.status)) && (
+        <section className={styles.card}>
+          <MediaUpload
+            consultationId={consultation.id}
+            userId={user.id}
+            initialMedia={consultationMedia}
+            disabled={!['pending', 'scheduled', 'active'].includes(consultation.status)}
+          />
         </section>
       )}
 

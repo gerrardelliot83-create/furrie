@@ -49,61 +49,63 @@ export default async function VetDashboard() {
   const weekStart = new Date(todayStart);
   weekStart.setDate(weekStart.getDate() - weekStart.getDay());
 
-  // Fetch today's consultations count (active + successfully closed)
-  const { count: todayActiveCount } = await supabase
-    .from('consultations')
-    .select('*', { count: 'exact', head: true })
-    .eq('vet_id', user.id)
-    .gte('created_at', todayStart.toISOString())
-    .eq('status', 'active');
-
-  const { count: todayCompletedCount } = await supabase
-    .from('consultations')
-    .select('*', { count: 'exact', head: true })
-    .eq('vet_id', user.id)
-    .gte('created_at', todayStart.toISOString())
-    .eq('status', 'closed')
-    .eq('outcome', 'success');
+  // Run all queries in parallel for faster dashboard load
+  const [
+    { count: todayActiveCount },
+    { count: todayCompletedCount },
+    { count: weekActiveCount },
+    { count: weekCompletedCount },
+    { data: recentConsultations },
+  ] = await Promise.all([
+    supabase
+      .from('consultations')
+      .select('id', { count: 'exact', head: true })
+      .eq('vet_id', user.id)
+      .gte('created_at', todayStart.toISOString())
+      .eq('status', 'active'),
+    supabase
+      .from('consultations')
+      .select('id', { count: 'exact', head: true })
+      .eq('vet_id', user.id)
+      .gte('created_at', todayStart.toISOString())
+      .eq('status', 'closed')
+      .eq('outcome', 'success'),
+    supabase
+      .from('consultations')
+      .select('id', { count: 'exact', head: true })
+      .eq('vet_id', user.id)
+      .gte('created_at', weekStart.toISOString())
+      .eq('status', 'active'),
+    supabase
+      .from('consultations')
+      .select('id', { count: 'exact', head: true })
+      .eq('vet_id', user.id)
+      .gte('created_at', weekStart.toISOString())
+      .eq('status', 'closed')
+      .eq('outcome', 'success'),
+    supabase
+      .from('consultations')
+      .select(`
+        id, consultation_number, customer_id, vet_id, pet_id, type, status,
+        outcome, scheduled_at, started_at, ended_at, duration_minutes,
+        was_extended, concern_text, symptom_categories, is_follow_up,
+        parent_consultation_id, follow_up_expires_at, daily_room_name,
+        daily_room_url, recording_id, recording_url, payment_id, amount_paid,
+        is_priority, is_free, created_at, updated_at,
+        pets!consultations_pet_id_fkey (
+          id, name, species, breed
+        ),
+        profiles!consultations_customer_id_fkey (
+          id, full_name
+        )
+      `)
+      .eq('vet_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(10),
+  ]);
 
   const todayCount = (todayActiveCount || 0) + (todayCompletedCount || 0);
-
-  // Fetch this week's consultations count (active + successfully closed)
-  const { count: weekActiveCount } = await supabase
-    .from('consultations')
-    .select('*', { count: 'exact', head: true })
-    .eq('vet_id', user.id)
-    .gte('created_at', weekStart.toISOString())
-    .eq('status', 'active');
-
-  const { count: weekCompletedCount } = await supabase
-    .from('consultations')
-    .select('*', { count: 'exact', head: true })
-    .eq('vet_id', user.id)
-    .gte('created_at', weekStart.toISOString())
-    .eq('status', 'closed')
-    .eq('outcome', 'success');
-
   const weekCount = (weekActiveCount || 0) + (weekCompletedCount || 0);
-
-  // Fetch recent consultations
-  const { data: recentConsultations } = await supabase
-    .from('consultations')
-    .select(`
-      *,
-      pets!consultations_pet_id_fkey (
-        id,
-        name,
-        species,
-        breed
-      ),
-      profiles!consultations_customer_id_fkey (
-        id,
-        full_name
-      )
-    `)
-    .eq('vet_id', user.id)
-    .order('created_at', { ascending: false })
-    .limit(10);
 
   // Map consultations
   const mappedConsultations = (recentConsultations || []).map((row) => ({
@@ -135,11 +137,11 @@ export default async function VetDashboard() {
     isFree: row.is_free,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    pet: row.pets,
-    customer: row.profiles ? {
-      id: row.profiles.id,
-      fullName: row.profiles.full_name
-    } : undefined
+    pet: Array.isArray(row.pets) ? row.pets[0] : row.pets,
+    customer: (() => {
+      const p = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+      return p ? { id: p.id, fullName: p.full_name } : undefined;
+    })()
   }));
 
   const stats = {

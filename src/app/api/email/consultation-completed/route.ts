@@ -66,6 +66,19 @@ export async function POST(request: Request) {
       consultationId,
     });
 
+    // Create in-app notification for consultation completion
+    try {
+      await supabaseAdmin.from('notifications').insert({
+        user_id: consultation.customer_id,
+        type: 'consultation_completed',
+        title: 'Consultation Completed',
+        message: `Your consultation for ${petResult.data?.name || 'your pet'} with Dr. ${vetResult.data?.full_name || 'your vet'} has been completed. Follow-up chat is now available.`,
+        data: { consultationId },
+      });
+    } catch (notifyErr) {
+      console.error('Failed to create completion notification:', notifyErr);
+    }
+
     if (!result.success) {
       return NextResponse.json(
         { error: result.error, code: 'EMAIL_SEND_FAILED' },

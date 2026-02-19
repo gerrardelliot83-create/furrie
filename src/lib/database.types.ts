@@ -138,6 +138,50 @@ export type Database = {
           },
         ]
       }
+      consultation_media: {
+        Row: {
+          consultation_id: string
+          created_at: string | null
+          file_name: string | null
+          file_size_bytes: number | null
+          id: string
+          media_type: string
+          thumbnail_url: string | null
+          uploaded_by: string
+          url: string
+        }
+        Insert: {
+          consultation_id: string
+          created_at?: string | null
+          file_name?: string | null
+          file_size_bytes?: number | null
+          id?: string
+          media_type: string
+          thumbnail_url?: string | null
+          uploaded_by: string
+          url: string
+        }
+        Update: {
+          consultation_id?: string
+          created_at?: string | null
+          file_name?: string | null
+          file_size_bytes?: number | null
+          id?: string
+          media_type?: string
+          thumbnail_url?: string | null
+          uploaded_by?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consultation_media_consultation_id_fkey"
+            columns: ["consultation_id"]
+            isOneToOne: false
+            referencedRelation: "consultations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       consultation_ratings: {
         Row: {
           consultation_id: string

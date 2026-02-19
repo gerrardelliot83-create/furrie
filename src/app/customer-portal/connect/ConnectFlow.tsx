@@ -6,7 +6,9 @@ import { useTranslations } from 'next-intl';
 import type { Pet } from '@/types';
 import { hasSevereSymptoms } from '@/lib/data/symptoms';
 import { Button } from '@/components/ui/Button';
+import { Spinner } from '@/components/ui/Spinner';
 import { Textarea } from '@/components/ui/Textarea';
+import { FileUpload } from '@/components/customer/FileUpload';
 import {
   StepIndicator,
   PetSelector,
@@ -34,12 +36,20 @@ interface BookedConsultation {
   vetName: string | null;
 }
 
+interface PendingConsultation {
+  id: string;
+  consultationNumber: string;
+  petId: string;
+  scheduledAt: string;
+}
+
 interface ConnectFlowProps {
   initialPets: Pet[];
   plusPetIds?: string[];
+  pendingConsultation?: PendingConsultation;
 }
 
-export function ConnectFlow({ initialPets, plusPetIds = [] }: ConnectFlowProps) {
+export function ConnectFlow({ initialPets, plusPetIds = [], pendingConsultation }: ConnectFlowProps) {
   const tCommon = useTranslations('common');
   const router = useRouter();
 
@@ -54,6 +64,7 @@ export function ConnectFlow({ initialPets, plusPetIds = [] }: ConnectFlowProps) 
   const [concernText, setConcernText] = useState('');
   const [symptoms, setSymptoms] = useState<string[]>([]);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<TimeSlot | null>(null);
+  const [uploadedMedia, setUploadedMedia] = useState<{ url: string; mediaType: 'photo' | 'video' }[]>([]);
 
   // UI state
   const [loading, setLoading] = useState(false);
@@ -126,6 +137,7 @@ export function ConnectFlow({ initialPets, plusPetIds = [] }: ConnectFlowProps) 
           scheduledAt: selectedTimeSlot.datetime,
           concernText: concernText.trim() || null,
           symptomCategories: symptoms,
+          media: uploadedMedia.length > 0 ? uploadedMedia : undefined,
         }),
       });
 
@@ -263,6 +275,53 @@ export function ConnectFlow({ initialPets, plusPetIds = [] }: ConnectFlowProps) 
               />
             </div>
 
+            {/* Photo/Video uploads */}
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Add photos or a video (optional)</label>
+              {uploadedMedia.length > 0 && (
+                <div className={styles.mediaPreview}>
+                  {uploadedMedia.map((m, i) => (
+                    <div key={`${m.url}-${i}`} className={styles.mediaPreviewItem}>
+                      {m.mediaType === 'photo' ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img src={m.url} alt={`Upload ${i + 1}`} className={styles.mediaThumb} />
+                      ) : (
+                        <div className={styles.mediaVideoTag}>Video</div>
+                      )}
+                      <button
+                        type="button"
+                        className={styles.mediaRemove}
+                        onClick={() => setUploadedMedia((prev) => prev.filter((_, idx) => idx !== i))}
+                        aria-label="Remove"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M18 6L6 18M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {uploadedMedia.filter((m) => m.mediaType === 'photo').length < 5 && (
+                <FileUpload
+                  endpoint="consultationImage"
+                  onUploadComplete={(urls) => {
+                    setUploadedMedia((prev) => [...prev, ...urls.map((url) => ({ url, mediaType: 'photo' as const }))]);
+                  }}
+                  maxFiles={5 - uploadedMedia.filter((m) => m.mediaType === 'photo').length}
+                />
+              )}
+              {uploadedMedia.filter((m) => m.mediaType === 'video').length < 1 && (
+                <FileUpload
+                  endpoint="consultationVideo"
+                  onUploadComplete={(urls) => {
+                    setUploadedMedia((prev) => [...prev, ...urls.map((url) => ({ url, mediaType: 'video' as const }))]);
+                  }}
+                  maxFiles={1}
+                />
+              )}
+            </div>
+
             <EmergencyDisclaimer
               petName={selectedPet?.name || 'your pet'}
               visible={showEmergencyWarning}
@@ -351,8 +410,65 @@ export function ConnectFlow({ initialPets, plusPetIds = [] }: ConnectFlowProps) 
     }
   };
 
+  const [showPendingBanner, setShowPendingBanner] = useState(!!pendingConsultation);
+
+  const handleRetryPayment = async () => {
+    if (!pendingConsultation) return;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const paymentResponse = await fetch('/api/payments/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          consultationId: pendingConsultation.id,
+          amount: 499,
+          currency: 'INR',
+          description: 'Consultation payment retry',
+        }),
+      });
+
+      const paymentData = await paymentResponse.json();
+
+      if (!paymentResponse.ok) {
+        throw new Error(paymentData.error || 'Failed to create payment');
+      }
+
+      if (paymentData.devMode) {
+        // Dev mode - auto-complete
+        router.push(`/consultations/${pendingConsultation.id}`);
+      } else if (paymentData.redirectUrl) {
+        window.location.href = paymentData.redirectUrl;
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Payment failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className={styles.container}>
+      {showPendingBanner && pendingConsultation && (
+        <div className={styles.pendingBanner}>
+          <div className={styles.pendingBannerContent}>
+            <h3 className={styles.pendingBannerTitle}>You have a pending consultation</h3>
+            <p className={styles.pendingBannerText}>
+              Consultation {pendingConsultation.consultationNumber} is awaiting payment.
+            </p>
+          </div>
+          <div className={styles.pendingBannerActions}>
+            <Button variant="primary" size="sm" onClick={handleRetryPayment} loading={loading}>
+              Retry Payment
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setShowPendingBanner(false)}>
+              Start New
+            </Button>
+          </div>
+        </div>
+      )}
+
       {currentStep !== 'confirmation' && (
         <StepIndicator
           currentStep={stepNumber}
@@ -363,7 +479,14 @@ export function ConnectFlow({ initialPets, plusPetIds = [] }: ConnectFlowProps) 
       )}
 
       <div className={styles.content}>
-        {renderStep()}
+        {loading && currentStep === 'review' ? (
+          <div className={styles.loadingOverlay}>
+            <Spinner size="lg" />
+            <p className={styles.loadingText}>Processing your booking...</p>
+          </div>
+        ) : (
+          renderStep()
+        )}
       </div>
     </div>
   );

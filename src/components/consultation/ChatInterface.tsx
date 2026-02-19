@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import Link from 'next/link';
 import { MessageBubble } from './MessageBubble';
 import { MessageComposer } from './MessageComposer';
 import { useFollowUpChat } from '@/hooks/useFollowUpChat';
@@ -167,7 +168,12 @@ export function ChatInterface({
         </div>
       ) : (
         <div className={styles.expiredMessage}>
-          This follow-up chat has expired. Please schedule a new consultation if needed.
+          <p>This follow-up chat has expired.</p>
+          {currentUserRole === 'customer' && (
+            <Link href="/connect" className={styles.bookNewLink}>
+              Book New Consultation
+            </Link>
+          )}
         </div>
       )}
     </div>

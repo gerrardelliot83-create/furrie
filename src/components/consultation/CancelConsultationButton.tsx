@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
+import { useToast } from '@/components/ui/Toast';
 import styles from './CancelConsultationButton.module.css';
 
 interface CancelConsultationButtonProps {
@@ -13,6 +14,7 @@ export function CancelConsultationButton({
   consultationId,
 }: CancelConsultationButtonProps) {
   const router = useRouter();
+  const { toast } = useToast();
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +35,8 @@ export function CancelConsultationButton({
         throw new Error(data.error || 'Failed to cancel consultation');
       }
 
-      // Refresh the page to show updated status
+      // Show success toast and refresh
+      toast('Consultation cancelled successfully', 'success');
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');

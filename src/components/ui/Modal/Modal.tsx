@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 import styles from './Modal.module.css';
@@ -24,6 +24,11 @@ export function Modal({
 }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<Element | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true); // eslint-disable-line react-hooks/set-state-in-effect -- Standard mounted pattern to avoid hydration mismatch
+  }, []);
 
   // Handle escape key
   useEffect(() => {
@@ -116,10 +121,8 @@ export function Modal({
     </div>
   );
 
-  // Use portal to render at document body level
-  if (typeof window !== 'undefined') {
-    return createPortal(modalContent, document.body);
-  }
+  // Use portal to render at document body level (mounted guard prevents hydration mismatch)
+  if (!mounted) return null;
 
-  return null;
+  return createPortal(modalContent, document.body);
 }

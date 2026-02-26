@@ -8,7 +8,7 @@
 /* === EPILOGUE FONT FACE DECLARATIONS === */
 @font-face {
   font-family: 'Epilogue';
-  src: url('/fonts/Epilogue[wght].woff2') format('woff2-variations');
+  src: url('/fonts/Epilogue-Variable.woff2') format('woff2-variations');
   font-weight: 100 900;
   font-style: normal;
   font-display: swap;
@@ -16,7 +16,7 @@
 
 @font-face {
   font-family: 'Epilogue';
-  src: url('/fonts/Epilogue-Italic[wght].woff2') format('woff2-variations');
+  src: url('/fonts/Epilogue-Italic-Variable.woff2') format('woff2-variations');
   font-weight: 100 900;
   font-style: italic;
   font-display: swap;

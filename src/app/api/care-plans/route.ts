@@ -227,7 +227,8 @@ export async function POST(request: Request) {
           user_id: pet.owner_id,
           type: 'care_plan_created',
           title: 'New Care Plan',
-          message: `Dr. ${vetResult.data?.full_name || 'Your vet'} has created a care plan "${title}" for ${petResult2.data?.name || 'your pet'}.`,
+          body: `Dr. ${vetResult.data?.full_name || 'Your vet'} has created a care plan "${title}" for ${petResult2.data?.name || 'your pet'}.`,
+          channel: 'in_app',
           data: { carePlanId: plan.id, petId },
         });
       } catch (notifyErr) {

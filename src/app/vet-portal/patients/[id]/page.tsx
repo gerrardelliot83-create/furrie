@@ -86,8 +86,8 @@ export default async function VetPatientDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  // Fetch pet, owner, consultations, and care plans in parallel
-  const [petResult, consultationsResult, carePlansResult] = await Promise.all([
+  // Fetch pet and consultations in parallel (critical for page rendering)
+  const [petResult, consultationsResult] = await Promise.all([
     supabaseAdmin.from('pets').select('*').eq('id', petId).single(),
     supabaseAdmin
       .from('consultations')
@@ -100,21 +100,29 @@ export default async function VetPatientDetailPage({ params }: PageProps) {
       .eq('vet_id', user.id)
       .eq('pet_id', petId)
       .order('created_at', { ascending: false }),
-    supabaseAdmin
-      .from('care_plans')
-      .select('*, care_plan_steps (id, status)')
-      .eq('pet_id', petId)
-      .eq('vet_id', user.id)
-      .order('created_at', { ascending: false }),
   ]);
 
   if (petResult.error || !petResult.data) {
     notFound();
   }
 
+  // Care plans query isolated — failure must not break patient detail page
+  let carePlansRawData: typeof petResult.data[] = [];
+  try {
+    const carePlansResult = await supabaseAdmin
+      .from('care_plans')
+      .select('*, care_plan_steps (id, status)')
+      .eq('pet_id', petId)
+      .eq('vet_id', user.id)
+      .order('created_at', { ascending: false });
+    carePlansRawData = carePlansResult.data || [];
+  } catch (err) {
+    console.error('Failed to fetch care plans for patient:', err);
+  }
+
   const pet = mapPetFromDB(petResult.data);
   const consultations = consultationsResult.data || [];
-  const carePlans = (carePlansResult.data || []).map((plan) => {
+  const carePlans = (carePlansRawData || []).map((plan) => {
     const steps = plan.care_plan_steps || [];
     return {
       ...plan,

@@ -294,7 +294,8 @@ export async function POST(request: Request) {
         user_id: user.id,
         type: 'booking_confirmation',
         title: 'Booking Confirmed',
-        message: `Your consultation for ${pet.name} has been booked${isPlusUser ? '' : ' (pending payment)'}.`,
+        body: `Your consultation for ${pet.name} has been booked${isPlusUser ? '' : ' (pending payment)'}.`,
+        channel: 'in_app',
         data: { consultationId: consultation.id },
       });
     } catch (notifyErr) {

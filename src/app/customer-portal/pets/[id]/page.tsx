@@ -50,13 +50,19 @@ export default async function PetDetailPage({ params }: PetDetailPageProps) {
 
   const pet = mapPetFromDB(data);
 
-  // Fetch care plans for this pet
-  const { data: carePlansData } = await supabase
-    .from('care_plans')
-    .select('*, care_plan_steps (id, status), vet:profiles!care_plans_vet_id_fkey (full_name)')
-    .eq('pet_id', id)
-    .in('status', ['active', 'completed'])
-    .order('created_at', { ascending: false });
+  // Fetch care plans for this pet (isolated — failure must not break pet detail page)
+  let carePlansData = null;
+  try {
+    const result = await supabase
+      .from('care_plans')
+      .select('*, care_plan_steps (id, status), vet:profiles!care_plans_vet_id_fkey (full_name)')
+      .eq('pet_id', id)
+      .in('status', ['active', 'completed'])
+      .order('created_at', { ascending: false });
+    carePlansData = result.data;
+  } catch (err) {
+    console.error('Failed to fetch care plans for pet:', err);
+  }
 
   const carePlans = (carePlansData || []).map((plan) => {
     const steps = plan.care_plan_steps || [];

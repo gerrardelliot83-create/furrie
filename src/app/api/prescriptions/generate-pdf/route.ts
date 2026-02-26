@@ -267,7 +267,8 @@ export async function POST(request: Request) {
         user_id: consultation.customer_id,
         type: 'prescription_ready',
         title: 'Prescription Ready',
-        message: `Your prescription for ${pet?.name || 'your pet'} is ready. Check your email or consultation details.`,
+        body: `Your prescription for ${pet?.name || 'your pet'} is ready. Check your email or consultation details.`,
+        channel: 'in_app',
         data: { consultationId },
       });
     } catch (notifyErr) {

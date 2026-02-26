@@ -115,7 +115,8 @@ export async function POST(
           user_id: plan.vet_id,
           type: 'care_plan_completed',
           title: 'Care Plan Completed',
-          message: `All steps in "${plan.title}" have been completed by the pet parent.`,
+          body: `All steps in "${plan.title}" have been completed by the pet parent.`,
+          channel: 'in_app',
           data: { carePlanId: planId, petId: plan.pet_id },
         });
       } catch (notifyErr) {
@@ -130,7 +131,8 @@ export async function POST(
           user_id: plan.vet_id,
           type: 'care_plan_step_response',
           title: 'Care Plan Step Response',
-          message: `A response has been submitted for "${step.title}" in care plan "${plan.title}".`,
+          body: `A response has been submitted for "${step.title}" in care plan "${plan.title}".`,
+          channel: 'in_app',
           data: { carePlanId: planId, stepId, petId: plan.pet_id },
         });
       } catch (notifyErr) {

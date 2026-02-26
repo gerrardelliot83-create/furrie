@@ -49,14 +49,13 @@ export default async function VetDashboard() {
   const weekStart = new Date(todayStart);
   weekStart.setDate(weekStart.getDate() - weekStart.getDay());
 
-  // Run all queries in parallel for faster dashboard load
+  // Run critical queries in parallel for faster dashboard load
   const [
     { count: todayActiveCount },
     { count: todayCompletedCount },
     { count: weekActiveCount },
     { count: weekCompletedCount },
     { data: recentConsultations },
-    { data: activeCarePlansData },
   ] = await Promise.all([
     supabase
       .from('consultations')
@@ -103,14 +102,22 @@ export default async function VetDashboard() {
       .eq('vet_id', user.id)
       .order('created_at', { ascending: false })
       .limit(10),
-    supabase
+  ]);
+
+  // Care plans query isolated — failure here must not block dashboard rendering
+  let activeCarePlansData = null;
+  try {
+    const result = await supabase
       .from('care_plans')
       .select('id, title, status, pet_id, care_plan_steps (id, status, requires_response, care_plan_step_responses (id)), pets!care_plans_pet_id_fkey (id, name)')
       .eq('vet_id', user.id)
       .eq('status', 'active')
       .order('created_at', { ascending: false })
-      .limit(5),
-  ]);
+      .limit(5);
+    activeCarePlansData = result.data;
+  } catch (err) {
+    console.error('Failed to fetch care plans for vet dashboard:', err);
+  }
 
   const todayCount = (todayActiveCount || 0) + (todayCompletedCount || 0);
   const weekCount = (weekActiveCount || 0) + (weekCompletedCount || 0);

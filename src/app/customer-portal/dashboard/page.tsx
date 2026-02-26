@@ -53,12 +53,11 @@ export default async function CustomerDashboard() {
   const userName = profile?.full_name || 'there';
   const greeting = getGreeting();
 
-  // Run all queries in parallel for faster dashboard load
+  // Run critical queries in parallel for faster dashboard load
   const [
     { data: petsData },
     { data: upcomingData },
     { data: recentData },
-    { data: carePlansData },
   ] = await Promise.all([
     supabase
       .from('pets')
@@ -95,13 +94,21 @@ export default async function CustomerDashboard() {
       .eq('outcome', 'success')
       .order('ended_at', { ascending: false })
       .limit(3),
-    supabase
+  ]);
+
+  // Care plans query isolated — failure here must not block dashboard rendering
+  let carePlansData = null;
+  try {
+    const result = await supabase
       .from('care_plans')
       .select('*, care_plan_steps (id, status), pets!care_plans_pet_id_fkey (id, name), vet:profiles!care_plans_vet_id_fkey (full_name)')
       .eq('status', 'active')
       .order('created_at', { ascending: false })
-      .limit(5),
-  ]);
+      .limit(5);
+    carePlansData = result.data;
+  } catch (err) {
+    console.error('Failed to fetch care plans for dashboard:', err);
+  }
 
   const pets = (petsData || []).map(mapPetFromDB);
 

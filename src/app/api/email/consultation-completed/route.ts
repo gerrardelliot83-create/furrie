@@ -72,7 +72,8 @@ export async function POST(request: Request) {
         user_id: consultation.customer_id,
         type: 'consultation_completed',
         title: 'Consultation Completed',
-        message: `Your consultation for ${petResult.data?.name || 'your pet'} with Dr. ${vetResult.data?.full_name || 'your vet'} has been completed. Follow-up chat is now available.`,
+        body: `Your consultation for ${petResult.data?.name || 'your pet'} with Dr. ${vetResult.data?.full_name || 'your vet'} has been completed. Follow-up chat is now available.`,
+        channel: 'in_app',
         data: { consultationId },
       });
     } catch (notifyErr) {

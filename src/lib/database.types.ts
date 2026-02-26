@@ -77,6 +77,158 @@ export type Database = {
           },
         ]
       }
+      care_plan_step_responses: {
+        Row: {
+          created_at: string
+          id: string
+          media_types: string[] | null
+          media_urls: string[] | null
+          response_text: string | null
+          step_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          media_types?: string[] | null
+          media_urls?: string[] | null
+          response_text?: string | null
+          step_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          media_types?: string[] | null
+          media_urls?: string[] | null
+          response_text?: string | null
+          step_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_plan_step_responses_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "care_plan_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      care_plan_steps: {
+        Row: {
+          care_plan_id: string
+          completed_at: string | null
+          created_at: string
+          due_date: string | null
+          id: string
+          instructions: string | null
+          requires_response: boolean
+          status: string
+          step_order: number
+          step_type: string
+          title: string
+        }
+        Insert: {
+          care_plan_id: string
+          completed_at?: string | null
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          instructions?: string | null
+          requires_response?: boolean
+          status?: string
+          step_order: number
+          step_type: string
+          title: string
+        }
+        Update: {
+          care_plan_id?: string
+          completed_at?: string | null
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          instructions?: string | null
+          requires_response?: boolean
+          status?: string
+          step_order?: number
+          step_type?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_plan_steps_care_plan_id_fkey"
+            columns: ["care_plan_id"]
+            isOneToOne: false
+            referencedRelation: "care_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      care_plans: {
+        Row: {
+          category: string
+          completed_at: string | null
+          created_at: string
+          customer_id: string
+          description: string | null
+          id: string
+          pet_id: string
+          status: string
+          title: string
+          updated_at: string
+          vet_id: string
+        }
+        Insert: {
+          category: string
+          completed_at?: string | null
+          created_at?: string
+          customer_id: string
+          description?: string | null
+          id?: string
+          pet_id: string
+          status?: string
+          title: string
+          updated_at?: string
+          vet_id: string
+        }
+        Update: {
+          category?: string
+          completed_at?: string | null
+          created_at?: string
+          customer_id?: string
+          description?: string | null
+          id?: string
+          pet_id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          vet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_plans_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_plans_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_plans_vet_id_fkey"
+            columns: ["vet_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       consultation_flags: {
         Row: {
           admin_notes: string | null

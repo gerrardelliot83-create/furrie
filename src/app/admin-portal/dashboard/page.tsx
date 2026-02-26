@@ -16,7 +16,45 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function AdminDashboard() {
   const t = await getTranslations('nav');
-  const stats = await getDashboardStats();
+
+  let stats: Awaited<ReturnType<typeof getDashboardStats>>;
+  try {
+    stats = await getDashboardStats();
+  } catch (err) {
+    console.error('Admin dashboard stats failed:', err);
+    return (
+      <div className={styles.container}>
+        <h1 className={styles.title}>Admin {t('dashboard')}</h1>
+        <div style={{
+          textAlign: 'center',
+          padding: '3rem 1rem',
+          color: '#666',
+        }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#1a1a1a', marginBottom: '0.5rem' }}>
+            Having trouble connecting
+          </h2>
+          <p style={{ marginBottom: '1.5rem', lineHeight: 1.5 }}>
+            We could not load dashboard statistics. Please check your connection and try again.
+          </p>
+          <a
+            href="/dashboard"
+            style={{
+              padding: '0.625rem 1.5rem',
+              backgroundColor: '#770002',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '0.9375rem',
+              fontWeight: 500,
+              textDecoration: 'none',
+            }}
+          >
+            Reload page
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.container}>

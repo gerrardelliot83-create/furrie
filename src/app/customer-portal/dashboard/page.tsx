@@ -6,6 +6,7 @@ import { getTranslations } from 'next-intl/server';
 import { createClient } from '@/lib/supabase/server';
 import { mapPetFromDB } from '@/lib/utils/petMapper';
 import { mapConsultationWithRelationsFromDB } from '@/lib/utils/consultationMapper';
+import { withTimeout } from '@/lib/utils/queryTimeout';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { ConsultationCard } from '@/components/consultation';
@@ -53,12 +54,10 @@ export default async function CustomerDashboard() {
   const userName = profile?.full_name || 'there';
   const greeting = getGreeting();
 
-  // Run critical queries in parallel for faster dashboard load
-  const [
-    { data: petsData },
-    { data: upcomingData },
-    { data: recentData },
-  ] = await Promise.all([
+  // Run critical queries in parallel with timeout protection
+  const QUERY_TIMEOUT = 15000;
+
+  const allQueries = Promise.all([
     supabase
       .from('pets')
       .select('*')
@@ -96,6 +95,19 @@ export default async function CustomerDashboard() {
       .limit(3),
   ]);
 
+  type QueryResult = Awaited<typeof allQueries>;
+  const fallback = [
+    { data: null, error: null, count: null, status: 0, statusText: '' },
+    { data: null, error: null, count: null, status: 0, statusText: '' },
+    { data: null, error: null, count: null, status: 0, statusText: '' },
+  ] as unknown as QueryResult;
+
+  const [
+    { data: petsData },
+    { data: upcomingData },
+    { data: recentData },
+  ] = await withTimeout(allQueries, QUERY_TIMEOUT, fallback);
+
   // Care plans query isolated — failure here must not block dashboard rendering
   let carePlansData = null;
   try {
@@ -128,6 +140,37 @@ export default async function CustomerDashboard() {
       completedSteps: steps.filter((s: { status: string }) => s.status === 'completed').length,
     };
   });
+
+  // If all critical queries failed or timed out, show a connection error
+  const allQueriesFailed = !petsData && !upcomingData && !recentData;
+  if (allQueriesFailed) {
+    return (
+      <div className={styles.container}>
+        <header className={styles.header}>
+          <h1 className={styles.greeting}>
+            {greeting}, {userName.split(' ')[0]}!
+          </h1>
+        </header>
+        <div style={{
+          textAlign: 'center',
+          padding: '3rem 1rem',
+          color: '#666',
+        }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#1a1a1a', marginBottom: '0.5rem' }}>
+            Having trouble connecting
+          </h2>
+          <p style={{ marginBottom: '1.5rem', lineHeight: 1.5 }}>
+            We could not load your dashboard data. Please check your connection and try again.
+          </p>
+          <Link href="/dashboard">
+            <Button variant="primary">
+              Reload page
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.container}>

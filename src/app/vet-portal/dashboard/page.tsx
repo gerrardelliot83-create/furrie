@@ -3,6 +3,7 @@ import { getTranslations } from 'next-intl/server';
 import { redirect } from 'next/navigation';
 
 import { createClient } from '@/lib/supabase/server';
+import { withTimeout } from '@/lib/utils/queryTimeout';
 import { VetDashboardContent } from './VetDashboardContent';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -49,14 +50,10 @@ export default async function VetDashboard() {
   const weekStart = new Date(todayStart);
   weekStart.setDate(weekStart.getDate() - weekStart.getDay());
 
-  // Run critical queries in parallel for faster dashboard load
-  const [
-    { count: todayActiveCount },
-    { count: todayCompletedCount },
-    { count: weekActiveCount },
-    { count: weekCompletedCount },
-    { data: recentConsultations },
-  ] = await Promise.all([
+  // Run critical queries in parallel with timeout protection
+  const QUERY_TIMEOUT = 15000;
+
+  const allQueries = Promise.all([
     supabase
       .from('consultations')
       .select('id', { count: 'exact', head: true })
@@ -103,6 +100,23 @@ export default async function VetDashboard() {
       .order('created_at', { ascending: false })
       .limit(10),
   ]);
+
+  type QueryResult = Awaited<typeof allQueries>;
+  const fallback = [
+    { data: null, error: null, count: null, status: 0, statusText: '' },
+    { data: null, error: null, count: null, status: 0, statusText: '' },
+    { data: null, error: null, count: null, status: 0, statusText: '' },
+    { data: null, error: null, count: null, status: 0, statusText: '' },
+    { data: null, error: null, count: null, status: 0, statusText: '' },
+  ] as unknown as QueryResult;
+
+  const [
+    { count: todayActiveCount },
+    { count: todayCompletedCount },
+    { count: weekActiveCount },
+    { count: weekCompletedCount },
+    { data: recentConsultations },
+  ] = await withTimeout(allQueries, QUERY_TIMEOUT, fallback);
 
   // Care plans query isolated — failure here must not block dashboard rendering
   let activeCarePlansData = null;
@@ -185,6 +199,44 @@ export default async function VetDashboard() {
       pendingResponses,
     };
   });
+
+  // If all critical queries failed or timed out, show a connection error
+  const allQueriesFailed = todayActiveCount === null && todayCompletedCount === null && !recentConsultations;
+  if (allQueriesFailed) {
+    return (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '60vh',
+        padding: '2rem',
+        textAlign: 'center',
+      }}>
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#1a1a1a', marginBottom: '0.5rem' }}>
+          Having trouble connecting
+        </h2>
+        <p style={{ color: '#666', marginBottom: '1.5rem', lineHeight: 1.5 }}>
+          We could not load your dashboard data. Please check your connection and try again.
+        </p>
+        <a
+          href="/dashboard"
+          style={{
+            padding: '0.625rem 1.5rem',
+            backgroundColor: '#770002',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '0.9375rem',
+            fontWeight: 500,
+            textDecoration: 'none',
+          }}
+        >
+          Reload page
+        </a>
+      </div>
+    );
+  }
 
   return (
     <VetDashboardContent

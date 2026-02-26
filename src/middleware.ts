@@ -133,16 +133,13 @@ export async function middleware(request: NextRequest) {
       userRole = profile?.role || 'customer';
 
       // Cache role in app_metadata so future requests skip the DB query.
-      // Uses admin client if available, otherwise non-blocking best-effort.
-      try {
-        const { createClient: createAdminClient } = await import('@/lib/supabase/admin');
+      // Fire-and-forget: this is a nice-to-have optimization, not critical for the request.
+      import('@/lib/supabase/admin').then(({ createClient: createAdminClient }) => {
         const adminClient = createAdminClient();
-        await adminClient.auth.admin.updateUserById(user.id, {
+        adminClient.auth.admin.updateUserById(user.id, {
           app_metadata: { role: userRole },
-        });
-      } catch {
-        // Non-critical: role will be fetched from DB next time
-      }
+        }).catch(() => {});
+      }).catch(() => {});
     }
 
     // Check if user's role matches the portal they're accessing

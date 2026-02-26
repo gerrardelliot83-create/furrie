@@ -5,6 +5,7 @@ import {
   useContext,
   useState,
   useCallback,
+  useEffect,
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
@@ -38,6 +39,11 @@ export function useToast() {
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastData[]>([]);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true); // eslint-disable-line react-hooks/set-state-in-effect -- Standard mounted pattern to avoid hydration mismatch
+  }, []);
 
   const removeToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -68,7 +74,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      {typeof window !== 'undefined' &&
+      {mounted &&
         createPortal(
           <ToastContainer toasts={toasts} onDismiss={removeToast} />,
           document.body

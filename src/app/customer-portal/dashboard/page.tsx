@@ -12,6 +12,8 @@ import { Badge } from '@/components/ui/Badge';
 import { ConsultationCard } from '@/components/consultation';
 import styles from './Dashboard.module.css';
 
+export const maxDuration = 30;
+
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('nav');
   return {
@@ -44,25 +46,26 @@ export default async function CustomerDashboard() {
     redirect('/login');
   }
 
-  // Fetch user profile
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('full_name')
-    .eq('id', user.id)
-    .single();
-
-  const userName = profile?.full_name || 'there';
   const greeting = getGreeting();
 
-  // Run critical queries in parallel with timeout protection
-  const QUERY_TIMEOUT = 15000;
+  // Run ALL queries in parallel with timeout protection
+  // Profile, pets, consultations, and care plans all fire together
+  const QUERY_TIMEOUT = 8000;
 
   const allQueries = Promise.all([
+    // [0] Profile
+    supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', user.id)
+      .single(),
+    // [1] Pets
     supabase
       .from('pets')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(4),
+    // [2] Upcoming consultations
     supabase
       .from('consultations')
       .select(`
@@ -77,6 +80,7 @@ export default async function CustomerDashboard() {
       .in('status', ['pending', 'scheduled', 'active'])
       .order('created_at', { ascending: false })
       .limit(3),
+    // [3] Recent consultations
     supabase
       .from('consultations')
       .select(`
@@ -93,6 +97,13 @@ export default async function CustomerDashboard() {
       .eq('outcome', 'success')
       .order('ended_at', { ascending: false })
       .limit(3),
+    // [4] Active care plans
+    supabase
+      .from('care_plans')
+      .select('*, care_plan_steps (id, status), pets!care_plans_pet_id_fkey (id, name), vet:profiles!care_plans_vet_id_fkey (full_name)')
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(5),
   ]);
 
   type QueryResult = Awaited<typeof allQueries>;
@@ -100,27 +111,19 @@ export default async function CustomerDashboard() {
     { data: null, error: null, count: null, status: 0, statusText: '' },
     { data: null, error: null, count: null, status: 0, statusText: '' },
     { data: null, error: null, count: null, status: 0, statusText: '' },
+    { data: null, error: null, count: null, status: 0, statusText: '' },
+    { data: null, error: null, count: null, status: 0, statusText: '' },
   ] as unknown as QueryResult;
 
   const [
+    { data: profile },
     { data: petsData },
     { data: upcomingData },
     { data: recentData },
+    { data: carePlansData },
   ] = await withTimeout(allQueries, QUERY_TIMEOUT, fallback);
 
-  // Care plans query isolated — failure here must not block dashboard rendering
-  let carePlansData = null;
-  try {
-    const result = await supabase
-      .from('care_plans')
-      .select('*, care_plan_steps (id, status), pets!care_plans_pet_id_fkey (id, name), vet:profiles!care_plans_vet_id_fkey (full_name)')
-      .eq('status', 'active')
-      .order('created_at', { ascending: false })
-      .limit(5);
-    carePlansData = result.data;
-  } catch (err) {
-    console.error('Failed to fetch care plans for dashboard:', err);
-  }
+  const userName = profile?.full_name || 'there';
 
   const pets = (petsData || []).map(mapPetFromDB);
 

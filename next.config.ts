@@ -13,6 +13,10 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
+        hostname: "api.furrie.in",
+      },
+      {
+        protocol: "https",
         hostname: "utfs.io", // UploadThing legacy
       },
       {

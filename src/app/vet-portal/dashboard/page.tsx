@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase/server';
 import { withTimeout } from '@/lib/utils/queryTimeout';
 import { VetDashboardContent } from './VetDashboardContent';
 
+export const maxDuration = 30;
+
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('nav');
   return {
@@ -26,40 +28,37 @@ export default async function VetDashboard() {
     redirect('/login');
   }
 
-  // Verify user is a vet
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role, full_name')
-    .eq('id', user.id)
-    .single();
-
-  if (!profile || profile.role !== 'vet') {
-    redirect('/login?error=wrong_account');
-  }
-
-  // Get vet profile
-  const { data: vetProfile } = await supabase
-    .from('vet_profiles')
-    .select('is_available, consultation_count, average_rating')
-    .eq('id', user.id)
-    .single();
-
   // Get date ranges
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const weekStart = new Date(todayStart);
   weekStart.setDate(weekStart.getDate() - weekStart.getDay());
 
-  // Run critical queries in parallel with timeout protection
-  const QUERY_TIMEOUT = 15000;
+  // Run ALL queries in parallel with timeout protection
+  // Profile, vet_profile, care_plans, and consultation counts all fire together
+  const QUERY_TIMEOUT = 8000;
 
   const allQueries = Promise.all([
+    // [0] Profile (for role check + name)
+    supabase
+      .from('profiles')
+      .select('role, full_name')
+      .eq('id', user.id)
+      .single(),
+    // [1] Vet profile
+    supabase
+      .from('vet_profiles')
+      .select('is_available, consultation_count, average_rating')
+      .eq('id', user.id)
+      .single(),
+    // [2] Today active count
     supabase
       .from('consultations')
       .select('id', { count: 'exact', head: true })
       .eq('vet_id', user.id)
       .gte('created_at', todayStart.toISOString())
       .eq('status', 'active'),
+    // [3] Today completed count
     supabase
       .from('consultations')
       .select('id', { count: 'exact', head: true })
@@ -67,12 +66,14 @@ export default async function VetDashboard() {
       .gte('created_at', todayStart.toISOString())
       .eq('status', 'closed')
       .eq('outcome', 'success'),
+    // [4] Week active count
     supabase
       .from('consultations')
       .select('id', { count: 'exact', head: true })
       .eq('vet_id', user.id)
       .gte('created_at', weekStart.toISOString())
       .eq('status', 'active'),
+    // [5] Week completed count
     supabase
       .from('consultations')
       .select('id', { count: 'exact', head: true })
@@ -80,6 +81,7 @@ export default async function VetDashboard() {
       .gte('created_at', weekStart.toISOString())
       .eq('status', 'closed')
       .eq('outcome', 'success'),
+    // [6] Recent consultations
     supabase
       .from('consultations')
       .select(`
@@ -99,6 +101,14 @@ export default async function VetDashboard() {
       .eq('vet_id', user.id)
       .order('created_at', { ascending: false })
       .limit(10),
+    // [7] Active care plans
+    supabase
+      .from('care_plans')
+      .select('id, title, status, pet_id, care_plan_steps (id, status, requires_response, care_plan_step_responses (id)), pets!care_plans_pet_id_fkey (id, name)')
+      .eq('vet_id', user.id)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(5),
   ]);
 
   type QueryResult = Awaited<typeof allQueries>;
@@ -108,29 +118,25 @@ export default async function VetDashboard() {
     { data: null, error: null, count: null, status: 0, statusText: '' },
     { data: null, error: null, count: null, status: 0, statusText: '' },
     { data: null, error: null, count: null, status: 0, statusText: '' },
+    { data: null, error: null, count: null, status: 0, statusText: '' },
+    { data: null, error: null, count: null, status: 0, statusText: '' },
+    { data: null, error: null, count: null, status: 0, statusText: '' },
   ] as unknown as QueryResult;
 
   const [
+    { data: profile },
+    { data: vetProfile },
     { count: todayActiveCount },
     { count: todayCompletedCount },
     { count: weekActiveCount },
     { count: weekCompletedCount },
     { data: recentConsultations },
+    { data: activeCarePlansData },
   ] = await withTimeout(allQueries, QUERY_TIMEOUT, fallback);
 
-  // Care plans query isolated — failure here must not block dashboard rendering
-  let activeCarePlansData = null;
-  try {
-    const result = await supabase
-      .from('care_plans')
-      .select('id, title, status, pet_id, care_plan_steps (id, status, requires_response, care_plan_step_responses (id)), pets!care_plans_pet_id_fkey (id, name)')
-      .eq('vet_id', user.id)
-      .eq('status', 'active')
-      .order('created_at', { ascending: false })
-      .limit(5);
-    activeCarePlansData = result.data;
-  } catch (err) {
-    console.error('Failed to fetch care plans for vet dashboard:', err);
+  // Verify user is a vet (after parallel batch)
+  if (!profile || profile.role !== 'vet') {
+    redirect('/login?error=wrong_account');
   }
 
   const todayCount = (todayActiveCount || 0) + (todayCompletedCount || 0);

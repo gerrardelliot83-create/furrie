@@ -1,8 +1,9 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
-// Support both new (publishable) and legacy (anon) key names
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+// Server-side: prefer direct Supabase URL (bypasses custom domain latency)
+// Browser client uses NEXT_PUBLIC_SUPABASE_URL (custom domain for ISP bypass)
+const supabaseUrl = process.env.SUPABASE_SERVER_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabasePublishableKey =
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;

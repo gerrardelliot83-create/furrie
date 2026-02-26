@@ -5,7 +5,11 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { KPICard } from '@/components/admin/KPICard';
 import { ActivityFeed } from '@/components/admin/ActivityFeed';
 import { getDashboardStats, formatCurrency } from '@/lib/admin/stats';
+import type { DashboardStats } from '@/lib/admin/stats';
+import { withTimeout } from '@/lib/utils/queryTimeout';
 import styles from './page.module.css';
+
+export const maxDuration = 30;
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('nav');
@@ -17,44 +21,15 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function AdminDashboard() {
   const t = await getTranslations('nav');
 
-  let stats: Awaited<ReturnType<typeof getDashboardStats>>;
-  try {
-    stats = await getDashboardStats();
-  } catch (err) {
-    console.error('Admin dashboard stats failed:', err);
-    return (
-      <div className={styles.container}>
-        <h1 className={styles.title}>Admin {t('dashboard')}</h1>
-        <div style={{
-          textAlign: 'center',
-          padding: '3rem 1rem',
-          color: '#666',
-        }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#1a1a1a', marginBottom: '0.5rem' }}>
-            Having trouble connecting
-          </h2>
-          <p style={{ marginBottom: '1.5rem', lineHeight: 1.5 }}>
-            We could not load dashboard statistics. Please check your connection and try again.
-          </p>
-          <a
-            href="/dashboard"
-            style={{
-              padding: '0.625rem 1.5rem',
-              backgroundColor: '#770002',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '0.9375rem',
-              fontWeight: 500,
-              textDecoration: 'none',
-            }}
-          >
-            Reload page
-          </a>
-        </div>
-      </div>
-    );
-  }
+  const fallbackStats: DashboardStats = {
+    totalUsers: 0,
+    activeVets: 0,
+    todayConsultations: 0,
+    monthRevenue: 0,
+    recentActivity: [],
+  };
+
+  const stats = await withTimeout(getDashboardStats(), 8000, fallbackStats);
 
   return (
     <div className={styles.container}>

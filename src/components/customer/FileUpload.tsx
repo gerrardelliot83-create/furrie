@@ -53,7 +53,16 @@ export function FileUpload({
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: fileTypes.fileTypes ? generateClientDropzoneAccept(fileTypes.fileTypes) : undefined,
+    accept: fileTypes.fileTypes
+      ? Object.fromEntries(
+          Object.entries(generateClientDropzoneAccept(fileTypes.fileTypes)).map(
+            ([mime, exts]) => [
+              mime,
+              mime === 'application/pdf' && exts.length === 0 ? ['.pdf'] : exts,
+            ]
+          )
+        )
+      : undefined,
     maxFiles,
     disabled: isUploading,
   });

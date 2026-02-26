@@ -12,7 +12,7 @@ import { StepResponseForm } from '@/components/customer/StepResponseForm';
 import styles from './page.module.css';
 
 interface PageProps {
-  params: Promise<{ petId: string; planId: string }>;
+  params: Promise<{ id: string; planId: string }>;
 }
 
 const STEP_TYPE_LABELS: Record<string, string> = {
@@ -60,7 +60,7 @@ interface StepData {
 }
 
 export default function CustomerCarePlanDetailPage({ params }: PageProps) {
-  const { petId, planId } = use(params);
+  const { id: petId, planId } = use(params);
   const { toast } = useToast();
 
   const [plan, setPlan] = useState<PlanData | null>(null);

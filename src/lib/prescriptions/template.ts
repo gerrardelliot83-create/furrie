@@ -28,6 +28,7 @@ export interface PrescriptionData {
 export interface PrescriptionMedication {
   name: string;
   dosage: string;
+  route: string;
   frequency: string;
   duration: string;
   instructions: string;

@@ -528,3 +528,45 @@ export function vetWelcomeEmail(params: {
     `),
   };
 }
+
+// ─── 15. New Care Plan Created ─────────────────────────────────────────────────
+export function carePlanCreatedEmail(params: {
+  customerName: string;
+  petName: string;
+  vetName: string;
+  planTitle: string;
+  planCategory: string;
+  stepCount: number;
+  petId: string;
+}): { subject: string; html: string } {
+  const { customerName, petName, vetName, planTitle, planCategory, stepCount, petId } = params;
+  return {
+    subject: `New Care Plan for ${petName}: ${planTitle}`,
+    html: wrapEmailBody(`
+      <h1 style="font-size: 24px; color: #333; margin: 0 0 8px 0;">New Care Plan</h1>
+      <p style="${textStyle}">
+        Hi ${customerName},
+      </p>
+      <p style="${textStyle}">
+        Dr. ${vetName} has created a new care plan for <strong>${petName}</strong>.
+      </p>
+      <div style="${infoBox}">
+        <p style="${labelStyle}">Plan</p>
+        <p style="${valueStyle}">${planTitle}</p>
+        <p style="${labelStyle}">Category</p>
+        <p style="${valueStyle}">${planCategory.charAt(0).toUpperCase() + planCategory.slice(1)} Care</p>
+        <p style="${labelStyle}">Steps</p>
+        <p style="${valueStyle}">${stepCount} step${stepCount !== 1 ? 's' : ''} to follow</p>
+      </div>
+      <p style="${textStyle}">
+        Open the plan in the Furrie app to see the steps and get started.
+      </p>
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="${APP_URL}/pets/${petId}" style="${btnPrimary}">View Care Plan</a>
+      </div>
+      <p style="${textStyle}">
+        Best regards,<br><strong>The Furrie Team</strong>
+      </p>
+    `),
+  };
+}

@@ -56,6 +56,7 @@ export default async function VetDashboard() {
     { count: weekActiveCount },
     { count: weekCompletedCount },
     { data: recentConsultations },
+    { data: activeCarePlansData },
   ] = await Promise.all([
     supabase
       .from('consultations')
@@ -102,6 +103,13 @@ export default async function VetDashboard() {
       .eq('vet_id', user.id)
       .order('created_at', { ascending: false })
       .limit(10),
+    supabase
+      .from('care_plans')
+      .select('id, title, status, pet_id, care_plan_steps (id, status, requires_response, care_plan_step_responses (id)), pets!care_plans_pet_id_fkey (id, name)')
+      .eq('vet_id', user.id)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(5),
   ]);
 
   const todayCount = (todayActiveCount || 0) + (todayCompletedCount || 0);
@@ -151,6 +159,26 @@ export default async function VetDashboard() {
     averageRating: vetProfile?.average_rating || 0,
   };
 
+  const activeCarePlans = (activeCarePlansData || []).map((plan: Record<string, unknown>) => {
+    const steps = (plan.care_plan_steps || []) as Array<{ status: string; requires_response: boolean; care_plan_step_responses: unknown[] }>;
+    const totalSteps = steps.length;
+    const completedSteps = steps.filter((s) => s.status === 'completed').length;
+    const pendingResponses = steps.filter((s) =>
+      s.requires_response && s.status === 'completed' && s.care_plan_step_responses?.length > 0
+    ).length;
+    const petsData = plan.pets as { id?: string; name?: string } | Array<{ id?: string; name?: string }> | null;
+    const petObj = Array.isArray(petsData) ? petsData[0] : petsData;
+    return {
+      id: plan.id as string,
+      title: plan.title as string,
+      petId: plan.pet_id as string,
+      petName: petObj?.name || 'Unknown',
+      totalSteps,
+      completedSteps,
+      pendingResponses,
+    };
+  });
+
   return (
     <VetDashboardContent
       vetId={user.id}
@@ -158,6 +186,7 @@ export default async function VetDashboard() {
       isAvailable={vetProfile?.is_available || false}
       stats={stats}
       recentConsultations={mappedConsultations}
+      activeCarePlans={activeCarePlans}
     />
   );
 }

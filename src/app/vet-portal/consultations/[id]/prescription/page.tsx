@@ -160,6 +160,51 @@ export default function PrescriptionPage({ params }: PageProps) {
         throw new Error('Failed to complete consultation');
       }
 
+      // Create follow-up thread (non-blocking)
+      try {
+        const threadRes = await fetch('/api/follow-up/thread', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ consultationId }),
+        });
+        if (!threadRes.ok) {
+          const errData = await threadRes.json().catch(() => ({}));
+          console.error('Follow-up thread creation failed:', threadRes.status, errData);
+        }
+      } catch (threadError) {
+        console.error('Failed to create follow-up thread:', threadError);
+      }
+
+      // Capture treatment analytics (non-blocking)
+      try {
+        const analyticsRes = await fetch('/api/analytics/capture-treatment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ consultationId }),
+        });
+        if (!analyticsRes.ok) {
+          const errData = await analyticsRes.json().catch(() => ({}));
+          console.error('Treatment analytics capture failed:', analyticsRes.status, errData);
+        }
+      } catch (analyticsError) {
+        console.error('Failed to capture treatment analytics:', analyticsError);
+      }
+
+      // Send consultation completed email (non-blocking)
+      try {
+        const emailRes = await fetch('/api/email/consultation-completed', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ consultationId }),
+        });
+        if (!emailRes.ok) {
+          const errData = await emailRes.json().catch(() => ({}));
+          console.error('Consultation completed email failed:', emailRes.status, errData);
+        }
+      } catch (emailError) {
+        console.error('Failed to send completed email:', emailError);
+      }
+
       toast('Consultation completed successfully', 'success');
       router.push('/consultations');
     } catch (error) {

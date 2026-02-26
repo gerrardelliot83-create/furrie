@@ -159,12 +159,14 @@ export async function POST(request: Request) {
       medications: (soapNote.medications || []).map((med: {
         name: string;
         dosage: string;
+        route: string;
         frequency: string;
         duration: string;
         instructions: string;
       }) => ({
         name: med.name,
         dosage: med.dosage,
+        route: med.route || '',
         frequency: med.frequency,
         duration: med.duration,
         instructions: med.instructions,

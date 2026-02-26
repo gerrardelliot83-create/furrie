@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { mapPetFromDB } from '@/lib/utils/petMapper';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { getStatusVariant, getStatusDisplayText } from '@/lib/utils/statusHelpers';
 import type { ConsultationStatus, ConsultationOutcome } from '@/types';
@@ -85,8 +86,8 @@ export default async function VetPatientDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  // Fetch pet, owner, and consultations in parallel
-  const [petResult, consultationsResult] = await Promise.all([
+  // Fetch pet, owner, consultations, and care plans in parallel
+  const [petResult, consultationsResult, carePlansResult] = await Promise.all([
     supabaseAdmin.from('pets').select('*').eq('id', petId).single(),
     supabaseAdmin
       .from('consultations')
@@ -99,6 +100,12 @@ export default async function VetPatientDetailPage({ params }: PageProps) {
       .eq('vet_id', user.id)
       .eq('pet_id', petId)
       .order('created_at', { ascending: false }),
+    supabaseAdmin
+      .from('care_plans')
+      .select('*, care_plan_steps (id, status)')
+      .eq('pet_id', petId)
+      .eq('vet_id', user.id)
+      .order('created_at', { ascending: false }),
   ]);
 
   if (petResult.error || !petResult.data) {
@@ -107,6 +114,14 @@ export default async function VetPatientDetailPage({ params }: PageProps) {
 
   const pet = mapPetFromDB(petResult.data);
   const consultations = consultationsResult.data || [];
+  const carePlans = (carePlansResult.data || []).map((plan) => {
+    const steps = plan.care_plan_steps || [];
+    return {
+      ...plan,
+      totalSteps: steps.length,
+      completedSteps: steps.filter((s: { status: string }) => s.status === 'completed').length,
+    };
+  });
 
   // Fetch owner info
   const { data: owner } = await supabaseAdmin
@@ -295,6 +310,67 @@ export default async function VetPatientDetailPage({ params }: PageProps) {
           </Card>
         )}
       </div>
+
+      {/* Care Plans */}
+      <section className={styles.historySection}>
+        <div className={styles.sectionHeader}>
+          <h2 className={styles.historyTitle}>
+            Care Plans ({carePlans.length})
+          </h2>
+          <Link href={`/patients/${petId}/care-plans/new`}>
+            <Button variant="primary" size="sm">Create Care Plan</Button>
+          </Link>
+        </div>
+
+        {carePlans.length > 0 ? (
+          <div className={styles.historyList}>
+            {carePlans.map((plan) => {
+              const statusVariantMap: Record<string, 'info' | 'success' | 'neutral'> = {
+                draft: 'neutral',
+                active: 'info',
+                completed: 'success',
+                archived: 'neutral',
+              };
+              const progress = plan.totalSteps > 0
+                ? Math.round((plan.completedSteps / plan.totalSteps) * 100)
+                : 0;
+
+              return (
+                <Link
+                  key={plan.id}
+                  href={`/patients/${petId}/care-plans/${plan.id}`}
+                  className={styles.historyCard}
+                >
+                  <div className={styles.historyCardHeader}>
+                    <span className={styles.historyDate}>{plan.title}</span>
+                    <Badge variant={statusVariantMap[plan.status] || 'neutral'}>
+                      {plan.status.charAt(0).toUpperCase() + plan.status.slice(1)}
+                    </Badge>
+                  </div>
+                  <p className={styles.historyNumber}>
+                    {plan.category.charAt(0).toUpperCase() + plan.category.slice(1)} Care
+                  </p>
+                  {plan.totalSteps > 0 && (
+                    <div className={styles.progressContainer}>
+                      <div className={styles.progressBar}>
+                        <div
+                          className={styles.progressFill}
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                      <span className={styles.progressText}>
+                        {plan.completedSteps}/{plan.totalSteps} steps
+                      </span>
+                    </div>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        ) : (
+          <p className={styles.noHistory}>No care plans yet. Create one to guide the pet parent through a treatment or care routine.</p>
+        )}
+      </section>
 
       {/* Consultation History */}
       <section className={styles.historySection}>

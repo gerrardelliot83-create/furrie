@@ -73,6 +73,8 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const autosaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const savePromiseRef = useRef<Promise<boolean> | null>(null);
+  const pendingManualSaveRef = useRef(false);
 
   const [formData, setFormData] = useState<FormData>({
     // Subjective
@@ -124,14 +126,16 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
     setHasUnsavedChanges(true);
   }, []);
 
-  const saveNotes = useCallback(async (isAutoSave = false) => {
-    if (isSaving) return;
+  const cancelAutosave = useCallback(() => {
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
+  }, []);
 
-    setIsSaving(true);
-
+  const performSave = useCallback(async (isAutoSave: boolean): Promise<boolean> => {
     const supabase = createClient();
 
-    // Map to database column names
     const dbData = {
       consultation_id: consultationId,
       vet_id: vetId,
@@ -168,7 +172,6 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
       updated_at: new Date().toISOString(),
     };
 
-    // Check if SOAP note exists
     const { data: existing } = await supabase
       .from('soap_notes')
       .select('id')
@@ -188,25 +191,52 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
       error = result.error;
     }
 
-    setIsSaving(false);
-
     if (error) {
       console.error('Error saving SOAP notes:', error);
       if (!isAutoSave) {
         toast('Failed to save notes', 'error');
       }
-      return;
+      return false;
     }
 
     setLastSaved(new Date());
     setHasUnsavedChanges(false);
 
-    // Revalidate the consultation detail page cache (only for manual saves)
     if (!isAutoSave) {
       await revalidateConsultationPath(consultationId);
       toast('Notes saved successfully', 'success');
     }
-  }, [consultationId, vetId, formData, isSaving, toast]);
+    return true;
+  }, [consultationId, vetId, formData, toast]);
+
+  const saveNotes = useCallback(async (isAutoSave = false): Promise<boolean> => {
+    // For manual saves: cancel any pending autosave and wait for in-flight save
+    if (!isAutoSave) {
+      cancelAutosave();
+
+      if (savePromiseRef.current) {
+        // Wait for the in-flight save to finish, then save again with latest data
+        pendingManualSaveRef.current = true;
+        await savePromiseRef.current;
+        pendingManualSaveRef.current = false;
+      }
+    } else {
+      // For autosave: skip if a save is already in progress
+      if (savePromiseRef.current) return true;
+    }
+
+    setIsSaving(true);
+    const promise = performSave(isAutoSave);
+    savePromiseRef.current = promise;
+
+    try {
+      const result = await promise;
+      return result;
+    } finally {
+      savePromiseRef.current = null;
+      setIsSaving(false);
+    }
+  }, [cancelAutosave, performSave]);
 
   // Auto-save every 30 seconds
   useEffect(() => {
@@ -224,10 +254,12 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
   }, [hasUnsavedChanges, saveNotes]);
 
   const handleGeneratePrescription = async () => {
-    // First save the notes
-    await saveNotes(false);
-
-    // Navigate to prescription generation
+    cancelAutosave();
+    const saved = await saveNotes(false);
+    if (!saved) {
+      toast('Please save your notes before generating a prescription', 'error');
+      return;
+    }
     router.push(`/consultations/${consultationId}/prescription`);
   };
 
@@ -260,8 +292,13 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
       if (!proceed) return;
     }
 
-    // Save notes first
-    await saveNotes(false);
+    // Cancel autosave and save notes first
+    cancelAutosave();
+    const saved = await saveNotes(false);
+    if (!saved) {
+      toast('Failed to save notes. Please try again.', 'error');
+      return;
+    }
 
     // Update consultation status to closed with success outcome
     const supabase = createClient();

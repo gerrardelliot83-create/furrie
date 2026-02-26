@@ -114,11 +114,12 @@ const styles = StyleSheet.create({
   medicationRowAlt: {
     backgroundColor: '#fff',
   },
-  medicationCol1: { width: '25%' },
-  medicationCol2: { width: '15%' },
-  medicationCol3: { width: '20%' },
-  medicationCol4: { width: '15%' },
-  medicationCol5: { width: '25%' },
+  medicationCol1: { width: '20%' },
+  medicationCol2: { width: '12%' },
+  medicationCol3: { width: '12%' },
+  medicationCol4: { width: '16%' },
+  medicationCol5: { width: '12%' },
+  medicationCol6: { width: '28%' },
   medicationName: {
     fontSize: 10,
     fontWeight: 'bold',
@@ -293,12 +294,15 @@ export function PrescriptionPDF({ data }: PrescriptionPDFProps) {
                 Dosage
               </Text>
               <Text style={[styles.medicationHeaderText, styles.medicationCol3]}>
-                Frequency
+                Route
               </Text>
               <Text style={[styles.medicationHeaderText, styles.medicationCol4]}>
-                Duration
+                Frequency
               </Text>
               <Text style={[styles.medicationHeaderText, styles.medicationCol5]}>
+                Duration
+              </Text>
+              <Text style={[styles.medicationHeaderText, styles.medicationCol6]}>
                 Instructions
               </Text>
             </View>
@@ -317,12 +321,15 @@ export function PrescriptionPDF({ data }: PrescriptionPDFProps) {
                   {med.dosage}
                 </Text>
                 <Text style={[styles.medicationDetail, styles.medicationCol3]}>
-                  {med.frequency}
+                  {med.route || '-'}
                 </Text>
                 <Text style={[styles.medicationDetail, styles.medicationCol4]}>
-                  {med.duration}
+                  {med.frequency}
                 </Text>
                 <Text style={[styles.medicationDetail, styles.medicationCol5]}>
+                  {med.duration}
+                </Text>
+                <Text style={[styles.medicationDetail, styles.medicationCol6]}>
                   {med.instructions || '-'}
                 </Text>
               </View>

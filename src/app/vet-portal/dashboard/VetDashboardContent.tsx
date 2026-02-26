@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useCallback } from 'react';
+import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { VetStatusToggle } from '@/components/vet/VetStatusToggle';
 import { VetQuickStats, type VetQuickStatsRef } from '@/components/vet/VetQuickStats';
@@ -34,6 +35,15 @@ interface VetDashboardContentProps {
     averageRating: number;
   };
   recentConsultations: ConsultationWithRelations[];
+  activeCarePlans?: Array<{
+    id: string;
+    title: string;
+    petId: string;
+    petName: string;
+    totalSteps: number;
+    completedSteps: number;
+    pendingResponses: number;
+  }>;
 }
 
 export function VetDashboardContent({
@@ -42,6 +52,7 @@ export function VetDashboardContent({
   isAvailable,
   stats,
   recentConsultations,
+  activeCarePlans = [],
 }: VetDashboardContentProps) {
   const t = useTranslations('nav');
   const statsRef = useRef<VetQuickStatsRef>(null);
@@ -90,6 +101,44 @@ export function VetDashboardContent({
           />
         </section>
       </div>
+
+      {activeCarePlans.length > 0 && (
+        <section className={styles.carePlansSection}>
+          <h2 className={styles.sectionTitle}>Active Care Plans</h2>
+          <div className={styles.carePlansList}>
+            {activeCarePlans.map((plan) => {
+              const progress = plan.totalSteps > 0
+                ? Math.round((plan.completedSteps / plan.totalSteps) * 100)
+                : 0;
+              return (
+                <Link
+                  key={plan.id}
+                  href={`/patients/${plan.petId}/care-plans/${plan.id}`}
+                  className={styles.carePlanCard}
+                >
+                  <div className={styles.carePlanCardHeader}>
+                    <span className={styles.carePlanTitle}>{plan.title}</span>
+                    <span className={styles.carePlanPet}>{plan.petName}</span>
+                  </div>
+                  {plan.totalSteps > 0 && (
+                    <div className={styles.carePlanProgress}>
+                      <div className={styles.carePlanProgressBar}>
+                        <div
+                          className={styles.carePlanProgressFill}
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                      <span className={styles.carePlanProgressText}>
+                        {plan.completedSteps}/{plan.totalSteps}
+                      </span>
+                    </div>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

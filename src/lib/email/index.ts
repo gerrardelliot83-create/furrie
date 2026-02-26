@@ -199,3 +199,8 @@ export async function sendVetWelcomeEmail(to: string, params: Parameters<typeof 
   const { subject, html } = templates.vetWelcomeEmail(params);
   return sendEmail({ to, subject, html });
 }
+
+export async function sendCarePlanCreatedEmail(to: string, params: Parameters<typeof templates.carePlanCreatedEmail>[0]) {
+  const { subject, html } = templates.carePlanCreatedEmail(params);
+  return sendEmail({ to, subject, html });
+}

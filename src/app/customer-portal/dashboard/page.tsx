@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server';
 import { mapPetFromDB } from '@/lib/utils/petMapper';
 import { mapConsultationWithRelationsFromDB } from '@/lib/utils/consultationMapper';
 import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
 import { ConsultationCard } from '@/components/consultation';
 import styles from './Dashboard.module.css';
 
@@ -57,6 +58,7 @@ export default async function CustomerDashboard() {
     { data: petsData },
     { data: upcomingData },
     { data: recentData },
+    { data: carePlansData },
   ] = await Promise.all([
     supabase
       .from('pets')
@@ -93,6 +95,12 @@ export default async function CustomerDashboard() {
       .eq('outcome', 'success')
       .order('ended_at', { ascending: false })
       .limit(3),
+    supabase
+      .from('care_plans')
+      .select('*, care_plan_steps (id, status), pets!care_plans_pet_id_fkey (id, name), vet:profiles!care_plans_vet_id_fkey (full_name)')
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(5),
   ]);
 
   const pets = (petsData || []).map(mapPetFromDB);
@@ -104,6 +112,15 @@ export default async function CustomerDashboard() {
   const recentConsultations = (recentData || []).map((row) =>
     mapConsultationWithRelationsFromDB(row as Parameters<typeof mapConsultationWithRelationsFromDB>[0])
   );
+
+  const activeCarePlans = (carePlansData || []).map((plan) => {
+    const steps = plan.care_plan_steps || [];
+    return {
+      ...plan,
+      totalSteps: steps.length,
+      completedSteps: steps.filter((s: { status: string }) => s.status === 'completed').length,
+    };
+  });
 
   return (
     <div className={styles.container}>
@@ -209,6 +226,50 @@ export default async function CustomerDashboard() {
             {upcomingConsultations.map((consultation) => (
               <ConsultationCard key={consultation.id} consultation={consultation} />
             ))}
+          </div>
+        </section>
+      )}
+
+      {/* Active Care Plans */}
+      {activeCarePlans.length > 0 && (
+        <section className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <h2 className={styles.sectionTitle}>Active Care Plans</h2>
+          </div>
+          <div className={styles.carePlansList}>
+            {activeCarePlans.map((plan) => {
+              const progress = plan.totalSteps > 0
+                ? Math.round((plan.completedSteps / plan.totalSteps) * 100)
+                : 0;
+              return (
+                <Link
+                  key={plan.id}
+                  href={`/pets/${plan.pets?.id}/care-plans/${plan.id}`}
+                  className={styles.carePlanCard}
+                >
+                  <div className={styles.carePlanCardHeader}>
+                    <span className={styles.carePlanTitle}>{plan.title}</span>
+                    <Badge variant="info" size="sm">Active</Badge>
+                  </div>
+                  <p className={styles.carePlanPet}>
+                    {plan.pets?.name} &middot; Dr. {plan.vet?.full_name || 'Unknown'}
+                  </p>
+                  {plan.totalSteps > 0 && (
+                    <div className={styles.carePlanProgress}>
+                      <div className={styles.carePlanProgressBar}>
+                        <div
+                          className={styles.carePlanProgressFill}
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                      <span className={styles.carePlanProgressText}>
+                        {plan.completedSteps}/{plan.totalSteps}
+                      </span>
+                    </div>
+                  )}
+                </Link>
+              );
+            })}
           </div>
         </section>
       )}

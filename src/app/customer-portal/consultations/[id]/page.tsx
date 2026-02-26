@@ -386,19 +386,38 @@ export default async function ConsultationDetailPage({ params }: ConsultationDet
         </section>
       )}
 
-      {/* Follow-up Chat - show if thread exists and is active */}
-      {hasFollowUpAccess && !isThreadExpired && (
+      {/* Follow-up Chat */}
+      {consultation.status === 'closed' && consultation.outcome === 'success' && (
         <section className={styles.card}>
           <h2 className={styles.cardTitle}>Follow-up Chat</h2>
           <div className={styles.followUpInfo}>
-            <p className={styles.followUpDescription}>
-              Have questions after your consultation? Chat with Dr. {consultation.vet?.fullName} about your pet&apos;s care.
-            </p>
-            <Link href={`/consultations/${consultation.id}/follow-up`}>
-              <Button variant="secondary" size="sm">
-                Open Chat
-              </Button>
-            </Link>
+            {hasFollowUpAccess && !isThreadExpired ? (
+              <>
+                <p className={styles.followUpDescription}>
+                  Have questions after your consultation? Chat with Dr. {consultation.vet?.fullName} about your pet&apos;s care.
+                </p>
+                <Link href={`/consultations/${consultation.id}/follow-up`}>
+                  <Button variant="secondary" size="sm">
+                    Open Chat
+                  </Button>
+                </Link>
+              </>
+            ) : isThreadExpired ? (
+              <>
+                <p className={styles.followUpDescription}>
+                  The follow-up chat window for this consultation has expired. If you need further assistance, you can book a new consultation.
+                </p>
+                <Link href="/connect">
+                  <Button variant="secondary" size="sm">
+                    Book New Consultation
+                  </Button>
+                </Link>
+              </>
+            ) : (
+              <p className={styles.followUpDescription}>
+                Follow-up chat will be available shortly. You will be notified once your veterinarian has set it up.
+              </p>
+            )}
           </div>
         </section>
       )}

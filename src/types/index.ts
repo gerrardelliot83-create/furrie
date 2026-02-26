@@ -187,6 +187,50 @@ export interface PrescribedMedication {
   isFromList?: boolean;
 }
 
+// Care Plans
+export type CarePlanCategory = 'preventive' | 'treatment' | 'nutrition' | 'vaccination' | 'medication' | 'supplement' | 'custom';
+export type CarePlanStatus = 'draft' | 'active' | 'completed' | 'archived';
+export type CarePlanStepType = 'medication' | 'supplement' | 'test' | 'vaccination' | 'nutrition' | 'exercise' | 'video_check_in' | 'custom';
+export type CarePlanStepStatus = 'pending' | 'completed' | 'skipped';
+
+export interface CarePlan {
+  id: string;
+  petId: string;
+  vetId: string;
+  customerId: string;
+  title: string;
+  description: string | null;
+  category: CarePlanCategory;
+  status: CarePlanStatus;
+  createdAt: string;
+  updatedAt: string;
+  completedAt: string | null;
+}
+
+export interface CarePlanStep {
+  id: string;
+  carePlanId: string;
+  title: string;
+  instructions: string | null;
+  stepType: CarePlanStepType;
+  stepOrder: number;
+  dueDate: string | null;
+  requiresResponse: boolean;
+  status: CarePlanStepStatus;
+  completedAt: string | null;
+  createdAt: string;
+}
+
+export interface CarePlanStepResponse {
+  id: string;
+  stepId: string;
+  userId: string;
+  responseText: string | null;
+  mediaUrls: string[];
+  mediaTypes: string[];
+  createdAt: string;
+}
+
 export interface Notification {
   id: string;
   userId: string;

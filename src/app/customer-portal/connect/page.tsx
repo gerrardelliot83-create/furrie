@@ -14,7 +14,12 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function ConnectPage() {
+export default async function ConnectPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ petId?: string }>;
+}) {
+  const { petId: preselectedPetId } = await searchParams;
   const t = await getTranslations('consultation');
   const supabase = await createClient();
 
@@ -78,6 +83,7 @@ export default async function ConnectPage() {
       <ConnectFlow
         initialPets={pets}
         plusPetIds={plusPetIds}
+        preselectedPetId={preselectedPetId || null}
         pendingConsultation={pendingConsultation ? {
           id: pendingConsultation.id,
           consultationNumber: pendingConsultation.consultation_number,

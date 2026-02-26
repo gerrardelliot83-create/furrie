@@ -47,9 +47,10 @@ interface ConnectFlowProps {
   initialPets: Pet[];
   plusPetIds?: string[];
   pendingConsultation?: PendingConsultation;
+  preselectedPetId?: string | null;
 }
 
-export function ConnectFlow({ initialPets, plusPetIds = [], pendingConsultation }: ConnectFlowProps) {
+export function ConnectFlow({ initialPets, plusPetIds = [], pendingConsultation, preselectedPetId }: ConnectFlowProps) {
   const tCommon = useTranslations('common');
   const router = useRouter();
 
@@ -57,9 +58,11 @@ export function ConnectFlow({ initialPets, plusPetIds = [], pendingConsultation 
   const [currentStep, setCurrentStep] = useState<FlowStep>('select-pet');
   const [pets] = useState<Pet[]>(initialPets);
 
-  // Form data
+  // Form data — preselect pet from prop or if only one pet
   const [selectedPetId, setSelectedPetId] = useState<string | null>(
-    initialPets.length === 1 ? initialPets[0].id : null
+    preselectedPetId && initialPets.some((p) => p.id === preselectedPetId)
+      ? preselectedPetId
+      : initialPets.length === 1 ? initialPets[0].id : null
   );
   const [concernText, setConcernText] = useState('');
   const [symptoms, setSymptoms] = useState<string[]>([]);

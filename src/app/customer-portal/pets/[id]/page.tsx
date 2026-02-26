@@ -50,6 +50,23 @@ export default async function PetDetailPage({ params }: PetDetailPageProps) {
 
   const pet = mapPetFromDB(data);
 
+  // Fetch care plans for this pet
+  const { data: carePlansData } = await supabase
+    .from('care_plans')
+    .select('*, care_plan_steps (id, status), vet:profiles!care_plans_vet_id_fkey (full_name)')
+    .eq('pet_id', id)
+    .in('status', ['active', 'completed'])
+    .order('created_at', { ascending: false });
+
+  const carePlans = (carePlansData || []).map((plan) => {
+    const steps = plan.care_plan_steps || [];
+    return {
+      ...plan,
+      totalSteps: steps.length,
+      completedSteps: steps.filter((s: { status: string }) => s.status === 'completed').length,
+    };
+  });
+
   // Calculate age
   let ageDisplay = 'Unknown';
   if (pet.dateOfBirth) {
@@ -294,6 +311,54 @@ export default async function PetDetailPage({ params }: PetDetailPageProps) {
                   <span>Document {index + 1}</span>
                 </a>
               ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Care Plans */}
+      {carePlans.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Care Plans</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className={styles.carePlanList}>
+              {carePlans.map((plan) => {
+                const progress = plan.totalSteps > 0
+                  ? Math.round((plan.completedSteps / plan.totalSteps) * 100)
+                  : 0;
+                return (
+                  <Link
+                    key={plan.id}
+                    href={`/pets/${id}/care-plans/${plan.id}`}
+                    className={styles.carePlanItem}
+                  >
+                    <div className={styles.carePlanHeader}>
+                      <span className={styles.carePlanTitle}>{plan.title}</span>
+                      <Badge variant={plan.status === 'completed' ? 'success' : 'info'} size="sm">
+                        {plan.status === 'completed' ? 'Completed' : 'Active'}
+                      </Badge>
+                    </div>
+                    <p className={styles.carePlanVet}>
+                      By Dr. {plan.vet?.full_name || 'Unknown'}
+                    </p>
+                    {plan.totalSteps > 0 && (
+                      <div className={styles.carePlanProgress}>
+                        <div className={styles.progressBar}>
+                          <div
+                            className={styles.progressFill}
+                            style={{ width: `${progress}%` }}
+                          />
+                        </div>
+                        <span className={styles.progressText}>
+                          {plan.completedSteps}/{plan.totalSteps}
+                        </span>
+                      </div>
+                    )}
+                  </Link>
+                );
+              })}
             </div>
           </CardContent>
         </Card>

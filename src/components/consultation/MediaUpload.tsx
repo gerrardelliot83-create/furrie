@@ -10,7 +10,7 @@ import styles from './MediaUpload.module.css';
 interface MediaItem {
   id: string;
   url: string;
-  mediaType: 'photo' | 'video';
+  mediaType: 'photo' | 'video' | 'document';
   fileName: string | null;
   fileSizeBytes: number | null;
   createdAt: string;
@@ -22,6 +22,7 @@ interface MediaUploadProps {
   initialMedia?: MediaItem[];
   maxPhotos?: number;
   maxVideos?: number;
+  maxDocuments?: number;
   disabled?: boolean;
 }
 
@@ -31,20 +32,23 @@ export function MediaUpload({
   initialMedia = [],
   maxPhotos = 5,
   maxVideos = 1,
+  maxDocuments = 3,
   disabled = false,
 }: MediaUploadProps) {
   const [media, setMedia] = useState<MediaItem[]>(initialMedia);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'photo' | 'video'>('photo');
+  const [activeTab, setActiveTab] = useState<'photo' | 'video' | 'document'>('photo');
 
   const photos = media.filter((m) => m.mediaType === 'photo');
   const videos = media.filter((m) => m.mediaType === 'video');
+  const documents = media.filter((m) => m.mediaType === 'document');
   const canUploadPhotos = photos.length < maxPhotos;
   const canUploadVideos = videos.length < maxVideos;
+  const canUploadDocuments = documents.length < maxDocuments;
 
   const saveMediaRecord = useCallback(
-    async (url: string, mediaType: 'photo' | 'video', fileName?: string, fileSize?: number) => {
+    async (url: string, mediaType: 'photo' | 'video' | 'document', fileName?: string, fileSize?: number) => {
       const supabase = createClient();
       const { data, error } = await supabase
         .from('consultation_media')
@@ -68,7 +72,7 @@ export function MediaUpload({
       return {
         id: data.id,
         url: data.url,
-        mediaType: data.media_type as 'photo' | 'video',
+        mediaType: data.media_type as 'photo' | 'video' | 'document',
         fileName: data.file_name,
         fileSizeBytes: data.file_size_bytes,
         createdAt: data.created_at || new Date().toISOString(),
@@ -95,6 +99,19 @@ export function MediaUpload({
       setUploadError(null);
       for (const url of urls) {
         const record = await saveMediaRecord(url, 'video');
+        if (record) {
+          setMedia((prev) => [...prev, record]);
+        }
+      }
+    },
+    [saveMediaRecord]
+  );
+
+  const handleDocumentUploadComplete = useCallback(
+    async (urls: string[]) => {
+      setUploadError(null);
+      for (const url of urls) {
+        const record = await saveMediaRecord(url, 'document');
         if (record) {
           setMedia((prev) => [...prev, record]);
         }
@@ -131,7 +148,7 @@ export function MediaUpload({
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h3 className={styles.title}>Photos & Videos</h3>
+        <h3 className={styles.title}>Photos, Videos & Documents</h3>
         {!disabled && (
           <div className={styles.tabs}>
             <button
@@ -147,6 +164,13 @@ export function MediaUpload({
               onClick={() => setActiveTab('video')}
             >
               Video ({videos.length}/{maxVideos})
+            </button>
+            <button
+              type="button"
+              className={activeTab === 'document' ? styles.tabActive : styles.tab}
+              onClick={() => setActiveTab('document')}
+            >
+              Docs ({documents.length}/{maxDocuments})
             </button>
           </div>
         )}
@@ -215,6 +239,40 @@ export function MediaUpload({
         </div>
       )}
 
+      {/* Document list */}
+      {documents.length > 0 && (
+        <div className={styles.documentList}>
+          {documents.map((item) => (
+            <div key={item.id} className={styles.documentItem}>
+              <div className={styles.documentInfo}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                </svg>
+                <a href={item.url} target="_blank" rel="noopener noreferrer" className={styles.documentName}>
+                  {item.fileName || 'Document'}
+                </a>
+                {item.fileSizeBytes && (
+                  <span className={styles.documentSize}>
+                    {(item.fileSizeBytes / (1024 * 1024)).toFixed(1)} MB
+                  </span>
+                )}
+              </div>
+              {!disabled && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleDelete(item.id)}
+                  disabled={deletingId === item.id}
+                >
+                  Remove
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Upload area */}
       {!disabled && activeTab === 'photo' && canUploadPhotos && (
         <FileUpload
@@ -236,12 +294,26 @@ export function MediaUpload({
         />
       )}
 
+      {!disabled && activeTab === 'document' && canUploadDocuments && (
+        <FileUpload
+          endpoint="consultationDocument"
+          onUploadComplete={handleDocumentUploadComplete}
+          onUploadError={handleUploadError}
+          maxFiles={maxDocuments - documents.length}
+          className={styles.uploader}
+        />
+      )}
+
       {!disabled && activeTab === 'photo' && !canUploadPhotos && (
         <p className={styles.limitText}>Maximum {maxPhotos} photos reached.</p>
       )}
 
       {!disabled && activeTab === 'video' && !canUploadVideos && (
         <p className={styles.limitText}>Maximum {maxVideos} video reached.</p>
+      )}
+
+      {!disabled && activeTab === 'document' && !canUploadDocuments && (
+        <p className={styles.limitText}>Maximum {maxDocuments} documents reached.</p>
       )}
 
       {uploadError && (

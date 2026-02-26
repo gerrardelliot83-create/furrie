@@ -34,6 +34,74 @@
   border-color: var(--color-primary);
 }
 
+/* Media preview grid */
+.mediaPreview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.mediaPreviewItem {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-bg-tertiary, var(--color-bg-secondary));
+}
+
+.mediaThumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mediaDocBadge,
+.mediaVideoBadge {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.mediaDocBadge {
+  color: var(--color-error);
+}
+
+.mediaRemove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.6);
+  border: none;
+  border-radius: var(--radius-full);
+  color: white;
+  cursor: pointer;
+}
+
+.mediaRemove:hover {
+  background: var(--color-error);
+}
+
+/* Upload section */
+.uploadSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
 .actions {
   display: flex;
   justify-content: flex-end;

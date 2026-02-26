@@ -262,9 +262,39 @@ export default function CustomerCarePlanDetailPage({ params }: PageProps) {
                               <p className={styles.responseText}>{resp.response_text}</p>
                             )}
                             {resp.media_urls && resp.media_urls.length > 0 && (
-                              <span className={styles.responseMediaCount}>
-                                {resp.media_urls.length} file{resp.media_urls.length > 1 ? 's' : ''} attached
-                              </span>
+                              <div className={styles.responseMediaGrid}>
+                                {resp.media_urls.map((url, idx) => {
+                                  const mediaType = resp.media_types?.[idx] || 'document';
+                                  if (mediaType === 'photo') {
+                                    return (
+                                      <a key={`${url}-${idx}`} href={url} target="_blank" rel="noopener noreferrer" className={styles.responseMediaItem}>
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img src={url} alt={`Attachment ${idx + 1}`} className={styles.responseMediaImage} />
+                                      </a>
+                                    );
+                                  }
+                                  if (mediaType === 'video') {
+                                    return (
+                                      <video key={`${url}-${idx}`} src={url} controls preload="metadata" className={styles.responseMediaVideo} />
+                                    );
+                                  }
+                                  return (
+                                    <a
+                                      key={`${url}-${idx}`}
+                                      href={url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className={styles.responseDocumentLink}
+                                    >
+                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                        <polyline points="14 2 14 8 20 8" />
+                                      </svg>
+                                      Document
+                                    </a>
+                                  );
+                                })}
+                              </div>
                             )}
                           </div>
                         ))}

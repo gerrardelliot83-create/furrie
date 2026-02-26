@@ -160,6 +160,18 @@
   background: var(--color-bg-tertiary, var(--color-bg-secondary));
 }
 
+.mediaDocTag {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-error);
+  background: var(--color-bg-tertiary, var(--color-bg-secondary));
+}
+
 .mediaRemove {
   position: absolute;
   top: 2px;

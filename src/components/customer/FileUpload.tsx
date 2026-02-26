@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import styles from './FileUpload.module.css';
 
 interface FileUploadProps {
-  endpoint: 'petPhoto' | 'petGallery' | 'medicalDocument' | 'consultationImage' | 'consultationVideo';
+  endpoint: 'petPhoto' | 'petGallery' | 'medicalDocument' | 'consultationImage' | 'consultationVideo' | 'consultationDocument';
   onUploadComplete: (urls: string[]) => void;
   onUploadError?: (error: Error) => void;
   maxFiles?: number;
@@ -108,6 +108,8 @@ export function FileUpload({
                   ? 'Video up to 64MB (MP4)'
                   : endpoint === 'consultationImage'
                   ? 'Images up to 8MB'
+                  : endpoint === 'consultationDocument'
+                  ? 'PDF documents up to 16MB'
                   : 'Images up to 4MB'}
               </p>
             </>

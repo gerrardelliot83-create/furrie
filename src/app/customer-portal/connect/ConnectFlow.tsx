@@ -67,7 +67,7 @@ export function ConnectFlow({ initialPets, plusPetIds = [], pendingConsultation,
   const [concernText, setConcernText] = useState('');
   const [symptoms, setSymptoms] = useState<string[]>([]);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<TimeSlot | null>(null);
-  const [uploadedMedia, setUploadedMedia] = useState<{ url: string; mediaType: 'photo' | 'video' }[]>([]);
+  const [uploadedMedia, setUploadedMedia] = useState<{ url: string; mediaType: 'photo' | 'video' | 'document' }[]>([]);
 
   // UI state
   const [loading, setLoading] = useState(false);
@@ -280,7 +280,7 @@ export function ConnectFlow({ initialPets, plusPetIds = [], pendingConsultation,
 
             {/* Photo/Video uploads */}
             <div className={styles.formGroup}>
-              <label className={styles.label}>Add photos or a video (optional)</label>
+              <label className={styles.label}>Add photos, video, or documents (optional)</label>
               {uploadedMedia.length > 0 && (
                 <div className={styles.mediaPreview}>
                   {uploadedMedia.map((m, i) => (
@@ -288,6 +288,8 @@ export function ConnectFlow({ initialPets, plusPetIds = [], pendingConsultation,
                       {m.mediaType === 'photo' ? (
                         /* eslint-disable-next-line @next/next/no-img-element */
                         <img src={m.url} alt={`Upload ${i + 1}`} className={styles.mediaThumb} />
+                      ) : m.mediaType === 'document' ? (
+                        <div className={styles.mediaDocTag}>PDF</div>
                       ) : (
                         <div className={styles.mediaVideoTag}>Video</div>
                       )}
@@ -321,6 +323,15 @@ export function ConnectFlow({ initialPets, plusPetIds = [], pendingConsultation,
                     setUploadedMedia((prev) => [...prev, ...urls.map((url) => ({ url, mediaType: 'video' as const }))]);
                   }}
                   maxFiles={1}
+                />
+              )}
+              {uploadedMedia.filter((m) => m.mediaType === 'document').length < 3 && (
+                <FileUpload
+                  endpoint="consultationDocument"
+                  onUploadComplete={(urls) => {
+                    setUploadedMedia((prev) => [...prev, ...urls.map((url) => ({ url, mediaType: 'document' as const }))]);
+                  }}
+                  maxFiles={3 - uploadedMedia.filter((m) => m.mediaType === 'document').length}
                 />
               )}
             </div>

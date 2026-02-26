@@ -76,6 +76,14 @@ export const ourFileRouter = {
       console.log('Consultation video uploaded:', file.ufsUrl);
       return { uploadedBy: metadata.userId, url: file.ufsUrl };
     }),
+
+  // Consultation document uploads (PDFs/medical reports)
+  consultationDocument: f({ pdf: { maxFileSize: '16MB', maxFileCount: 3 } })
+    .middleware(authMiddleware)
+    .onUploadComplete(async ({ metadata, file }) => {
+      console.log('Consultation document uploaded:', file.ufsUrl);
+      return { uploadedBy: metadata.userId, url: file.ufsUrl };
+    }),
 } satisfies FileRouter;
 
 export type OurFileRouter = typeof ourFileRouter;

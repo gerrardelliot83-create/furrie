@@ -7,7 +7,7 @@ import { sendBookingConfirmationEmail, sendVetNewBookingEmail } from '@/lib/emai
 
 interface MediaUploadRef {
   url: string;
-  mediaType: 'photo' | 'video';
+  mediaType: 'photo' | 'video' | 'document';
   fileName?: string;
   fileSizeBytes?: number;
 }

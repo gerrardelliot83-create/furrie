@@ -1,5 +1,4 @@
 import { cn } from '@/lib/utils';
-import styles from './Skeleton.module.css';
 
 export interface SkeletonProps {
   variant?: 'text' | 'circle' | 'rect';
@@ -8,6 +7,12 @@ export interface SkeletonProps {
   count?: number;
   className?: string;
 }
+
+const variantClasses = {
+  text: 'h-4 w-full rounded-sm',
+  circle: 'rounded-full',
+  rect: 'rounded-lg',
+} as const;
 
 export function Skeleton({
   variant = 'text',
@@ -23,11 +28,11 @@ export function Skeleton({
 
   if (count > 1) {
     return (
-      <div className={styles.stack}>
+      <div className="flex flex-col gap-2">
         {Array.from({ length: count }).map((_, index) => (
           <div
             key={index}
-            className={cn(styles.skeleton, styles[variant], className)}
+            className={cn('animate-pulse bg-muted', variantClasses[variant], className)}
             style={style}
             aria-hidden="true"
           />
@@ -38,7 +43,7 @@ export function Skeleton({
 
   return (
     <div
-      className={cn(styles.skeleton, styles[variant], className)}
+      className={cn('animate-pulse bg-muted', variantClasses[variant], className)}
       style={style}
       aria-hidden="true"
     />
@@ -48,11 +53,11 @@ export function Skeleton({
 // Pre-configured skeleton components
 export function SkeletonText({ lines = 3 }: { lines?: number }) {
   return (
-    <div className={styles.textContainer}>
+    <div className="flex flex-col gap-2">
       {Array.from({ length: lines }).map((_, index) => (
         <div
           key={index}
-          className={cn(styles.skeleton, styles.text)}
+          className="h-4 animate-pulse rounded-sm bg-muted"
           style={{ width: index === lines - 1 ? '60%' : '100%' }}
           aria-hidden="true"
         />
@@ -64,7 +69,7 @@ export function SkeletonText({ lines = 3 }: { lines?: number }) {
 export function SkeletonAvatar({ size = 48 }: { size?: number }) {
   return (
     <div
-      className={cn(styles.skeleton, styles.circle)}
+      className="animate-pulse rounded-full bg-muted"
       style={{ width: size, height: size }}
       aria-hidden="true"
     />
@@ -73,10 +78,10 @@ export function SkeletonAvatar({ size = 48 }: { size?: number }) {
 
 export function SkeletonCard() {
   return (
-    <div className={styles.card}>
-      <div className={styles.cardHeader}>
+    <div className="rounded-xl border border-border bg-white p-4">
+      <div className="mb-4 flex gap-3">
         <SkeletonAvatar />
-        <div className={styles.cardHeaderText}>
+        <div className="flex flex-1 flex-col justify-center gap-2">
           <Skeleton variant="text" width="60%" height={16} />
           <Skeleton variant="text" width="40%" height={12} />
         </div>

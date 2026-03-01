@@ -1,9 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
+import { type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
-import styles from './Modal.module.css';
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from '../dialog';
 
 export interface ModalProps {
   isOpen: boolean;
@@ -14,6 +18,12 @@ export interface ModalProps {
   showCloseButton?: boolean;
 }
 
+const sizeClasses = {
+  sm: 'md:max-w-[400px]',
+  md: 'md:max-w-[520px]',
+  lg: 'md:max-w-[680px]',
+} as const;
+
 export function Modal({
   isOpen,
   onClose,
@@ -22,77 +32,24 @@ export function Modal({
   size = 'md',
   showCloseButton = true,
 }: ModalProps) {
-  const modalRef = useRef<HTMLDivElement>(null);
-  const previousActiveElement = useRef<Element | null>(null);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true); // eslint-disable-line react-hooks/set-state-in-effect -- Standard mounted pattern to avoid hydration mismatch
-  }, []);
-
-  // Handle escape key
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
-    };
-
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
-  }, [isOpen, onClose]);
-
-  // Focus trap and body scroll lock
-  useEffect(() => {
-    if (isOpen) {
-      previousActiveElement.current = document.activeElement;
-      document.body.style.overflow = 'hidden';
-
-      // Focus the modal
-      setTimeout(() => {
-        modalRef.current?.focus();
-      }, 0);
-    } else {
-      document.body.style.overflow = '';
-
-      // Restore focus
-      if (previousActiveElement.current instanceof HTMLElement) {
-        previousActiveElement.current.focus();
-      }
-    }
-
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [isOpen]);
-
-  if (!isOpen) return null;
-
-  const modalContent = (
-    <div className={styles.overlay} onClick={onClose}>
-      <div
-        ref={modalRef}
-        className={cn(styles.modal, styles[size])}
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={title ? 'modal-title' : undefined}
-        tabIndex={-1}
-      >
-        {/* Handle for mobile bottom sheet */}
-        <div className={styles.handle} aria-hidden="true" />
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className={cn(sizeClasses[size])}>
+        {/* Mobile handle bar */}
+        <div className="mx-auto mb-4 h-1 w-9 rounded-full bg-border md:hidden" aria-hidden="true" />
 
         {(title || showCloseButton) && (
-          <div className={styles.header}>
-            {title && (
-              <h2 id="modal-title" className={styles.title}>
-                {title}
-              </h2>
+          <div className="mb-4 flex items-center justify-between">
+            {title ? (
+              <DialogTitle>{title}</DialogTitle>
+            ) : (
+              /* Radix requires a Title for accessibility; hide it visually when no title */
+              <DialogTitle className="sr-only">Dialog</DialogTitle>
             )}
             {showCloseButton && (
               <button
                 type="button"
-                className={styles.closeButton}
+                className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-[background-color,color,transform] duration-150 hover:bg-muted hover:text-foreground active:scale-95"
                 onClick={onClose}
                 aria-label="Close modal"
               >
@@ -116,13 +73,16 @@ export function Modal({
           </div>
         )}
 
-        <div className={styles.content}>{children}</div>
-      </div>
-    </div>
+        {!title && !showCloseButton && (
+          /* Always provide an accessible title even when hidden */
+          <DialogTitle className="sr-only">Dialog</DialogTitle>
+        )}
+
+        {/* Hidden description for screen readers */}
+        <DialogDescription className="sr-only">Dialog content</DialogDescription>
+
+        <div>{children}</div>
+      </DialogContent>
+    </Dialog>
   );
-
-  // Use portal to render at document body level (mounted guard prevents hydration mismatch)
-  if (!mounted) return null;
-
-  return createPortal(modalContent, document.body);
 }

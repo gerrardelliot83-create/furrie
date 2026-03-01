@@ -1,46 +1,44 @@
-import styles from './DashboardLoading.module.css';
-
 export default function DashboardLoading() {
   return (
-    <div className={styles.container}>
+    <div className="mx-auto max-w-[600px] p-4">
       {/* Greeting skeleton */}
-      <div className={styles.header}>
-        <div className={styles.skeletonLine} style={{ width: '60%', height: '28px' }} />
+      <div className="mb-6">
+        <div className="h-7 w-[60%] animate-pulse rounded-sm bg-muted" />
       </div>
 
       {/* CTA skeleton */}
-      <div className={styles.ctaSkeleton}>
-        <div className={styles.skeletonLine} style={{ width: '70%', height: '20px' }} />
-        <div className={styles.skeletonLine} style={{ width: '50%', height: '16px', marginTop: '8px' }} />
-        <div className={styles.skeletonButton} />
+      <div className="mb-6 rounded-lg border border-border bg-white p-5">
+        <div className="h-5 w-[70%] animate-pulse rounded-sm bg-muted" />
+        <div className="mt-2 h-4 w-[50%] animate-pulse rounded-sm bg-muted" />
+        <div className="mt-4 h-10 w-[140px] animate-pulse rounded-md bg-muted" />
       </div>
 
       {/* Pets section skeleton */}
-      <div className={styles.section}>
-        <div className={styles.sectionHeader}>
-          <div className={styles.skeletonLine} style={{ width: '100px', height: '20px' }} />
+      <div className="mb-6">
+        <div className="mb-3">
+          <div className="h-5 w-[100px] animate-pulse rounded-sm bg-muted" />
         </div>
-        <div className={styles.petsGrid}>
+        <div className="flex gap-3 overflow-hidden">
           {[1, 2, 3].map((i) => (
-            <div key={i} className={styles.petCardSkeleton}>
-              <div className={styles.skeletonCircle} />
-              <div className={styles.skeletonLine} style={{ width: '80%', height: '14px' }} />
-              <div className={styles.skeletonLine} style={{ width: '60%', height: '12px' }} />
+            <div key={i} className="flex min-w-[80px] flex-col items-center gap-2 p-3">
+              <div className="h-14 w-14 animate-pulse rounded-full bg-muted" />
+              <div className="h-3.5 w-[80%] animate-pulse rounded-sm bg-muted" />
+              <div className="h-3 w-[60%] animate-pulse rounded-sm bg-muted" />
             </div>
           ))}
         </div>
       </div>
 
       {/* Consultations section skeleton */}
-      <div className={styles.section}>
-        <div className={styles.sectionHeader}>
-          <div className={styles.skeletonLine} style={{ width: '180px', height: '20px' }} />
+      <div className="mb-6">
+        <div className="mb-3">
+          <div className="h-5 w-[180px] animate-pulse rounded-sm bg-muted" />
         </div>
         {[1, 2].map((i) => (
-          <div key={i} className={styles.consultationSkeleton}>
-            <div className={styles.skeletonLine} style={{ width: '40%', height: '16px' }} />
-            <div className={styles.skeletonLine} style={{ width: '70%', height: '14px', marginTop: '8px' }} />
-            <div className={styles.skeletonLine} style={{ width: '30%', height: '14px', marginTop: '4px' }} />
+          <div key={i} className="mb-3 rounded-md border border-border bg-white p-4">
+            <div className="h-4 w-[40%] animate-pulse rounded-sm bg-muted" />
+            <div className="mt-2 h-3.5 w-[70%] animate-pulse rounded-sm bg-muted" />
+            <div className="mt-1 h-3.5 w-[30%] animate-pulse rounded-sm bg-muted" />
           </div>
         ))}
       </div>

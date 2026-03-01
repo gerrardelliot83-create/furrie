@@ -1,2 +1,2 @@
-export { Input } from './Input';
-export type { InputProps } from './Input';
+export { Input } from '../furrie-input';
+export type { InputProps } from '../furrie-input';

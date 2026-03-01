@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import styles from './NotificationBell.module.css';
+import { Popover, PopoverTrigger, PopoverContent } from '../popover';
 
 interface Notification {
   id: string;
@@ -45,7 +45,6 @@ export function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Poll for unread count
   const fetchUnreadCount = useCallback(async () => {
@@ -82,27 +81,15 @@ export function NotificationBell() {
     }
   }, []);
 
-  const handleToggle = useCallback(() => {
-    const next = !isOpen;
-    setIsOpen(next);
-    if (next) {
-      fetchNotifications();
-    }
-  }, [isOpen, fetchNotifications]);
-
-  // Close on outside click
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      setIsOpen(open);
+      if (open) {
+        fetchNotifications();
       }
-    };
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen]);
+    },
+    [fetchNotifications]
+  );
 
   const handleMarkAllRead = useCallback(async () => {
     try {
@@ -122,99 +109,107 @@ export function NotificationBell() {
     }
   }, []);
 
-  const handleNotificationClick = useCallback(async (notification: Notification) => {
-    // Mark as read
-    if (!notification.is_read) {
-      try {
-        await fetch('/api/notifications', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: notification.id }),
-        });
-        setUnreadCount((prev) => Math.max(0, prev - 1));
-        setNotifications((prev) =>
-          prev.map((n) =>
-            n.id === notification.id ? { ...n, is_read: true } : n
-          )
-        );
-      } catch {
-        // Silent
+  const handleNotificationClick = useCallback(
+    async (notification: Notification) => {
+      // Mark as read
+      if (!notification.is_read) {
+        try {
+          await fetch('/api/notifications', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: notification.id }),
+          });
+          setUnreadCount((prev) => Math.max(0, prev - 1));
+          setNotifications((prev) =>
+            prev.map((n) =>
+              n.id === notification.id ? { ...n, is_read: true } : n
+            )
+          );
+        } catch {
+          // Silent
+        }
       }
-    }
 
-    // Navigate if consultation link present
-    if (notification.data?.consultationId) {
-      setIsOpen(false);
-      router.push(`/consultations/${notification.data.consultationId}`);
-    }
-  }, [router]);
+      // Navigate if consultation link present
+      if (notification.data?.consultationId) {
+        setIsOpen(false);
+        router.push(`/consultations/${notification.data.consultationId}`);
+      }
+    },
+    [router]
+  );
 
   return (
-    <div ref={dropdownRef} className={styles.container}>
-      <button
-        className={styles.bellButton}
-        onClick={handleToggle}
-        aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
-      >
-        <BellIcon />
-        {unreadCount > 0 && (
-          <span className={styles.badge}>
-            {unreadCount > 9 ? '9+' : unreadCount}
-          </span>
-        )}
-      </button>
+    <Popover open={isOpen} onOpenChange={handleOpenChange}>
+      <PopoverTrigger asChild>
+        <button
+          className="relative flex h-10 w-10 items-center justify-center rounded-full border-none bg-transparent text-muted-foreground [-webkit-tap-highlight-color:transparent] transition-[background-color,color] duration-150 hover:bg-muted hover:text-foreground active:scale-95"
+          aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
+        >
+          <BellIcon />
+          {unreadCount > 0 && (
+            <span className="absolute right-0.5 top-0.5 min-w-[18px] rounded-full bg-error px-1 text-center text-[11px] font-bold leading-[18px] text-white">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
+        </button>
+      </PopoverTrigger>
 
-      {isOpen && (
-        <div className={styles.dropdown}>
-          <div className={styles.dropdownHeader}>
-            <span className={styles.dropdownTitle}>Notifications</span>
-            {unreadCount > 0 && (
-              <button
-                className={styles.markAllRead}
-                onClick={handleMarkAllRead}
-              >
-                Mark all read
-              </button>
-            )}
-          </div>
-
-          <div className={styles.dropdownBody}>
-            {isLoading && notifications.length === 0 && (
-              <div className={styles.emptyState}>Loading...</div>
-            )}
-
-            {!isLoading && notifications.length === 0 && (
-              <div className={styles.emptyState}>No notifications</div>
-            )}
-
-            {notifications.slice(0, 10).map((notification) => (
-              <button
-                key={notification.id}
-                className={`${styles.notificationItem} ${!notification.is_read ? styles.unread : ''}`}
-                onClick={() => handleNotificationClick(notification)}
-              >
-                <div className={styles.notificationContent}>
-                  <span className={styles.notificationTitle}>
-                    {!notification.is_read && (
-                      <span className={styles.unreadDot} />
-                    )}
-                    {notification.title}
-                  </span>
-                  <span className={styles.notificationBody}>
-                    {notification.body.length > 80
-                      ? `${notification.body.slice(0, 80)}...`
-                      : notification.body}
-                  </span>
-                </div>
-                <span className={styles.notificationTime}>
-                  {formatRelativeTime(notification.created_at)}
-                </span>
-              </button>
-            ))}
-          </div>
+      <PopoverContent className="flex w-80 max-h-[420px] flex-col max-[374px]:w-[calc(100vw-32px)]">
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <span className="text-base font-semibold text-foreground">Notifications</span>
+          {unreadCount > 0 && (
+            <button
+              className="rounded-sm border-none bg-transparent px-2 py-1 text-sm font-medium text-furrie-blue transition-colors duration-150 hover:bg-muted"
+              onClick={handleMarkAllRead}
+            >
+              Mark all read
+            </button>
+          )}
         </div>
-      )}
-    </div>
+
+        <div className="flex-1 overflow-y-auto">
+          {isLoading && notifications.length === 0 && (
+            <div className="flex items-center justify-center px-4 py-8 text-sm text-muted-foreground/60">
+              Loading...
+            </div>
+          )}
+
+          {!isLoading && notifications.length === 0 && (
+            <div className="flex items-center justify-center px-4 py-8 text-sm text-muted-foreground/60">
+              No notifications
+            </div>
+          )}
+
+          {notifications.slice(0, 10).map((notification) => (
+            <button
+              key={notification.id}
+              className={`flex w-full items-start gap-3 border-b border-border/50 bg-transparent px-4 py-3 text-left transition-colors duration-150 last:border-b-0 hover:bg-muted/50 ${
+                !notification.is_read ? 'bg-info-light hover:bg-[#cfe0f8]' : ''
+              }`}
+              onClick={() => handleNotificationClick(notification)}
+            >
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="flex items-center gap-2 text-sm font-semibold leading-tight text-foreground">
+                  {!notification.is_read && (
+                    <span className="h-2 w-2 shrink-0 rounded-full bg-furrie-blue" />
+                  )}
+                  {notification.title}
+                </span>
+                <span className="line-clamp-2 text-xs leading-normal text-muted-foreground">
+                  {notification.body.length > 80
+                    ? `${notification.body.slice(0, 80)}...`
+                    : notification.body}
+                </span>
+              </div>
+              <span className="shrink-0 pt-0.5 text-[11px] whitespace-nowrap text-muted-foreground/50">
+                {formatRelativeTime(notification.created_at)}
+              </span>
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 

@@ -1,2 +1,2 @@
-export { Skeleton, SkeletonText, SkeletonAvatar, SkeletonCard } from './Skeleton';
-export type { SkeletonProps } from './Skeleton';
+export { Skeleton, SkeletonText, SkeletonAvatar, SkeletonCard } from '../furrie-skeleton';
+export type { SkeletonProps } from '../furrie-skeleton';

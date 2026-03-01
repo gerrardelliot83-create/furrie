@@ -1,20 +1,18 @@
-import styles from './ConsultationsLoading.module.css';
-
 export default function ConsultationsLoading() {
   return (
-    <div className={styles.container}>
-      <div className={styles.header}>
-        <div className={styles.skeletonLine} style={{ width: '180px', height: '24px' }} />
+    <div className="mx-auto max-w-[600px] p-4">
+      <div className="mb-5">
+        <div className="h-6 w-[180px] animate-pulse rounded-sm bg-muted" />
       </div>
 
       {[1, 2, 3].map((i) => (
-        <div key={i} className={styles.card}>
-          <div className={styles.cardHeader}>
-            <div className={styles.skeletonLine} style={{ width: '50%', height: '16px' }} />
-            <div className={styles.skeletonLine} style={{ width: '80px', height: '24px' }} />
+        <div key={i} className="mb-3 rounded-lg border border-border bg-white p-4">
+          <div className="flex items-center justify-between">
+            <div className="h-4 w-[50%] animate-pulse rounded-sm bg-muted" />
+            <div className="h-6 w-[80px] animate-pulse rounded-sm bg-muted" />
           </div>
-          <div className={styles.skeletonLine} style={{ width: '70%', height: '14px', marginTop: '12px' }} />
-          <div className={styles.skeletonLine} style={{ width: '40%', height: '14px', marginTop: '8px' }} />
+          <div className="mt-3 h-3.5 w-[70%] animate-pulse rounded-sm bg-muted" />
+          <div className="mt-2 h-3.5 w-[40%] animate-pulse rounded-sm bg-muted" />
         </div>
       ))}
     </div>

@@ -1,2 +1,2 @@
-export { Textarea } from './Textarea';
-export type { TextareaProps } from './Textarea';
+export { Textarea } from '../furrie-textarea';
+export type { TextareaProps } from '../furrie-textarea';

@@ -1,13 +1,18 @@
 // General utility functions
 
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
 // Timezone constant for consistent date/time formatting (India Standard Time)
 const IST_TIMEZONE = 'Asia/Kolkata';
 
 /**
- * Combines class names, filtering out falsy values
+ * Combines class names, filtering out falsy values.
+ * Supports Tailwind class merging (e.g., cn('px-2', 'px-4') => 'px-4').
+ * Backward-compatible: works with CSS Module class names too.
  */
-export function cn(...classes: (string | undefined | null | false)[]): string {
-  return classes.filter(Boolean).join(' ');
+export function cn(...inputs: ClassValue[]): string {
+  return twMerge(clsx(inputs));
 }
 
 /**

@@ -1,11 +1,159 @@
 /* src/styles/globals.css */
-/* Furrie Global Styles - Mobile-First Reset and Base Styles */
+/* Furrie Global Styles - Tailwind v4 + CSS Modules Coexistence */
 
-/* @import statements must come before all other rules */
+/* === TAILWIND v4 === */
+@import "tailwindcss";
+
+/* === EXISTING CSS IMPORTS (preserved for backward compat during migration) === */
 @import './variables.css';
 @import './breakpoints.css';
 
+/* === TAILWIND v4 THEME === */
+/* Defines custom colors, fonts, and animations available as Tailwind utilities */
+@theme {
+  /* --- Furrie Brand Colors --- */
+  --color-furrie-green: #c8d69b;
+  --color-furrie-yellow: #f6e6a5;
+  --color-furrie-blue: #3971b8;
+  --color-furrie-white: #fbfcee;
+  --color-furrie-dark-blue: #010f3a;
+  --color-jet-white: #ffffff;
+
+  /* --- Semantic Colors (for Tailwind utilities) --- */
+  --color-success: #059669;
+  --color-success-light: #D1FAE5;
+  --color-warning: #D97706;
+  --color-warning-light: #FEF3C7;
+  --color-error: #dc2626;
+  --color-error-light: #FEE2E2;
+  --color-info: #3971b8;
+  --color-info-light: #DBEAFE;
+
+  /* --- Border Radius --- */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+
+  /* --- Font Families --- */
+  --font-pally: 'Pally', var(--font-epilogue), sans-serif;
+  --font-epilogue: 'Epilogue', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* --- Custom Animations --- */
+  --animate-fade-in: fade-in 0.2s ease-out;
+  --animate-fade-out: fade-out 0.15s ease-in;
+  --animate-slide-up: slide-up 0.3s ease-out;
+  --animate-slide-down: slide-down 0.3s ease-out;
+  --animate-slide-in-right: slide-in-right 0.3s ease-out;
+  --animate-scale-in: scale-in 0.2s ease-out;
+  --animate-pulse-soft: pulse-soft 2s ease-in-out infinite;
+  --animate-shimmer: shimmer 1.5s ease-in-out infinite;
+  --animate-bounce-in: bounce-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* --- Custom Keyframes --- */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-down {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes bounce-in {
+  0% { opacity: 0; transform: scale(0.3); }
+  50% { opacity: 1; transform: scale(1.05); }
+  70% { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+
+/* === shadcn/ui CSS Variables === */
+/* Maps the Furrie palette to shadcn's expected variable names */
+/* Light mode only (no dark mode for MVP) */
+:root {
+  --background: 60 50% 96.5%;       /* #fbfcee - Furrie White */
+  --foreground: 225 96% 12%;        /* #010f3a - Furrie Dark Blue */
+
+  --card: 0 0% 100%;                /* #ffffff - Jet White */
+  --card-foreground: 225 96% 12%;   /* #010f3a */
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 225 96% 12%;
+
+  --primary: 60 50% 96.5%;          /* Gradient button - we use gradient CSS not solid */
+  --primary-foreground: 225 96% 12%;/* #010f3a text on gradient buttons */
+
+  --secondary: 55 78% 81%;          /* #f6e6a5 - Furrie Yellow */
+  --secondary-foreground: 225 96% 12%;
+
+  --muted: 60 20% 92%;              /* Muted backgrounds */
+  --muted-foreground: 220 10% 40%;  /* Muted text */
+
+  --accent: 80 40% 72%;             /* #c8d69b - Furrie Green */
+  --accent-foreground: 225 96% 12%;
+
+  --destructive: 0 84% 60%;         /* Red for destructive actions */
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 220 13% 91%;            /* Light gray border */
+  --input: 220 13% 91%;
+  --ring: 214 52% 47%;              /* #3971b8 - Furrie Blue for focus rings */
+
+  --chart-1: 80 40% 72%;
+  --chart-2: 55 78% 81%;
+  --chart-3: 214 52% 47%;
+  --chart-4: 225 96% 12%;
+  --chart-5: 60 50% 96.5%;
+
+  /* shadcn radius */
+  --radius: 0.5rem;
+
+  /* Sidebar (used by shadcn sidebar component) */
+  --sidebar: 225 96% 12%;           /* Dark blue sidebar */
+  --sidebar-foreground: 0 0% 100%;
+  --sidebar-primary: 55 78% 81%;
+  --sidebar-primary-foreground: 225 96% 12%;
+  --sidebar-accent: 225 80% 20%;
+  --sidebar-accent-foreground: 0 0% 100%;
+  --sidebar-border: 225 60% 20%;
+  --sidebar-ring: 214 52% 47%;
+}
+
 /* === EPILOGUE FONT FACE DECLARATIONS === */
+/* Kept for backward compat; will be replaced by next/font/local in layout.tsx */
 @font-face {
   font-family: 'Epilogue';
   src: url('/fonts/Epilogue-Variable.woff2') format('woff2-variations');
@@ -22,7 +170,7 @@
   font-display: swap;
 }
 
-/* === CSS RESET === */
+/* === CSS RESET (coexists with Tailwind preflight) === */
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;

@@ -1,9 +1,25 @@
 import type { Metadata, Viewport } from 'next';
+import localFont from 'next/font/local';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
 
 import { ToastProvider } from '@/components/ui/Toast';
 import '@/styles/globals.css';
+
+const epilogue = localFont({
+  src: [
+    {
+      path: '../../public/fonts/Epilogue-Variable.woff2',
+      style: 'normal',
+    },
+    {
+      path: '../../public/fonts/Epilogue-Italic-Variable.woff2',
+      style: 'italic',
+    },
+  ],
+  variable: '--font-epilogue',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: {
@@ -26,7 +42,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#1E5081', // Dusk Blue
+  themeColor: '#010f3a', // Furrie Dark Blue
 };
 
 export default async function RootLayout({
@@ -38,8 +54,8 @@ export default async function RootLayout({
   const messages = await getMessages();
 
   return (
-    <html lang={locale}>
-      <body>
+    <html lang={locale} className={epilogue.variable}>
+      <body className={epilogue.className}>
         <NextIntlClientProvider messages={messages}>
           <ToastProvider>{children}</ToastProvider>
         </NextIntlClientProvider>

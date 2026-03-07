@@ -3,7 +3,7 @@
   inset: 0;
   display: flex;
   flex-direction: column;
-  background: var(--color-jet-blue);
+  background: var(--color-navy);
   z-index: var(--z-modal);
 }
 
@@ -90,7 +90,7 @@
 .mainVideo {
   flex: 1;
   position: relative;
-  background: var(--color-jet-blue);
+  background: var(--color-navy);
 }
 
 .video {
@@ -117,7 +117,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--color-jet-blue) 0%, var(--color-jet-blue-light) 100%);
+  background: linear-gradient(135deg, var(--color-navy) 0%, var(--color-navy) 100%);
 }
 
 .waitingContent {
@@ -163,7 +163,7 @@
   right: var(--space-4);
   width: 100px;
   height: 140px;
-  background: var(--color-jet-blue-light);
+  background: var(--color-navy);
   border-radius: var(--radius-lg);
   overflow: hidden;
   box-shadow: var(--shadow-lg);

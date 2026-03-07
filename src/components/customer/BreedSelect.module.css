@@ -21,7 +21,7 @@
   min-height: 44px;
   padding: var(--space-2) var(--space-3);
   background: var(--color-bg-primary);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-light);
   border-radius: var(--radius-md);
   transition: border-color var(--transition-base), box-shadow var(--transition-base);
 }
@@ -29,7 +29,7 @@
 .container.open .inputWrapper,
 .inputWrapper:focus-within {
   border-color: var(--color-border-focus);
-  box-shadow: 0 0 0 3px rgba(30, 80, 129, 0.1);
+  box-shadow: 0 0 0 3px rgba(57, 113, 184, 0.1);
 }
 
 .container.error .inputWrapper {
@@ -37,7 +37,7 @@
 }
 
 .container.error .inputWrapper:focus-within {
-  box-shadow: 0 0 0 3px rgba(206, 62, 36, 0.1);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
 }
 
 .container.disabled .inputWrapper {
@@ -90,7 +90,7 @@
 }
 
 .clearButton:hover {
-  background: rgba(206, 62, 36, 0.1);
+  background: rgba(220, 38, 38, 0.15);
   color: var(--color-error);
 }
 
@@ -113,7 +113,7 @@
   margin: 0;
   padding: var(--space-2) 0;
   background: var(--color-bg-primary);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-light);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
   list-style: none;
@@ -169,7 +169,7 @@
 }
 
 .option[aria-selected="true"] {
-  background: rgba(30, 80, 129, 0.1);
+  background: rgba(57, 113, 184, 0.1);
 }
 
 .breedName {

@@ -1,5 +1,5 @@
 /* Textarea.module.css */
-/* Mobile-first textarea component with iOS-style focus states */
+/* Mobile-first textarea component */
 
 .wrapper {
   display: flex;
@@ -11,7 +11,7 @@
 .label {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
 }
 
 .textarea {
@@ -24,8 +24,8 @@
   line-height: var(--line-height-normal);
   color: var(--color-text-primary);
   background-color: var(--color-bg-primary);
-  border: 1.5px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
   padding: var(--space-3) var(--space-4);
   transition:
     border-color var(--transition-fast),
@@ -36,11 +36,11 @@
   appearance: none;
 }
 
-/* Focus state - Dusk Blue glow */
+/* Focus state - Blue glow */
 .textarea:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(30, 80, 129, 0.15);
+  box-shadow: 0 0 0 3px rgba(57, 113, 184, 0.1);
 }
 
 .textarea::placeholder {
@@ -59,7 +59,7 @@
 
 .error:focus {
   border-color: var(--color-error);
-  box-shadow: 0 0 0 3px rgba(206, 62, 36, 0.15);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
 }
 
 .error:hover:not(:focus):not(:disabled) {

@@ -13,7 +13,7 @@
   border-radius: var(--radius-lg);
   padding: var(--spacing-5);
   margin-bottom: var(--spacing-6);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-light);
 }
 
 .section {
@@ -44,7 +44,7 @@
   border-radius: var(--radius-md);
   padding: var(--spacing-4);
   margin-bottom: var(--spacing-3);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-light);
 }
 
 .skeletonButton {

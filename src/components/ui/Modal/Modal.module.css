@@ -1,10 +1,10 @@
 /* Modal.module.css */
-/* Mobile: Bottom sheet. Desktop: Centered modal with glassmorphism. */
+/* Mobile: Bottom sheet. Desktop: Centered modal. */
 
 .overlay {
   position: fixed;
   inset: 0;
-  background-color: rgba(48, 51, 68, 0.5);
+  background-color: rgba(1, 15, 58, 0.08);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   z-index: var(--z-modal-backdrop);
@@ -25,7 +25,7 @@
   overflow-y: auto;
   animation: slideUp var(--transition-slow);
   outline: none;
-  box-shadow: var(--shadow-xl);
+  box-shadow: var(--shadow-lg);
 }
 
 /* Sizes */
@@ -69,9 +69,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-lg);
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-bg-tertiary);
   color: var(--color-text-secondary);
   transition:
     background-color var(--transition-fast),
@@ -80,7 +81,7 @@
 }
 
 .closeButton:hover {
-  background-color: var(--color-bg-tertiary);
+  background-color: var(--color-border);
   color: var(--color-text-primary);
 }
 
@@ -114,7 +115,7 @@
   }
 }
 
-/* Desktop: centered modal with glassmorphism */
+/* Desktop: centered solid modal */
 @media (min-width: 768px) {
   .modal {
     position: fixed;
@@ -129,11 +130,8 @@
     padding: var(--space-8);
     padding-bottom: var(--space-8);
     animation: scaleIn var(--transition-base);
-    /* Glassmorphism for desktop */
-    background: var(--glass-bg);
-    backdrop-filter: blur(var(--glass-blur));
-    -webkit-backdrop-filter: blur(var(--glass-blur));
-    border: 1px solid var(--glass-border);
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
   }
 
   .handle {

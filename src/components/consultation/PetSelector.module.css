@@ -28,7 +28,7 @@
   width: 100%;
   padding: var(--space-4);
   background: var(--color-bg-primary);
-  border: 2px solid var(--color-border);
+  border: 2px solid var(--color-border-light);
   border-radius: var(--radius-lg);
   cursor: pointer;
   transition: all var(--transition-base);

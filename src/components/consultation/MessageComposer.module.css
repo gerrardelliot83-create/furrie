@@ -26,7 +26,7 @@
   height: 44px;
   background-color: transparent;
   color: var(--color-text-secondary);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-light);
   border-radius: var(--radius-lg);
   cursor: pointer;
   flex-shrink: 0;
@@ -60,7 +60,7 @@
   max-width: 200px;
   border-radius: var(--radius-lg);
   overflow: hidden;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-light);
 }
 
 .previewImage {
@@ -98,7 +98,7 @@
   font-size: var(--font-size-sm);
   font-family: inherit;
   line-height: var(--line-height-normal);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-light);
   border-radius: var(--radius-lg);
   background-color: var(--color-bg-primary);
   color: var(--color-text-primary);
@@ -129,8 +129,8 @@
   justify-content: center;
   width: 44px;
   height: 44px;
-  background-color: var(--color-primary);
-  color: var(--color-text-on-primary);
+  background-color: var(--color-navy);
+  color: var(--color-text-inverse);
   border: none;
   border-radius: 50%;
   cursor: pointer;
@@ -139,7 +139,8 @@
 }
 
 .sendButton:hover:not(:disabled) {
-  background-color: var(--color-primary-hover);
+  background-color: var(--color-navy);
+  opacity: 0.9;
   transform: scale(1.05);
 }
 

@@ -24,7 +24,7 @@
 }
 
 .backButton:hover {
-  background: var(--color-border);
+  background: var(--color-border-light);
 }
 
 .title {
@@ -47,7 +47,7 @@
   max-width: 400px;
   margin: 0 auto;
   aspect-ratio: 1;
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-2xl);
   overflow: hidden;
   background: var(--color-bg-secondary);
 }

@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   background: var(--color-bg-primary);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-2xl);
   box-shadow: var(--shadow-md);
   overflow: hidden;
   transition: box-shadow var(--transition-base), transform var(--transition-base);
@@ -22,7 +22,7 @@
 .cardLink:focus-visible {
   outline: 2px solid var(--color-border-focus);
   outline-offset: -2px;
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-2xl);
 }
 
 .content {
@@ -105,6 +105,6 @@
 }
 
 .deleteButton:hover {
-  background: rgba(206, 62, 36, 0.1);
+  background: rgba(220, 38, 38, 0.1);
   color: var(--color-error);
 }

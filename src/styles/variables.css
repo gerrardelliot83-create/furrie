@@ -3,74 +3,74 @@
 /* MOBILE-FIRST: Base styles target mobile (320px+) */
 
 :root {
-  /* === NEW BRAND COLOR PALETTE (Phase 2A) === */
+  /* === BRAND COLOR PALETTE === */
 
-  /* Beige - Page backgrounds, warm neutral */
-  --color-beige: #F2EAC3;
-  --color-beige-light: #F9F6E8;
+  /* Sage - Secondary actions, nature/health feel */
+  --color-sage: #c8d69b;
+  --color-sage-light: #dce5be;
+  --color-sage-dark: #a3b475;
 
-  /* Bright Red - Primary CTAs, alerts, urgent actions */
-  --color-red: #CE3E24;
-  --color-red-light: #E85D44;
-  --color-red-dark: #A93119;
+  /* Butter - Accent, warm highlights */
+  --color-butter: #f6e6a5;
+  --color-butter-light: #faf1cc;
+  --color-butter-dark: #e8d07a;
 
-  /* Light Blue - Secondary actions, links, information */
-  --color-light-blue: #7796CC;
-  --color-light-blue-hover: #5E80BD;
+  /* Blue - Primary actions, links, navigation */
+  --color-blue: #3971b8;
+  --color-blue-light: #5088c9;
+  --color-blue-dark: #2c5a93;
 
-  /* Dusk Blue - Primary buttons, headers, navigation active */
-  --color-dusk-blue: #1E5081;
-  --color-dusk-blue-light: #2B6299;
-  --color-dusk-blue-dark: #153B61;
+  /* Cream - Page backgrounds, warm neutral */
+  --color-cream: #fbfcee;
+  --color-cream-dark: #f4f5e0;
 
-  /* Jet Deep Blue - Body text, headings, dark UI elements */
-  --color-jet-blue: #303344;
-  --color-jet-blue-light: #464A5C;
+  /* Navy - Body text, headings, dark UI elements */
+  --color-navy: #010f3a;
 
   /* === PRIMARY/SECONDARY MAPPINGS === */
-  --color-primary: var(--color-dusk-blue);
-  --color-primary-light: var(--color-dusk-blue-light);
-  --color-primary-dark: var(--color-dusk-blue-dark);
+  --color-primary: var(--color-blue);
+  --color-primary-light: var(--color-blue-light);
+  --color-primary-dark: var(--color-blue-dark);
 
-  --color-secondary: var(--color-light-blue);
-  --color-secondary-light: var(--color-light-blue);
-  --color-secondary-dark: var(--color-light-blue-hover);
+  --color-secondary: var(--color-sage);
+  --color-secondary-light: var(--color-sage-light);
+  --color-secondary-dark: var(--color-sage-dark);
 
-  /* Accent - for CTAs and urgent actions */
-  --color-accent: var(--color-red);
-  --color-accent-light: var(--color-red-light);
-  --color-accent-dark: var(--color-red-dark);
+  /* Accent - for warm highlights */
+  --color-accent: var(--color-butter);
+  --color-accent-light: var(--color-butter-light);
+  --color-accent-dark: var(--color-butter-dark);
 
   /* === BACKGROUND COLORS (60% - Dominant) === */
   --color-bg-primary: #FFFFFF;
-  --color-bg-secondary: var(--color-beige-light);
-  --color-bg-tertiary: var(--color-beige);
-  --color-bg-warm: var(--color-beige);
+  --color-bg-secondary: var(--color-cream);
+  --color-bg-tertiary: var(--color-cream-dark);
+  --color-bg-warm: var(--color-cream-dark);
 
   /* === TEXT COLORS (30% - Secondary) === */
-  --color-text-primary: var(--color-jet-blue);
-  --color-text-secondary: var(--color-jet-blue-light);
-  --color-text-tertiary: #6B7280;
-  --color-text-muted: #9CA3AF;
+  --color-text-primary: var(--color-navy);
+  --color-text-secondary: #475569;
+  --color-text-tertiary: #64748b;
+  --color-text-muted: #94a3b8;
   --color-text-inverse: #FFFFFF;
 
   /* === LINK COLOR === */
-  --color-link: var(--color-light-blue);
-  --color-link-hover: var(--color-light-blue-hover);
+  --color-link: var(--color-blue);
+  --color-link-hover: var(--color-blue-dark);
 
   /* === BORDER COLORS === */
-  --color-border: #E5E7EB;
-  --color-border-light: #F0F0F0;
-  --color-border-focus: var(--color-dusk-blue);
+  --color-border: #e2e8f0;
+  --color-border-light: #f1f5f9;
+  --color-border-focus: var(--color-blue);
 
   /* === SEMANTIC COLORS === */
-  --color-success: #059669;
-  --color-success-light: #D1FAE5;
-  --color-warning: #D97706;
-  --color-warning-light: #FEF3C7;
-  --color-error: var(--color-red);
+  --color-success: #16a34a;
+  --color-success-light: #dcfce7;
+  --color-warning: #ca8a04;
+  --color-warning-light: #fef9c3;
+  --color-error: #dc2626;
   --color-error-light: #FEE2E2;
-  --color-info: var(--color-light-blue);
+  --color-info: var(--color-blue);
   --color-info-light: #DBEAFE;
 
   /* === TYPOGRAPHY - EPILOGUE FONT === */
@@ -127,27 +127,27 @@
   --radius-2xl: 1.25rem;     /* 20px */
   --radius-full: 9999px;     /* Pill shape */
 
-  /* === SHADOWS (iOS-style soft shadows) === */
-  --shadow-sm: 0 1px 2px rgba(48, 51, 68, 0.04);
+  /* === SHADOWS (navy-tinted soft shadows) === */
+  --shadow-sm: 0 1px 2px rgba(1, 15, 58, 0.04);
   --shadow-md:
-    0 4px 6px -1px rgba(48, 51, 68, 0.1),
-    0 2px 4px -1px rgba(48, 51, 68, 0.06);
+    0 4px 6px -1px rgba(1, 15, 58, 0.07),
+    0 2px 4px -1px rgba(1, 15, 58, 0.04);
   --shadow-lg:
-    0 10px 15px -3px rgba(48, 51, 68, 0.1),
-    0 4px 6px -4px rgba(48, 51, 68, 0.05);
+    0 10px 15px -3px rgba(1, 15, 58, 0.08),
+    0 4px 6px -4px rgba(1, 15, 58, 0.04);
   --shadow-xl:
-    0 20px 25px -5px rgba(48, 51, 68, 0.1),
-    0 8px 10px -6px rgba(48, 51, 68, 0.04);
+    0 20px 25px -5px rgba(1, 15, 58, 0.08),
+    0 8px 10px -6px rgba(1, 15, 58, 0.03);
 
   /* Elevated shadow for cards on hover */
   --shadow-elevated:
-    0 12px 24px -4px rgba(48, 51, 68, 0.12),
-    0 8px 12px -4px rgba(48, 51, 68, 0.08);
+    0 12px 28px -4px rgba(1, 15, 58, 0.10),
+    0 8px 12px -4px rgba(1, 15, 58, 0.06);
 
   /* === GLASSMORPHISM === */
-  --glass-bg: rgba(255, 255, 255, 0.85);
-  --glass-border: rgba(255, 255, 255, 0.5);
-  --glass-blur: 12px;
+  --glass-bg: rgba(255, 255, 255, 0.82);
+  --glass-border: rgba(255, 255, 255, 0.45);
+  --glass-blur: 14px;
 
   /* === TRANSITIONS (micro-interactions) === */
   --transition-fast: 150ms ease;

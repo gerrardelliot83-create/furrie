@@ -1,13 +1,13 @@
 /* Skeleton.module.css */
-/* Loading skeleton components with beige gradient shimmer */
+/* Loading skeleton components with cream gradient shimmer */
 
 .skeleton {
-  background-color: var(--color-beige-light);
+  background-color: var(--color-cream);
   position: relative;
   overflow: hidden;
 }
 
-/* Shimmer animation with beige gradient */
+/* Shimmer animation with cream gradient */
 .skeleton::after {
   content: '';
   position: absolute;
@@ -16,9 +16,9 @@
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(242, 234, 195, 0.6),
+    rgba(251, 252, 238, 0.6),
     rgba(255, 255, 255, 0.8),
-    rgba(242, 234, 195, 0.6),
+    rgba(251, 252, 238, 0.6),
     transparent
   );
   animation: shimmer 1.5s infinite;
@@ -32,8 +32,8 @@
 
 /* Variants */
 .text {
-  height: 16px;
-  border-radius: var(--radius-sm);
+  height: 14px;
+  border-radius: var(--radius-full);
   width: 100%;
 }
 
@@ -62,8 +62,8 @@
 /* Pre-built card skeleton */
 .card {
   padding: var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-2xl);
   background-color: var(--color-bg-primary);
 }
 

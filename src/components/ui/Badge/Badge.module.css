@@ -8,12 +8,13 @@
   font-weight: var(--font-weight-medium);
   border-radius: var(--radius-full);
   white-space: nowrap;
+  letter-spacing: 0.01em;
 }
 
 /* Sizes */
 .sm {
   font-size: var(--font-size-xs);
-  padding: var(--space-1) var(--space-2);
+  padding: 3px var(--space-2);
 }
 
 .md {
@@ -39,10 +40,26 @@
 
 .info {
   background-color: var(--color-info-light);
-  color: var(--color-info);
+  color: var(--color-primary);
 }
 
 .neutral {
   background-color: var(--color-bg-tertiary);
   color: var(--color-text-secondary);
+}
+
+.outline {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.sage {
+  background-color: var(--color-sage-light);
+  color: var(--color-sage-dark);
+}
+
+.butter {
+  background-color: var(--color-butter-light);
+  color: var(--color-butter-dark);
 }

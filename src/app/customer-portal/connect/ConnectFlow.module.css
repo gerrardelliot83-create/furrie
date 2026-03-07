@@ -10,7 +10,7 @@
 
 .content {
   background: var(--color-bg-primary);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-2xl);
   padding: var(--space-6);
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--color-border-light);

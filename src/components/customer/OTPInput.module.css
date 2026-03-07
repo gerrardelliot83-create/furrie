@@ -17,8 +17,8 @@
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   background-color: var(--color-bg-primary);
-  border: 2px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-xl);
   transition:
     border-color var(--transition-fast),
     box-shadow var(--transition-fast),
@@ -32,7 +32,7 @@
 .input:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(30, 80, 129, 0.15);
+  box-shadow: 0 0 0 3px rgba(57, 113, 184, 0.1);
 }
 
 /* Filled state */
@@ -54,7 +54,7 @@
 
 .error:focus {
   border-color: var(--color-error);
-  box-shadow: 0 0 0 3px rgba(206, 62, 36, 0.15);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
 }
 
 /* Disabled state */

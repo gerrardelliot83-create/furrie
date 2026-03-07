@@ -40,13 +40,14 @@
 
 /* Fallback with initials */
 .fallback {
-  background-color: var(--color-primary);
-  color: var(--color-text-inverse);
+  background-color: var(--color-cream-dark);
+  color: var(--color-text-secondary);
 }
 
 .initials {
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 .sm .initials {
@@ -63,4 +64,25 @@
 
 .xl .initials {
   font-size: var(--font-size-md);
+}
+
+/* Color variants */
+.colorBlue {
+  background-color: var(--color-info-light);
+  color: var(--color-primary);
+}
+
+.colorSage {
+  background-color: var(--color-sage-light);
+  color: var(--color-sage-dark);
+}
+
+.colorButter {
+  background-color: var(--color-butter-light);
+  color: var(--color-butter-dark);
+}
+
+.colorNavy {
+  background-color: var(--color-navy);
+  color: var(--color-text-inverse);
 }

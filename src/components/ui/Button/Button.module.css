@@ -1,5 +1,5 @@
 /* Button.module.css */
-/* Mobile-first button component with iOS-style micro-interactions */
+/* Mobile-first button component */
 
 .button {
   display: inline-flex;
@@ -7,14 +7,15 @@
   justify-content: center;
   gap: var(--space-2);
   font-family: var(--font-family);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.005em;
   line-height: 1;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-full);
   transition:
     background-color var(--transition-fast),
     border-color var(--transition-fast),
     color var(--transition-fast),
-    box-shadow var(--transition-fast),
+    opacity var(--transition-fast),
     transform var(--transition-fast);
   white-space: nowrap;
   user-select: none;
@@ -22,63 +23,56 @@
   cursor: pointer;
   border: 1.5px solid transparent;
   position: relative;
-  overflow: hidden;
-
-  /* Full width on mobile by default */
-  width: 100%;
 }
 
 /* Sizes */
 .sm {
-  min-height: 36px;
-  padding: var(--space-2) var(--space-3);
+  min-height: 34px;
+  padding: var(--space-2) var(--space-5);
   font-size: var(--font-size-sm);
 }
 
 .md {
-  min-height: 48px;
-  padding: var(--space-3) var(--space-5);
-  font-size: var(--font-size-base);
+  min-height: 42px;
+  padding: var(--space-2) var(--space-6);
+  font-size: var(--font-size-sm);
 }
 
 .lg {
-  min-height: 56px;
-  padding: var(--space-4) var(--space-6);
+  min-height: 50px;
+  padding: var(--space-3) var(--space-8);
   font-size: var(--font-size-md);
 }
 
 /* === VARIANTS === */
 
-/* Primary - Dusk Blue */
+/* Primary - Blue */
 .primary {
   background-color: var(--color-primary);
   color: var(--color-text-inverse);
   border-color: var(--color-primary);
-  box-shadow: var(--shadow-sm);
 }
 
 .primary:hover:not(:disabled) {
   background-color: var(--color-primary-dark);
   border-color: var(--color-primary-dark);
-  box-shadow: var(--shadow-md);
 }
 
 .primary:active:not(:disabled) {
+  opacity: 0.88;
   transform: scale(0.98);
-  box-shadow: var(--shadow-sm);
 }
 
-/* Secondary - Light Blue outline */
+/* Secondary - White outline */
 .secondary {
-  background-color: transparent;
-  color: var(--color-primary);
-  border-color: var(--color-primary);
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
 }
 
 .secondary:hover:not(:disabled) {
-  background-color: var(--color-primary);
-  color: var(--color-text-inverse);
-  box-shadow: var(--shadow-sm);
+  background-color: var(--color-bg-tertiary);
+  border-color: var(--color-text-muted);
 }
 
 .secondary:active:not(:disabled) {
@@ -101,35 +95,33 @@
   transform: scale(0.98);
 }
 
-/* Accent - Bright Red for important CTAs */
+/* Accent - Navy for important CTAs */
 .accent {
-  background-color: var(--color-accent);
+  background-color: var(--color-navy);
   color: var(--color-text-inverse);
-  border-color: var(--color-accent);
-  box-shadow: var(--shadow-sm);
+  border-color: var(--color-navy);
 }
 
 .accent:hover:not(:disabled) {
-  background-color: var(--color-accent-dark);
-  border-color: var(--color-accent-dark);
-  box-shadow: var(--shadow-md);
+  opacity: 0.88;
 }
 
 .accent:active:not(:disabled) {
+  opacity: 0.82;
   transform: scale(0.98);
-  box-shadow: var(--shadow-sm);
 }
 
-/* Danger - same as accent for destructive actions */
+/* Danger - outline style for destructive actions */
 .danger {
-  background-color: var(--color-accent);
-  color: var(--color-text-inverse);
-  border-color: var(--color-accent);
+  background-color: transparent;
+  color: var(--color-error);
+  border-color: var(--color-error);
 }
 
 .danger:hover:not(:disabled) {
-  background-color: var(--color-accent-dark);
-  border-color: var(--color-accent-dark);
+  background-color: var(--color-error);
+  color: var(--color-text-inverse);
+  border-color: var(--color-error);
 }
 
 .danger:active:not(:disabled) {
@@ -138,7 +130,7 @@
 
 /* === STATES === */
 .disabled {
-  opacity: 0.5;
+  opacity: 0.38;
   cursor: not-allowed;
   pointer-events: none;
 }
@@ -158,8 +150,8 @@
 
 .spinner {
   position: absolute;
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   border: 2px solid currentColor;
   border-top-color: transparent;
   border-radius: 50%;
@@ -184,32 +176,4 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-}
-
-/* === TOUCH RIPPLE EFFECT === */
-.button::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, transparent 70%);
-  opacity: 0;
-  transform: scale(0);
-  transition: opacity var(--transition-fast), transform var(--transition-base);
-  pointer-events: none;
-}
-
-.button:active:not(:disabled)::after {
-  opacity: 1;
-  transform: scale(2);
-}
-
-/* Tablet+ styles */
-@media (min-width: 768px) {
-  .button {
-    width: auto;
-  }
-
-  .fullWidth {
-    width: 100%;
-  }
 }

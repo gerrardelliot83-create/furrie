@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 import styles from './Badge.module.css';
 
 export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
-  variant?: 'success' | 'warning' | 'error' | 'info' | 'neutral';
+  variant?: 'success' | 'warning' | 'error' | 'info' | 'neutral' | 'outline' | 'sage' | 'butter';
   size?: 'sm' | 'md';
   children: ReactNode;
 }

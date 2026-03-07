@@ -29,8 +29,8 @@
 }
 
 .ownBubble {
-  background-color: var(--color-primary);
-  color: var(--color-text-on-primary);
+  background-color: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
   border-bottom-left-radius: var(--radius-lg);
   border-bottom-right-radius: var(--radius-sm);
 }

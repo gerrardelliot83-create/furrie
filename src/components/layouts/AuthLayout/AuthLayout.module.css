@@ -81,12 +81,9 @@
   }
 
   .main {
-    border: 1px solid var(--color-border);
-    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--color-border-light);
+    box-shadow: var(--shadow-md);
     padding: var(--space-8);
-    /* Subtle glassmorphism */
-    background: var(--glass-bg);
-    backdrop-filter: blur(var(--glass-blur));
-    -webkit-backdrop-filter: blur(var(--glass-blur));
+    background-color: var(--color-bg-primary);
   }
 }

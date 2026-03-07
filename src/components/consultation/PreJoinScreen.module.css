@@ -36,7 +36,7 @@
   position: relative;
   width: 100%;
   aspect-ratio: 4 / 3;
-  background: var(--color-jet-blue);
+  background: var(--color-navy);
   border-radius: var(--radius-lg);
   overflow: hidden;
 }
@@ -84,7 +84,7 @@
   justify-content: center;
   gap: var(--space-4);
   padding: var(--space-4);
-  background: var(--color-jet-blue);
+  background: var(--color-navy);
   color: var(--color-text-inverse);
 }
 

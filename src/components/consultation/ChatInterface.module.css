@@ -7,7 +7,7 @@
   height: 100%;
   max-height: 600px;
   background-color: var(--color-bg-primary);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-light);
   border-radius: var(--radius-lg);
   overflow: hidden;
 }
@@ -60,7 +60,7 @@
   justify-content: space-between;
   align-items: center;
   padding: var(--space-4);
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border-light);
   background-color: var(--color-bg-secondary);
 }
 
@@ -112,7 +112,7 @@
 }
 
 .composerContainer {
-  border-top: 1px solid var(--color-border);
+  border-top: 1px solid var(--color-border-light);
   padding: var(--space-4);
   background-color: var(--color-bg-secondary);
 }
@@ -123,7 +123,7 @@
   font-size: var(--font-size-sm);
   color: var(--color-text-tertiary);
   background-color: var(--color-bg-secondary);
-  border-top: 1px solid var(--color-border);
+  border-top: 1px solid var(--color-border-light);
   display: flex;
   flex-direction: column;
   align-items: center;

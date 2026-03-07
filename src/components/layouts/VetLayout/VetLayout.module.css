@@ -12,7 +12,7 @@
   flex-direction: column;
   width: 260px;
   background-color: var(--color-bg-primary);
-  border-right: 1px solid var(--color-border);
+  border-right: 1px solid var(--color-border-light);
   position: fixed;
   top: 0;
   left: 0;
@@ -22,7 +22,7 @@
 
 .sidebarHeader {
   padding: var(--space-6) var(--space-5);
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .logo {
@@ -52,14 +52,14 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-2) var(--space-3);
   color: var(--color-text-secondary);
   text-decoration: none;
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-base);
+  border-radius: var(--radius-lg);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   transition: background-color var(--transition-fast), color var(--transition-fast);
-  min-height: 44px;
+  min-height: 40px;
 }
 
 .sidebarLink:hover {
@@ -68,18 +68,19 @@
 }
 
 .sidebarLinkActive {
-  background-color: var(--color-primary);
-  color: var(--color-text-inverse);
+  background-color: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
 }
 
 .sidebarLinkActive:hover {
-  background-color: var(--color-primary-dark);
-  color: var(--color-text-inverse);
+  background-color: var(--color-cream-dark);
+  color: var(--color-text-primary);
 }
 
 .sidebarFooter {
   padding: var(--space-4) var(--space-5);
-  border-top: 1px solid var(--color-border);
+  border-top: 1px solid var(--color-border-light);
 }
 
 .statusIndicator {
@@ -110,7 +111,7 @@
   margin-top: var(--space-3);
   background: none;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
@@ -121,7 +122,7 @@
 .logoutButton:hover {
   background-color: var(--color-bg-tertiary);
   color: var(--color-text-primary);
-  border-color: var(--color-border-dark);
+  border-color: var(--color-text-muted);
 }
 
 .logoutButton:disabled {
@@ -143,7 +144,7 @@
   justify-content: space-between;
   padding: var(--space-4) var(--space-6);
   background-color: var(--color-bg-primary);
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border-light);
   position: sticky;
   top: 0;
   z-index: var(--z-sticky);

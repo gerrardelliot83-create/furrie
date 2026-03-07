@@ -7,6 +7,7 @@ export interface AvatarProps {
   alt: string;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   fallback?: string;
+  colorVariant?: 'default' | 'blue' | 'sage' | 'butter' | 'navy';
   className?: string;
 }
 
@@ -17,11 +18,20 @@ const sizeMap = {
   xl: 64,
 };
 
+const colorVariantMap: Record<string, string | undefined> = {
+  default: undefined,
+  blue: styles.colorBlue,
+  sage: styles.colorSage,
+  butter: styles.colorButter,
+  navy: styles.colorNavy,
+};
+
 export function Avatar({
   src,
   alt,
   size = 'md',
   fallback,
+  colorVariant = 'default',
   className,
 }: AvatarProps) {
   const initials = fallback || getInitials(alt);
@@ -43,7 +53,13 @@ export function Avatar({
 
   return (
     <div
-      className={cn(styles.avatar, styles.fallback, styles[size], className)}
+      className={cn(
+        styles.avatar,
+        styles.fallback,
+        colorVariantMap[colorVariant],
+        styles[size],
+        className
+      )}
       aria-label={alt}
     >
       <span className={styles.initials}>{initials}</span>

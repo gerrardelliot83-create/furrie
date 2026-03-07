@@ -22,7 +22,6 @@
 
 .sidebarHeader {
   padding: var(--space-5);
-  border-bottom: 1px solid var(--gray-100);
 }
 
 .logo {
@@ -32,7 +31,7 @@
 }
 
 .logoImage {
-  height: 30px;
+  height: 40px;
   width: auto;
   object-fit: contain;
 }

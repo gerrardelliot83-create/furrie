@@ -47,7 +47,7 @@
 }
 
 .logoImage {
-  height: 28px;
+  height: 40px;
   width: auto;
   object-fit: contain;
 }
@@ -93,7 +93,6 @@
   align-items: center;
   justify-content: space-between;
   padding: var(--space-5);
-  border-bottom: 1px solid var(--gray-100);
 }
 
 .logoLink {
@@ -320,6 +319,6 @@
   }
 
   .logoImage {
-    height: 30px;
+    height: 40px;
   }
 }

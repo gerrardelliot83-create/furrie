@@ -32,6 +32,7 @@
   justify-content: center;
   flex-shrink: 0;
   overflow: hidden;
+  font-size: 32px;
 }
 
 .petImage {
@@ -40,10 +41,16 @@
   object-fit: cover;
 }
 
-.petInitial {
-  font-size: var(--font-size-2xl);
-  font-weight: 600;
-  color: var(--color-text-secondary);
+.petEmoji {
+  font-size: 32px;
+}
+
+.petAvatarDog {
+  background: linear-gradient(135deg, var(--color-sage-light), var(--color-sage));
+}
+
+.petAvatarCat {
+  background: linear-gradient(135deg, var(--color-butter-light), var(--color-butter));
 }
 
 .petHeaderInfo {

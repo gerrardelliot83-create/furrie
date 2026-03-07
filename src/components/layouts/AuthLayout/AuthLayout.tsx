@@ -16,8 +16,8 @@ export function AuthLayout({ children }: AuthLayoutProps) {
             <Image
               src="/assets/logo/furrie-logo-dark-blue.png"
               alt="Furrie"
-              width={120}
-              height={40}
+              width={240}
+              height={75}
               className={styles.logoImage}
               priority
             />

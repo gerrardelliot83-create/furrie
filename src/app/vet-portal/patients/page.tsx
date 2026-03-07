@@ -139,7 +139,7 @@ export default async function VetPatientsPage({ searchParams }: PageProps) {
               href={`/patients/${pet.id}`}
               className={styles.patientCard}
             >
-              <div className={styles.patientAvatar}>
+              <div className={`${styles.patientAvatar} ${pet.species === 'dog' ? styles.patientAvatarDog : styles.patientAvatarCat}`}>
                 {pet.photo_urls && pet.photo_urls.length > 0 ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -148,8 +148,8 @@ export default async function VetPatientsPage({ searchParams }: PageProps) {
                     className={styles.patientImage}
                   />
                 ) : (
-                  <span className={styles.patientInitial}>
-                    {pet.species === 'dog' ? 'D' : 'C'}
+                  <span className={styles.patientEmoji}>
+                    {pet.species === 'dog' ? '\u{1F415}' : '\u{1F408}'}
                   </span>
                 )}
               </div>

@@ -110,10 +110,16 @@
   object-fit: cover;
 }
 
-.patientInitial {
-  font-size: var(--font-size-lg);
-  font-weight: 600;
-  color: var(--color-text-secondary);
+.patientEmoji {
+  font-size: 24px;
+}
+
+.patientAvatarDog {
+  background: linear-gradient(135deg, var(--color-sage-light), var(--color-sage));
+}
+
+.patientAvatarCat {
+  background: linear-gradient(135deg, var(--color-butter-light), var(--color-butter));
 }
 
 .patientInfo {

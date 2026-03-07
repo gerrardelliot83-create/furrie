@@ -17,7 +17,6 @@ const navItems = [
   { href: '/pets', label: 'My Pets', icon: PetsIcon },
   { href: '/connect', label: 'Connect', icon: ConnectIcon },
   { href: '/consultations', label: 'History', icon: HistoryIcon },
-  { href: '/profile', label: 'Profile', icon: ProfileIcon },
 ];
 
 export function CustomerLayout({ children }: CustomerLayoutProps) {
@@ -45,8 +44,8 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
           <Image
             src="/assets/logo/furrie-logo-dark-blue.png"
             alt="Furrie"
-            width={90}
-            height={28}
+            width={240}
+            height={75}
             className={styles.logoImage}
             priority
           />
@@ -66,8 +65,8 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
             <Image
               src="/assets/logo/furrie-logo-dark-blue.png"
               alt="Furrie"
-              width={100}
-              height={30}
+              width={240}
+              height={75}
               className={styles.logoImage}
             />
           </Link>
@@ -99,6 +98,15 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
             );
           })}
         </nav>
+        <Link href="/profile" className={styles.sidebarFooter} onClick={closeSidebar}>
+          <div className={styles.profileAvatar}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="8" r="5" />
+              <path d="M20 21a8 8 0 0 0-16 0" />
+            </svg>
+          </div>
+          <span className={styles.profileName}>Profile</span>
+        </Link>
       </aside>
 
       {/* Main Content */}
@@ -127,6 +135,15 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
             </Link>
           );
         })}
+        {/* Profile as 5th bottom nav item */}
+        <Link
+          href="/profile"
+          className={cn(styles.navItem, (pathname === '/profile' || pathname.startsWith('/profile/')) && styles.navItemActive)}
+        >
+          {(pathname === '/profile' || pathname.startsWith('/profile/')) && <span className={styles.navIndicator} />}
+          <ProfileIcon />
+          <span className={styles.navLabel}>Profile</span>
+        </Link>
       </nav>
     </div>
   );

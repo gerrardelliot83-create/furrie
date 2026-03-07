@@ -150,11 +150,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-primary);
-  color: var(--color-text-inverse);
+  background: var(--color-bg-secondary);
   border-radius: var(--radius-lg);
-  font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-bold);
+  font-size: 24px;
+}
+
+.petAvatarDog {
+  background: linear-gradient(135deg, var(--color-sage-light), var(--color-sage));
+}
+
+.petAvatarCat {
+  background: linear-gradient(135deg, var(--color-butter-light), var(--color-butter));
 }
 
 .petName {

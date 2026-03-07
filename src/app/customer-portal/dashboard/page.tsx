@@ -230,18 +230,18 @@ export default async function CustomerDashboard() {
                     <Image
                       src={pet.photoUrls[0]}
                       alt={pet.name}
-                      width={56}
-                      height={56}
+                      width={48}
+                      height={48}
                       className={styles.petImage}
                     />
                   ) : (
-                    <div className={styles.petFallback}>
-                      {pet.name.charAt(0).toUpperCase()}
-                    </div>
+                    <span className={styles.petEmoji}>{pet.species === 'dog' ? '\u{1F415}' : '\u{1F408}'}</span>
                   )}
                 </div>
-                <span className={styles.petName}>{pet.name}</span>
-                <span className={styles.petBreed}>{pet.breed}</span>
+                <div className={styles.petInfo}>
+                  <span className={styles.petName}>{pet.name}</span>
+                  <span className={styles.petBreed}>{pet.breed}</span>
+                </div>
               </Link>
             ))}
             <Link href="/pets/new" className={styles.addPetCard}>

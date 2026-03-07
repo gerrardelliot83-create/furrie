@@ -64,7 +64,7 @@
   gap: var(--space-4);
   padding: var(--space-4);
   background: var(--color-bg-primary);
-  border: 1.5px solid var(--gray-100);
+  border: 1.5px solid transparent;
   border-radius: var(--radius-lg);
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
@@ -134,10 +134,16 @@
   height: 36px;
   background-color: var(--color-bg-secondary);
   border-radius: 50%;
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-secondary);
+  font-size: 16px;
   flex-shrink: 0;
+}
+
+.speciesIndicatorDog {
+  background: linear-gradient(135deg, var(--color-sage-light), var(--color-sage));
+}
+
+.speciesIndicatorCat {
+  background: linear-gradient(135deg, var(--color-butter-light), var(--color-butter));
 }
 
 .petInfo {

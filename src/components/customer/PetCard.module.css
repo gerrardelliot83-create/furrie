@@ -39,6 +39,17 @@
   border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--color-bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatarDog {
+  background: linear-gradient(135deg, var(--color-sage-light), var(--color-sage));
+}
+
+.avatarCat {
+  background: linear-gradient(135deg, var(--color-butter-light), var(--color-butter));
 }
 
 .avatarImage {
@@ -53,7 +64,7 @@
   justify-content: center;
   width: 100%;
   height: 100%;
-  color: var(--color-text-muted);
+  font-size: 32px;
 }
 
 .info {

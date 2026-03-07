@@ -111,8 +111,8 @@ export function VetLayout({ children }: VetLayoutProps) {
           <Image
             src="/assets/logo/furrie-logo-dark-blue.png"
             alt="Furrie"
-            width={90}
-            height={28}
+            width={240}
+            height={75}
             className={styles.logoImage}
             priority
           />
@@ -132,8 +132,8 @@ export function VetLayout({ children }: VetLayoutProps) {
             <Image
               src="/assets/logo/furrie-logo-dark-blue.png"
               alt="Furrie"
-              width={100}
-              height={30}
+              width={240}
+              height={75}
               className={styles.logoImage}
             />
           </Link>

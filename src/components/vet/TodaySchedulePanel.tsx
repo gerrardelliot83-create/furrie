@@ -312,8 +312,8 @@ export function TodaySchedulePanel({ vetId }: TodaySchedulePanelProps) {
 
                   <div className={styles.detailsColumn}>
                     <div className={styles.petRow}>
-                      <span className={styles.speciesIndicator}>
-                        {consultation.pet?.species === 'dog' ? 'D' : 'C'}
+                      <span className={`${styles.speciesIndicator} ${consultation.pet?.species === 'dog' ? styles.speciesIndicatorDog : styles.speciesIndicatorCat}`}>
+                        {consultation.pet?.species === 'dog' ? '\u{1F415}' : '\u{1F408}'}
                       </span>
                       <div className={styles.petInfo}>
                         <span className={styles.petName}>{consultation.pet?.name || 'Unknown Pet'}</span>

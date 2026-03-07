@@ -46,9 +46,7 @@ export function ConsultationCard({ consultation, className }: ConsultationCardPr
               className={styles.avatarImage}
             />
           ) : (
-            <div className={styles.avatarFallback}>
-              {(consultation.pet?.name || 'P').charAt(0).toUpperCase()}
-            </div>
+            <span className={styles.avatarEmoji}>{consultation.pet?.species === 'dog' ? '\u{1F415}' : '\u{1F408}'}</span>
           )}
         </div>
 

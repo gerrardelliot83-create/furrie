@@ -203,7 +203,7 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
         <div className={styles.petCard}>
           <h2 className={styles.cardTitle}>Patient</h2>
           <div className={styles.petInfo}>
-            <div className={styles.petAvatar}>
+            <div className={`${styles.petAvatar} ${pet?.species === 'dog' ? styles.petAvatarDog : styles.petAvatarCat}`}>
               {pet?.photo_urls && pet.photo_urls.length > 0 ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -212,7 +212,7 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
                   className={styles.petAvatarImage}
                 />
               ) : (
-                pet?.species === 'dog' ? 'D' : 'C'
+                <span>{pet?.species === 'dog' ? '\u{1F415}' : '\u{1F408}'}</span>
               )}
             </div>
             <div className={styles.petDetails}>

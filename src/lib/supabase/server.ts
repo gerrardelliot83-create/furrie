@@ -1,9 +1,10 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
-// Server-side: prefer direct Supabase URL (bypasses custom domain latency)
-// Browser client uses NEXT_PUBLIC_SUPABASE_URL (custom domain for ISP bypass)
-const supabaseUrl = process.env.SUPABASE_SERVER_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!;
+// IMPORTANT: Must use the same URL as the browser client so cookie names match.
+// The browser client sets cookies as sb-<hostname-prefix>-auth-token.
+// Using a different URL here would look for differently-named cookies → 401.
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabasePublishableKey =
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;

@@ -141,12 +141,16 @@ export function AuthForm() {
     verifiedRef.current = true;
     toast(t('welcomeBack'), 'success');
 
-    // Send welcome email for new signups (non-blocking, endpoint is idempotent)
-    fetch('/api/email/welcome', { method: 'POST' }).catch(() => {});
-
     // Refresh server state so middleware sees the freshly-set auth cookies,
     // then navigate smoothly without a full page reload.
     router.refresh();
+
+    // Send welcome email after a tick to ensure cookies are settled
+    // (non-blocking, endpoint is idempotent)
+    setTimeout(() => {
+      fetch('/api/email/welcome', { method: 'POST' }).catch(() => {});
+    }, 200);
+
     router.push('/dashboard');
   }, [email, verifyOtp, router, toast, t]);
 

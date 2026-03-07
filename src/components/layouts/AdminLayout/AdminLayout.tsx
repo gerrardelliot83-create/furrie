@@ -2,6 +2,7 @@
 
 import { type ReactNode } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import styles from './AdminLayout.module.css';
@@ -27,7 +28,13 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       <aside className={styles.sidebar}>
         <div className={styles.sidebarHeader}>
           <Link href="/dashboard" className={styles.logo}>
-            Furrie
+            <Image
+              src="/assets/logo/furrie-logo-dark-blue.png"
+              alt="Furrie"
+              width={100}
+              height={30}
+              className={styles.logoImage}
+            />
           </Link>
           <span className={styles.portalLabel}>Admin Portal</span>
         </div>

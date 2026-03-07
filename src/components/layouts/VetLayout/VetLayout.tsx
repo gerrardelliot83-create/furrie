@@ -1,7 +1,8 @@
 'use client';
 
-import { type ReactNode, useState, useEffect } from 'react';
+import { type ReactNode, useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
@@ -25,6 +26,9 @@ export function VetLayout({ children }: VetLayoutProps) {
   const router = useRouter();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isAvailable, setIsAvailable] = useState<boolean | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
   // Fetch vet availability status
   useEffect(() => {
@@ -90,13 +94,60 @@ export function VetLayout({ children }: VetLayoutProps) {
 
   return (
     <div className={styles.layout}>
+      {/* Mobile Header */}
+      <header className={styles.mobileHeader}>
+        <button
+          className={styles.hamburger}
+          onClick={() => setSidebarOpen(true)}
+          aria-label="Open menu"
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="18" x2="21" y2="18" />
+          </svg>
+        </button>
+        <Link href="/dashboard" className={styles.mobileLogoLink}>
+          <Image
+            src="/assets/logo/furrie-logo-dark-blue.png"
+            alt="Furrie"
+            width={90}
+            height={28}
+            className={styles.logoImage}
+            priority
+          />
+        </Link>
+        <NotificationBell />
+      </header>
+
+      {/* Mobile Sidebar Overlay */}
+      {sidebarOpen && (
+        <div className={styles.overlay} onClick={closeSidebar} aria-hidden="true" />
+      )}
+
       {/* Sidebar */}
-      <aside className={styles.sidebar}>
+      <aside className={cn(styles.sidebar, sidebarOpen && styles.sidebarOpen)}>
         <div className={styles.sidebarHeader}>
-          <Link href="/dashboard" className={styles.logo}>
-            Furrie
+          <Link href="/dashboard" className={styles.logoLink} onClick={closeSidebar}>
+            <Image
+              src="/assets/logo/furrie-logo-dark-blue.png"
+              alt="Furrie"
+              width={100}
+              height={30}
+              className={styles.logoImage}
+            />
           </Link>
           <span className={styles.portalLabel}>Vet Portal</span>
+          <button
+            className={styles.closeSidebar}
+            onClick={closeSidebar}
+            aria-label="Close menu"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
         </div>
         <nav className={styles.sidebarNav}>
           {navItems.map((item) => {
@@ -107,6 +158,7 @@ export function VetLayout({ children }: VetLayoutProps) {
                 key={item.href}
                 href={item.href}
                 className={cn(styles.sidebarLink, isActive && styles.sidebarLinkActive)}
+                onClick={closeSidebar}
               >
                 <Icon />
                 <span>{item.label}</span>

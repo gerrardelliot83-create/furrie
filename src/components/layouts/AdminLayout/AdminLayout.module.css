@@ -12,7 +12,7 @@
   flex-direction: column;
   width: var(--sidebar-width);
   background-color: var(--color-bg-primary);
-  border-right: 1px solid var(--color-border-light);
+  border-right: 1px solid var(--gray-100);
   position: fixed;
   top: 0;
   left: 0;
@@ -21,16 +21,20 @@
 }
 
 .sidebarHeader {
-  padding: var(--space-6) var(--space-5);
-  border-bottom: 1px solid var(--color-border-light);
+  padding: var(--space-5);
+  border-bottom: 1px solid var(--gray-100);
 }
 
 .logo {
-  display: block;
-  font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-primary);
+  display: flex;
+  align-items: center;
   text-decoration: none;
+}
+
+.logoImage {
+  height: 30px;
+  width: auto;
+  object-fit: contain;
 }
 
 .portalLabel {
@@ -45,37 +49,58 @@
   padding: var(--space-4) var(--space-3);
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: 2px;
 }
 
 .sidebarLink {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  color: var(--color-text-secondary);
+  padding: var(--space-3) var(--space-4);
+  color: var(--gray-500);
   text-decoration: none;
-  border-radius: var(--radius-lg);
-  font-size: var(--font-size-sm);
+  border-radius: var(--radius-md);
+  font-size: 15px;
   font-weight: var(--font-weight-medium);
   transition: background-color var(--transition-fast), color var(--transition-fast);
   min-height: 40px;
+  position: relative;
+}
+
+.sidebarLink svg {
+  opacity: 0.6;
+  transition: opacity var(--transition-fast);
 }
 
 .sidebarLink:hover {
-  background-color: var(--color-bg-tertiary);
-  color: var(--color-text-primary);
+  background-color: var(--gray-50);
+  color: var(--color-navy);
+}
+
+.sidebarLink:hover svg {
+  opacity: 1;
 }
 
 .sidebarLinkActive {
-  background-color: var(--color-bg-tertiary);
-  color: var(--color-text-primary);
+  background-color: var(--color-cream);
+  color: var(--color-navy);
   font-weight: var(--font-weight-semibold);
 }
 
-.sidebarLinkActive:hover {
-  background-color: var(--color-cream-dark);
-  color: var(--color-text-primary);
+.sidebarLinkActive svg {
+  opacity: 1;
+}
+
+.sidebarLinkActive::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 20px;
+  background-color: var(--color-primary);
+  border-radius: 0 var(--radius-full) var(--radius-full) 0;
 }
 
 /* Main Content */
@@ -84,20 +109,26 @@
   margin-left: var(--sidebar-width);
   display: flex;
   flex-direction: column;
-  background-color: var(--color-bg-secondary);
+  background-color: var(--color-bg-page);
 }
 
 .topBar {
-  padding: var(--space-4) var(--space-6);
-  background-color: var(--color-bg-primary);
-  border-bottom: 1px solid var(--color-border-light);
+  display: flex;
+  align-items: center;
+  height: var(--header-height);
+  padding: 0 var(--space-6);
+  background-color: var(--color-bg-page);
+  border-bottom: 1px solid rgba(1, 15, 58, 0.04);
   position: sticky;
   top: 0;
   z-index: var(--z-sticky);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 .pageTitle {
-  font-size: var(--font-size-lg);
+  font-family: var(--font-display);
+  font-size: 20px;
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   margin: 0;

@@ -64,24 +64,25 @@
   gap: var(--space-4);
   padding: var(--space-4);
   background: var(--color-bg-primary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border: 1.5px solid var(--gray-100);
+  border-radius: var(--radius-lg);
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .appointmentCard:hover {
-  border-color: var(--color-border-hover);
+  border-color: var(--color-sage);
+  box-shadow: var(--shadow-sm);
 }
 
 /* Status variants */
 .appointmentCard.joinable {
   border-color: var(--color-success);
-  background: var(--color-success-bg);
+  background: var(--color-success-light);
 }
 
 .appointmentCard.in_progress {
   border-color: var(--color-warning);
-  background: var(--color-warning-bg);
+  background: var(--color-warning-light);
 }
 
 /* Time column */
@@ -91,7 +92,7 @@
   align-items: center;
   justify-content: center;
   padding-right: var(--space-3);
-  border-right: 1px solid var(--color-border);
+  border-right: 1px solid var(--gray-100);
 }
 
 .time {
@@ -202,7 +203,7 @@
 .completedSection {
   margin-top: var(--space-4);
   padding-top: var(--space-4);
-  border-top: 1px solid var(--color-border);
+  border-top: 1px solid var(--gray-100);
 }
 
 .completedHeader {

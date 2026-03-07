@@ -26,11 +26,16 @@
 }
 
 .logo {
-  font-size: var(--font-size-2xl);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-decoration: none;
-  display: block;
+}
+
+.logoImage {
+  height: 40px;
+  width: auto;
+  object-fit: contain;
 }
 
 .tagline {

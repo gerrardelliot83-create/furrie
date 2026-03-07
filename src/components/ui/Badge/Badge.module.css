@@ -4,8 +4,8 @@
 .badge {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  font-weight: var(--font-weight-medium);
+  gap: 5px;
+  font-weight: var(--font-weight-semibold);
   border-radius: var(--radius-full);
   white-space: nowrap;
   letter-spacing: 0.01em;
@@ -13,8 +13,8 @@
 
 /* Sizes */
 .sm {
-  font-size: var(--font-size-xs);
-  padding: 3px var(--space-2);
+  font-size: 12px;
+  padding: 2px 10px;
 }
 
 .md {
@@ -24,12 +24,12 @@
 
 /* Variants */
 .success {
-  background-color: var(--color-success-light);
+  background-color: var(--color-success-bg, var(--color-success-light));
   color: var(--color-success);
 }
 
 .warning {
-  background-color: var(--color-warning-light);
+  background-color: var(--color-warning-bg, var(--color-warning-light));
   color: var(--color-warning);
 }
 
@@ -39,13 +39,13 @@
 }
 
 .info {
-  background-color: var(--color-info-light);
+  background-color: var(--color-info-bg, var(--color-info-light));
   color: var(--color-primary);
 }
 
 .neutral {
-  background-color: var(--color-bg-tertiary);
-  color: var(--color-text-secondary);
+  background-color: var(--gray-100);
+  color: var(--gray-500);
 }
 
 .outline {

@@ -22,6 +22,16 @@
   font-display: swap;
 }
 
+/* === PALLY DISPLAY FONT === */
+@font-face {
+  font-family: 'Pally';
+  src: url('/fonts/Pally-Variable.woff2') format('woff2-variations'),
+       url('/fonts/Pally-Variable.woff') format('woff');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* === CSS RESET === */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -45,7 +55,7 @@ body {
   font-weight: var(--font-weight-normal);
   line-height: var(--line-height-normal);
   color: var(--color-text-primary);
-  background-color: var(--color-bg-primary);
+  background-color: var(--color-bg-page);
   min-height: 100dvh; /* Use dvh for mobile browser chrome */
   overflow-x: hidden;
 }
@@ -82,6 +92,7 @@ button {
 
 /* === TYPOGRAPHY === */
 h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
   font-weight: var(--font-weight-semibold);
   line-height: var(--line-height-tight);
   color: var(--color-text-primary);
@@ -213,6 +224,28 @@ input[type="radio"],
 .no-scroll {
   overflow: hidden;
 }
+
+/* === ANIMATIONS === */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-in {
+  animation: fadeUp 0.5s var(--ease-out) both;
+}
+
+.delay-1 { animation-delay: 0.05s; }
+.delay-2 { animation-delay: 0.1s; }
+.delay-3 { animation-delay: 0.15s; }
+.delay-4 { animation-delay: 0.2s; }
+.delay-5 { animation-delay: 0.25s; }
 
 /* === REDUCED MOTION === */
 @media (prefers-reduced-motion: reduce) {

@@ -153,14 +153,17 @@ export default async function VetPatientDetailPage({ params }: PageProps) {
 
       {/* Pet Header */}
       <div className={styles.petHeader}>
-        <div className={`${styles.petAvatar} ${pet.species === 'dog' ? styles.petAvatarDog : styles.petAvatarCat}`}>
+        <div className={`${styles.petAvatar} ${pet.photoUrls?.[0] ? (pet.species === 'dog' ? styles.petAvatarDog : styles.petAvatarCat) : ''}`}>
           {pet.photoUrls?.[0] ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={pet.photoUrls[0]} alt={pet.name} className={styles.petImage} />
           ) : (
-            <span className={styles.petEmoji}>
-              {pet.species === 'dog' ? '\u{1F415}' : '\u{1F408}'}
-            </span>
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={pet.species === 'dog' ? '/assets/dog-avatar.png' : '/assets/cat-avatar.png'}
+              alt={pet.species === 'dog' ? 'Dog' : 'Cat'}
+              className={styles.petImage}
+            />
           )}
         </div>
         <div className={styles.petHeaderInfo}>

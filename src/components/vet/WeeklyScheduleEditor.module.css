@@ -32,10 +32,11 @@
   flex-shrink: 0;
 }
 
+/* Mobile-first: 1 column */
 .daysGrid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: var(--space-4);
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
 }
 
 .dayCard {
@@ -43,7 +44,6 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: var(--space-4);
-  min-height: 200px;
 }
 
 .dayHeader {
@@ -82,19 +82,8 @@
   color: var(--color-primary);
 }
 
-/* Tablet - 4 columns */
-@media (max-width: 1280px) {
-  .daysGrid {
-    grid-template-columns: repeat(4, 1fr);
-  }
-}
-
-/* Tablet - 2 columns */
-@media (max-width: 900px) {
-  .daysGrid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
+/* Mobile: stack header */
+@media (max-width: 640px) {
   .header {
     flex-direction: column;
   }
@@ -105,9 +94,24 @@
   }
 }
 
-/* Mobile - 1 column */
-@media (max-width: 640px) {
+/* Tablet: 2 columns */
+@media (min-width: 768px) {
   .daysGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-4);
+  }
+}
+
+/* Desktop: 3 columns */
+@media (min-width: 1024px) {
+  .daysGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Wide desktop: 4 columns */
+@media (min-width: 1440px) {
+  .daysGrid {
+    grid-template-columns: repeat(4, 1fr);
   }
 }

@@ -235,7 +235,12 @@ export default async function CustomerDashboard() {
                       className={styles.petImage}
                     />
                   ) : (
-                    <span className={styles.petEmoji}>{pet.species === 'dog' ? '\u{1F415}' : '\u{1F408}'}</span>
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={pet.species === 'dog' ? '/assets/dog-avatar.png' : '/assets/cat-avatar.png'}
+                      alt={pet.species === 'dog' ? 'Dog' : 'Cat'}
+                      className={styles.petEmoji}
+                    />
                   )}
                 </div>
                 <div className={styles.petInfo}>

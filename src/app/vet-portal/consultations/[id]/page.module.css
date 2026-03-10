@@ -1,9 +1,11 @@
+/* Container */
 .container {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
 }
 
+/* Back Link */
 .backLink {
   display: inline-flex;
   align-items: center;
@@ -18,6 +20,7 @@
   text-decoration: underline;
 }
 
+/* Header */
 .header {
   display: flex;
   flex-direction: column;
@@ -43,60 +46,49 @@
   margin-top: var(--space-1);
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: 1fr;
+/* Two-Panel Layout */
+.layout {
+  display: flex;
+  flex-direction: column;
   gap: var(--space-4);
 }
 
-.card {
+/* Sidebar (Patient Info) */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.sidebarCard {
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: var(--space-4);
 }
 
-.cardTitle {
-  font-size: var(--font-size-sm);
+.sidebarCardTitle {
+  font-size: var(--font-size-xs);
   font-weight: 600;
-  color: var(--color-text-secondary);
-  margin-bottom: var(--space-3);
+  color: var(--color-text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  margin-bottom: var(--space-3);
 }
 
-.petCard {
-  composes: card;
-}
-
-.viewPetLink {
-  display: inline-block;
-  margin-top: var(--space-3);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-link);
-  text-decoration: none;
-}
-
-.viewPetLink:hover {
-  text-decoration: underline;
-}
-
-.petInfo {
+/* Pet Info in Sidebar */
+.petHeader {
   display: flex;
-  align-items: flex-start;
-  gap: var(--space-4);
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
 }
 
 .petAvatar {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-lg);
   background: var(--color-bg-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 28px;
   flex-shrink: 0;
   overflow: hidden;
 }
@@ -115,91 +107,220 @@
   object-fit: cover;
 }
 
-.petDetails {
-  flex: 1;
-}
-
 .petName {
   font-size: var(--font-size-lg);
   font-weight: 600;
   color: var(--color-text-primary);
+  margin: 0;
 }
 
 .petSpecies {
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
-  margin-top: var(--space-1);
+  margin: var(--space-1) 0 0;
 }
 
-.petMeta {
+.petVitals {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.vitalItem {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-4);
-  margin-top: var(--space-3);
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
 }
 
-.petMetaItem {
-  font-size: var(--font-size-sm);
-}
-
-.petMetaLabel {
+.vitalLabel {
+  font-size: var(--font-size-xs);
   color: var(--color-text-tertiary);
 }
 
-.petMetaValue {
+.vitalValue {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
   color: var(--color-text-primary);
-  font-weight: 500;
 }
 
-.customerCard {
-  composes: card;
+.viewPetLink {
+  display: inline-block;
+  margin-top: var(--space-3);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-link);
+  text-decoration: none;
 }
 
-.customerInfo {
+.viewPetLink:hover {
+  text-decoration: underline;
+}
+
+/* Medical Context */
+.medicalList {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
 }
 
+.medicalItem {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  line-height: var(--line-height-normal);
+}
+
+.medicalBullet {
+  flex-shrink: 0;
+  width: 4px;
+  height: 4px;
+  margin-top: 7px;
+  background: var(--color-text-tertiary);
+  border-radius: var(--radius-full);
+}
+
+.emptyNote {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* Customer Info */
 .customerName {
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-md);
   font-weight: 600;
   color: var(--color-text-primary);
+  margin: 0;
 }
 
 .customerContact {
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
+  margin: var(--space-1) 0 0;
 }
 
-.detailsCard {
-  composes: card;
-}
-
-.detailsList {
+/* Quick Actions */
+.quickActions {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
-.detailItem {
+.quickActionLink {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-primary);
+  background: transparent;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  min-height: 40px;
+  transition: background var(--transition-fast);
 }
 
-.detailLabel {
+.quickActionLink:hover {
+  background: var(--color-bg-secondary);
+}
+
+.quickActionWarning {
+  composes: quickActionLink;
+  color: var(--color-text-inverse);
+  background: var(--color-warning);
+  border-color: var(--color-warning);
+}
+
+.quickActionWarning:hover {
+  opacity: 0.9;
+  background: var(--color-warning);
+}
+
+.quickActionDisabled {
+  composes: quickActionLink;
+  color: var(--color-text-muted);
+  border-color: var(--color-border);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.quickActionDisabled:hover {
+  background: transparent;
+}
+
+.flagged {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: var(--radius-md);
+  color: var(--color-error);
+  font-size: var(--font-size-sm);
+}
+
+.flagButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-error);
+  background: transparent;
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  min-height: 40px;
+  width: 100%;
+  transition: all var(--transition-fast);
+}
+
+.flagButton:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* Main Content */
+.main {
+  flex: 1;
+  min-width: 0;
+}
+
+.mainCard {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}
+
+/* Overview Tab Content */
+.overviewSection {
+  margin-bottom: var(--space-5);
+}
+
+.overviewSection:last-child {
+  margin-bottom: 0;
+}
+
+.overviewSectionTitle {
   font-size: var(--font-size-xs);
+  font-weight: 600;
   color: var(--color-text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  margin-bottom: var(--space-3);
 }
 
-.detailValue {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-primary);
-}
-
+/* Concern & Symptoms */
 .concernText {
   background: var(--color-bg-secondary);
   border-radius: var(--radius-md);
@@ -213,98 +334,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
-}
-
-.actionsCard {
-  composes: card;
-}
-
-.actions {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.actionButton {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  color: var(--color-text-inverse);
-  background: var(--color-primary);
-  border-radius: var(--radius-md);
-  text-decoration: none;
-  min-height: 48px;
-  transition: background var(--transition-fast);
-}
-
-.actionButton:hover {
-  opacity: 0.9;
-}
-
-.actionButtonSecondary {
-  composes: actionButton;
-  background: transparent;
-  color: var(--color-primary);
-  border: 1px solid var(--color-primary);
-}
-
-.actionButtonSecondary:hover {
-  background: var(--color-bg-secondary);
-}
-
-.actionButtonDisabled {
-  composes: actionButton;
-  background: transparent;
-  color: var(--color-text-muted);
-  border: 1px solid var(--color-border);
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.actionButtonDisabled:hover {
-  background: transparent;
-}
-
-.actionButtonWarning {
-  composes: actionButton;
-  background: var(--color-warning);
-}
-
-.flagButton {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  color: var(--color-error);
-  background: transparent;
-  border: 1px solid var(--color-error);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  min-height: 48px;
-  width: 100%;
-  transition: all var(--transition-fast);
-}
-
-.flagButton:hover {
-  background: rgba(239, 68, 68, 0.1);
-}
-
-.flagged {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  background: rgba(239, 68, 68, 0.1);
-  border-radius: var(--radius-md);
-  color: var(--color-error);
-  font-size: var(--font-size-sm);
+  margin-top: var(--space-3);
 }
 
 /* Media gallery */
@@ -375,51 +405,131 @@
 
 .mediaDocumentLink:hover {
   text-decoration: underline;
-  background: var(--color-bg-tertiary, var(--color-bg-secondary));
 }
 
-/* Desktop enhancements */
-@media (min-width: 768px) {
-  .container {
+/* Consultation Details */
+.detailsList {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.detailItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.detailLabel {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.detailValue {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Patient History */
+.historyList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.historyItem {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+}
+
+.historyDate {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+  min-width: 80px;
+}
+
+.historyInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.historyDiagnosis {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.historyVet {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  margin-top: 2px;
+}
+
+.historyOutcome {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* Rating */
+.ratingDisplay {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-warning);
+}
+
+/* Desktop: Two-panel layout */
+@media (min-width: 1024px) {
+  .layout {
+    flex-direction: row;
     gap: var(--space-6);
+    align-items: flex-start;
   }
 
-  .grid {
-    grid-template-columns: repeat(2, 1fr);
+  .sidebar {
+    width: 320px;
+    flex-shrink: 0;
+    position: sticky;
+    top: var(--space-4);
+    max-height: calc(100vh - var(--space-8));
+    overflow-y: auto;
   }
 
-  .petCard,
-  .actionsCard {
-    grid-column: span 2;
+  .main {
+    flex: 1;
   }
 
-  .card {
+  .mainCard {
     padding: var(--space-6);
   }
 
-  .actions {
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
-
-  .actionButton,
-  .actionButtonSecondary,
-  .flagButton {
-    flex: 1;
-    min-width: 180px;
+  .sidebarCard {
+    padding: var(--space-5);
   }
 }
 
-@media (min-width: 1024px) {
-  .grid {
-    grid-template-columns: repeat(3, 1fr);
+/* Tablet adjustments */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .sidebar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-4);
+  }
+}
+
+/* Mobile adjustments */
+@media (max-width: 479px) {
+  .petVitals {
+    grid-template-columns: 1fr;
   }
 
-  .petCard {
-    grid-column: span 2;
-  }
-
-  .actionsCard {
-    grid-column: span 3;
+  .detailsList {
+    grid-template-columns: 1fr;
   }
 }

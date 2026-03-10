@@ -217,8 +217,12 @@ export default async function VetConsultationsPage({ searchParams }: PageProps) 
                         className={styles.rowLink}
                       >
                         <div className={styles.petCell}>
-                          <div className={`${styles.petAvatar} ${pet?.species === 'dog' ? styles.petAvatarDog : styles.petAvatarCat}`}>
-                            {pet?.species === 'dog' ? '\u{1F415}' : '\u{1F408}'}
+                          <div className={styles.petAvatar}>
+                            <img
+                              src={pet?.species === 'dog' ? '/assets/dog-avatar.png' : '/assets/cat-avatar.png'}
+                              alt={pet?.species === 'dog' ? 'Dog' : 'Cat'}
+                              className={styles.petAvatarImg}
+                            />
                           </div>
                           <div className={styles.petInfo}>
                             <span className={styles.petName}>

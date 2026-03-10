@@ -8,7 +8,7 @@
   background-color: var(--color-bg-page);
 }
 
-/* Mobile Header - visible on mobile only */
+/* Mobile Header - visible on mobile only (logo + notification bell) */
 .mobileHeader {
   display: flex;
   align-items: center;
@@ -20,24 +20,6 @@
   position: sticky;
   top: 0;
   z-index: var(--z-sticky);
-}
-
-.hamburger {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  color: var(--color-navy);
-  background: none;
-  border: none;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: background-color var(--transition-fast);
-}
-
-.hamburger:hover {
-  background-color: var(--gray-50);
 }
 
 .mobileLogoLink {
@@ -52,40 +34,9 @@
   object-fit: contain;
 }
 
-/* Mobile Sidebar Overlay */
-.overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(1, 15, 58, 0.3);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  z-index: calc(var(--z-modal-backdrop));
-}
-
-/* Sidebar - hidden on mobile by default */
+/* Sidebar - hidden on mobile, visible on desktop (768px+) via media query */
 .sidebar {
   display: none;
-}
-
-/* Mobile sidebar overlay state */
-.sidebarOpen {
-  display: flex;
-  flex-direction: column;
-  position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: 280px;
-  max-width: 85vw;
-  background-color: var(--color-bg-primary);
-  z-index: var(--z-modal);
-  box-shadow: var(--shadow-xl);
-  animation: slideIn 0.25s var(--ease-out);
-}
-
-@keyframes slideIn {
-  from { transform: translateX(-100%); }
-  to { transform: translateX(0); }
 }
 
 .sidebarHeader {
@@ -99,24 +50,6 @@
   display: flex;
   align-items: center;
   text-decoration: none;
-}
-
-.closeSidebar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  color: var(--gray-400);
-  background: none;
-  border: none;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: color var(--transition-fast);
-}
-
-.closeSidebar:hover {
-  color: var(--color-navy);
 }
 
 .sidebarNav {
@@ -305,17 +238,8 @@
     z-index: var(--z-sticky);
   }
 
-  .closeSidebar {
-    display: none;
-  }
-
   /* Hide mobile header on tablet+ */
   .mobileHeader {
-    display: none;
-  }
-
-  /* Hide overlay on tablet+ */
-  .overlay {
     display: none;
   }
 

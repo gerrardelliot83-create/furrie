@@ -46,7 +46,7 @@ export function PetCard({ pet, onDelete, className }: PetCardProps) {
     <div className={cn(styles.card, className)}>
       <Link href={`/pets/${pet.id}`} className={styles.cardLink}>
         <div className={styles.content}>
-          <div className={cn(styles.avatar, !primaryPhoto && (pet.species === 'dog' ? styles.avatarDog : styles.avatarCat))}>
+          <div className={cn(styles.avatar, primaryPhoto && (pet.species === 'dog' ? styles.avatarDog : styles.avatarCat))}>
             {primaryPhoto ? (
               <Image
                 src={primaryPhoto}
@@ -56,9 +56,11 @@ export function PetCard({ pet, onDelete, className }: PetCardProps) {
                 className={styles.avatarImage}
               />
             ) : (
-              <div className={styles.avatarFallback}>
-                {pet.species === 'dog' ? '\u{1F415}' : '\u{1F408}'}
-              </div>
+              <img
+                src={pet.species === 'dog' ? '/assets/dog-avatar.png' : '/assets/cat-avatar.png'}
+                alt={pet.species === 'dog' ? 'Dog' : 'Cat'}
+                className={styles.avatarFallback}
+              />
             )}
           </div>
           <div className={styles.info}>

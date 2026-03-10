@@ -182,13 +182,15 @@ export default async function ConsultationDetailPage({ params }: ConsultationDet
       <section className={styles.card}>
         <h2 className={styles.cardTitle}>Pet Information</h2>
         <div className={styles.petRow}>
-          <div className={`${styles.petAvatar} ${!petPhoto ? (consultation.pet?.species === 'dog' ? styles.petAvatarDog : styles.petAvatarCat) : ''}`}>
+          <div className={`${styles.petAvatar} ${petPhoto ? (consultation.pet?.species === 'dog' ? styles.petAvatarDog : styles.petAvatarCat) : ''}`}>
             {petPhoto ? (
               <Image src={petPhoto} alt={consultation.pet?.name || ''} width={64} height={64} className={styles.petImage} />
             ) : (
-              <div className={styles.petFallback}>
-                {consultation.pet?.species === 'dog' ? '\u{1F415}' : '\u{1F408}'}
-              </div>
+              <img
+                src={consultation.pet?.species === 'dog' ? '/assets/dog-avatar.png' : '/assets/cat-avatar.png'}
+                alt={consultation.pet?.species === 'dog' ? 'Dog' : 'Cat'}
+                className={styles.petFallback}
+              />
             )}
           </div>
           <div className={styles.petInfo}>

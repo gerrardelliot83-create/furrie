@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactNode, useState, useCallback } from 'react';
+import { type ReactNode } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
@@ -21,25 +21,11 @@ const navItems = [
 
 export function CustomerLayout({ children }: CustomerLayoutProps) {
   const pathname = usePathname();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
   return (
     <div className={styles.layout}>
-      {/* Mobile Header */}
+      {/* Mobile Header - Logo + Notification Bell only */}
       <header className={styles.mobileHeader}>
-        <button
-          className={styles.hamburger}
-          onClick={() => setSidebarOpen(true)}
-          aria-label="Open menu"
-        >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="3" y1="6" x2="21" y2="6" />
-            <line x1="3" y1="12" x2="21" y2="12" />
-            <line x1="3" y1="18" x2="21" y2="18" />
-          </svg>
-        </button>
         <Link href="/dashboard" className={styles.mobileLogoLink}>
           <Image
             src="/assets/logo/furrie-logo-dark-blue.png"
@@ -53,15 +39,10 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
         <NotificationBell />
       </header>
 
-      {/* Mobile Sidebar Overlay */}
-      {sidebarOpen && (
-        <div className={styles.overlay} onClick={closeSidebar} aria-hidden="true" />
-      )}
-
-      {/* Sidebar */}
-      <aside className={cn(styles.sidebar, sidebarOpen && styles.sidebarOpen)}>
+      {/* Sidebar - visible on desktop only (768px+), controlled by CSS */}
+      <aside className={styles.sidebar}>
         <div className={styles.sidebarHeader}>
-          <Link href="/dashboard" className={styles.logoLink} onClick={closeSidebar}>
+          <Link href="/dashboard" className={styles.logoLink}>
             <Image
               src="/assets/logo/furrie-logo-dark-blue.png"
               alt="Furrie"
@@ -70,16 +51,6 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
               className={styles.logoImage}
             />
           </Link>
-          <button
-            className={styles.closeSidebar}
-            onClick={closeSidebar}
-            aria-label="Close menu"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
         </div>
         <nav className={styles.sidebarNav}>
           {navItems.map((item) => {
@@ -90,7 +61,6 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
                 key={item.href}
                 href={item.href}
                 className={cn(styles.sidebarLink, isActive && styles.sidebarLinkActive)}
-                onClick={closeSidebar}
               >
                 <Icon />
                 <span>{item.label}</span>
@@ -98,7 +68,7 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
             );
           })}
         </nav>
-        <Link href="/profile" className={styles.sidebarFooter} onClick={closeSidebar}>
+        <Link href="/profile" className={styles.sidebarFooter}>
           <div className={styles.profileAvatar}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="8" r="5" />

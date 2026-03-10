@@ -312,8 +312,13 @@ export function TodaySchedulePanel({ vetId }: TodaySchedulePanelProps) {
 
                   <div className={styles.detailsColumn}>
                     <div className={styles.petRow}>
-                      <span className={`${styles.speciesIndicator} ${consultation.pet?.species === 'dog' ? styles.speciesIndicatorDog : styles.speciesIndicatorCat}`}>
-                        {consultation.pet?.species === 'dog' ? '\u{1F415}' : '\u{1F408}'}
+                      <span className={styles.speciesIndicator}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={consultation.pet?.species === 'dog' ? '/assets/dog-avatar.png' : '/assets/cat-avatar.png'}
+                          alt={consultation.pet?.species === 'dog' ? 'Dog' : 'Cat'}
+                          className={styles.speciesIndicatorImg}
+                        />
                       </span>
                       <div className={styles.petInfo}>
                         <span className={styles.petName}>{consultation.pet?.name || 'Unknown Pet'}</span>

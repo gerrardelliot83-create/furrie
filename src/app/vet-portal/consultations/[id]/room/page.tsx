@@ -223,8 +223,13 @@ export default function VetVideoRoomPage() {
 
           <div className={styles.patientCard}>
             <div className={styles.patientHeader}>
-              <div className={`${styles.petAvatar} ${consultationInfo.petSpecies === 'dog' ? styles.petAvatarDog : styles.petAvatarCat}`}>
-                {consultationInfo.petSpecies === 'dog' ? '\u{1F415}' : '\u{1F408}'}
+              <div className={styles.petAvatar}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={consultationInfo.petSpecies === 'dog' ? '/assets/dog-avatar.png' : '/assets/cat-avatar.png'}
+                  alt={consultationInfo.petSpecies === 'dog' ? 'Dog' : 'Cat'}
+                  className={styles.petAvatarImg}
+                />
               </div>
               <div>
                 <h2 className={styles.petName}>{consultationInfo.petName}</h2>

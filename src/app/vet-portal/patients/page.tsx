@@ -139,7 +139,7 @@ export default async function VetPatientsPage({ searchParams }: PageProps) {
               href={`/patients/${pet.id}`}
               className={styles.patientCard}
             >
-              <div className={`${styles.patientAvatar} ${pet.species === 'dog' ? styles.patientAvatarDog : styles.patientAvatarCat}`}>
+              <div className={`${styles.patientAvatar} ${pet.photo_urls && pet.photo_urls.length > 0 ? (pet.species === 'dog' ? styles.patientAvatarDog : styles.patientAvatarCat) : ''}`}>
                 {pet.photo_urls && pet.photo_urls.length > 0 ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -148,9 +148,12 @@ export default async function VetPatientsPage({ searchParams }: PageProps) {
                     className={styles.patientImage}
                   />
                 ) : (
-                  <span className={styles.patientEmoji}>
-                    {pet.species === 'dog' ? '\u{1F415}' : '\u{1F408}'}
-                  </span>
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={pet.species === 'dog' ? '/assets/dog-avatar.png' : '/assets/cat-avatar.png'}
+                    alt={pet.species === 'dog' ? 'Dog' : 'Cat'}
+                    className={styles.patientImage}
+                  />
                 )}
               </div>
               <div className={styles.patientInfo}>

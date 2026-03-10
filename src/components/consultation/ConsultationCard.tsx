@@ -36,7 +36,7 @@ export function ConsultationCard({ consultation, className }: ConsultationCardPr
     >
       <div className={styles.content}>
         {/* Pet Avatar */}
-        <div className={cn(styles.avatar, !petPhoto && (consultation.pet?.species === 'dog' ? styles.avatarDog : styles.avatarCat))}>
+        <div className={cn(styles.avatar, petPhoto && (consultation.pet?.species === 'dog' ? styles.avatarDog : styles.avatarCat))}>
           {petPhoto ? (
             <Image
               src={petPhoto}
@@ -46,7 +46,11 @@ export function ConsultationCard({ consultation, className }: ConsultationCardPr
               className={styles.avatarImage}
             />
           ) : (
-            <span className={styles.avatarEmoji}>{consultation.pet?.species === 'dog' ? '\u{1F415}' : '\u{1F408}'}</span>
+            <img
+              src={consultation.pet?.species === 'dog' ? '/assets/dog-avatar.png' : '/assets/cat-avatar.png'}
+              alt={consultation.pet?.species === 'dog' ? 'Dog' : 'Cat'}
+              className={styles.avatarFallback}
+            />
           )}
         </div>
 

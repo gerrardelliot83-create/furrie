@@ -7,22 +7,17 @@ import { useTranslations } from 'next-intl';
 import type { Pet } from '@/types';
 import { calculateAge, cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
 import styles from './PetCard.module.css';
 
 interface PetCardProps {
   pet: Pet;
-  onDelete?: (id: string) => void;
   /** When provided, intercepts card click to open detail panel instead of navigating */
   onCardClick?: (id: string) => void;
-  /** When provided, intercepts edit click to open edit panel instead of navigating */
-  onEditClick?: (id: string) => void;
   className?: string;
 }
 
-export function PetCard({ pet, onDelete, onCardClick, onEditClick, className }: PetCardProps) {
+export function PetCard({ pet, onCardClick, className }: PetCardProps) {
   const t = useTranslations('pets');
-  const tCommon = useTranslations('common');
 
   // Calculate age
   const ageDisplay = useMemo(() => {
@@ -86,26 +81,6 @@ export function PetCard({ pet, onDelete, onCardClick, onEditClick, className }: 
           </div>
         </div>
       </Link>
-      <div className={styles.actions}>
-        <Link
-          href={`/pets/${pet.id}/edit`}
-          onClick={onEditClick ? (e) => { e.preventDefault(); onEditClick(pet.id); } : undefined}
-        >
-          <Button variant="ghost" size="sm">
-            {tCommon('edit')}
-          </Button>
-        </Link>
-        {onDelete && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onDelete(pet.id)}
-            className={styles.deleteButton}
-          >
-            {tCommon('delete')}
-          </Button>
-        )}
-      </div>
     </div>
   );
 }

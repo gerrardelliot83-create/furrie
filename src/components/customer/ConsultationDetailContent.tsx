@@ -1,19 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { formatDate, formatTime, formatCurrency } from '@/lib/utils';
 import { getStatusVariant, getStatusDisplayText } from '@/lib/utils/statusHelpers';
 import type { ConsultationStatus, ConsultationOutcome } from '@/types';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
 import { Spinner } from '@/components/ui/Spinner';
+import { useToast } from '@/components/ui/Toast';
 import styles from './ConsultationDetailContent.module.css';
 
 interface ConsultationDetailContentProps {
   consultationId: string;
+  onCancelSuccess?: () => void;
+  onOpenChat?: () => void;
 }
 
 interface ConsultationData {
@@ -77,8 +82,10 @@ interface VetProfile {
   years_of_experience: number | null;
 }
 
-export function ConsultationDetailContent({ consultationId }: ConsultationDetailContentProps) {
+export function ConsultationDetailContent({ consultationId, onCancelSuccess, onOpenChat }: ConsultationDetailContentProps) {
   const tSymptoms = useTranslations('symptoms');
+  const router = useRouter();
+  const { toast } = useToast();
 
   const [consultation, setConsultation] = useState<ConsultationData | null>(null);
   const [vetProfile, setVetProfile] = useState<VetProfile | null>(null);
@@ -86,10 +93,12 @@ export function ConsultationDetailContent({ consultationId }: ConsultationDetail
   const [followUpThread, setFollowUpThread] = useState<FollowUpThread | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true); // eslint-disable-line react-hooks/set-state-in-effect -- Intentional: reset loading state when consultationId changes
+    setLoading(true);
     setError(null);
 
     fetch(`/api/consultations/${consultationId}/detail`)
@@ -114,6 +123,35 @@ export function ConsultationDetailContent({ consultationId }: ConsultationDetail
     return () => { cancelled = true; };
   }, [consultationId]);
 
+  const handleCancelConsultation = useCallback(async () => {
+    setCancelling(true);
+    try {
+      const response = await fetch(`/api/consultations/${consultationId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'closed', outcome: 'cancelled' }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to cancel');
+      }
+
+      toast('Consultation cancelled', 'success');
+      setCancelModalOpen(false);
+
+      if (onCancelSuccess) {
+        onCancelSuccess();
+      } else {
+        router.refresh();
+      }
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Failed to cancel consultation', 'error');
+    } finally {
+      setCancelling(false);
+    }
+  }, [consultationId, toast, onCancelSuccess, router]);
+
   if (loading) {
     return (
       <div className={styles.loading}>
@@ -136,6 +174,7 @@ export function ConsultationDetailContent({ consultationId }: ConsultationDetail
   const rating = consultation.consultation_ratings?.[0];
   const prescription = consultation.prescriptions?.[0];
   const petPhoto = pet?.photo_urls?.[0];
+  const isPendingOrScheduled = ['pending', 'scheduled'].includes(consultation.status);
   const isScheduledOrActive = ['scheduled', 'active'].includes(consultation.status);
   const isClosedSuccess = consultation.status === 'closed' && consultation.outcome === 'success';
   const hasFollowUpAccess = !!followUpThread && followUpThread.is_active;
@@ -172,6 +211,20 @@ export function ConsultationDetailContent({ consultationId }: ConsultationDetail
               Join Consultation
             </Button>
           </Link>
+        </div>
+      )}
+
+      {/* Cancel Consultation */}
+      {isPendingOrScheduled && (
+        <div className={styles.section}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setCancelModalOpen(true)}
+            className={styles.cancelButton}
+          >
+            Cancel Consultation
+          </Button>
         </div>
       )}
 
@@ -252,6 +305,14 @@ export function ConsultationDetailContent({ consultationId }: ConsultationDetail
               <span className={styles.detailValue}>{formatCurrency(consultation.amount_paid)}</span>
             </div>
           )}
+          {consultation.is_free && (
+            <div className={styles.detailItem}>
+              <span className={styles.detailLabel}>Payment</span>
+              <span className={styles.detailValue}>
+                <Badge variant="success" size="sm">Furrie Plus</Badge>
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -291,6 +352,24 @@ export function ConsultationDetailContent({ consultationId }: ConsultationDetail
       {soapNote && isClosedSuccess && (
         <div className={styles.section}>
           <h3 className={styles.sectionTitle}>Summary</h3>
+
+          {/* In-person visit warning */}
+          {soapNote.in_person_visit_recommended && (
+            <div className={styles.inPersonWarning}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+              <div>
+                <strong>In-Person Visit Recommended</strong>
+                {soapNote.in_person_urgency && (
+                  <p className={styles.urgencyText}>Urgency: {soapNote.in_person_urgency}</p>
+                )}
+              </div>
+            </div>
+          )}
+
           {soapNote.provisional_diagnosis && (
             <div className={styles.summaryItem}>
               <h4 className={styles.summaryLabel}>Assessment</h4>
@@ -319,11 +398,40 @@ export function ConsultationDetailContent({ consultationId }: ConsultationDetail
       )}
 
       {/* Follow-up Chat */}
-      {isClosedSuccess && hasFollowUpAccess && !isThreadExpired && (
+      {isClosedSuccess && (
         <div className={styles.section}>
-          <Link href={`/consultations/${consultation.id}/follow-up`}>
-            <Button variant="secondary" size="sm">Open Follow-up Chat</Button>
-          </Link>
+          <h3 className={styles.sectionTitle}>Follow-up Chat</h3>
+          <div className={styles.followUpInfo}>
+            {hasFollowUpAccess && !isThreadExpired ? (
+              <>
+                <p className={styles.followUpDescription}>
+                  Have questions? Chat with {vet ? `Dr. ${vet.full_name}` : 'your vet'} about your pet&apos;s care.
+                </p>
+                {onOpenChat ? (
+                  <Button variant="secondary" size="sm" onClick={onOpenChat}>
+                    Open Follow-up Chat
+                  </Button>
+                ) : (
+                  <Link href={`/consultations/${consultation.id}/follow-up`}>
+                    <Button variant="secondary" size="sm">Open Follow-up Chat</Button>
+                  </Link>
+                )}
+              </>
+            ) : isThreadExpired ? (
+              <>
+                <p className={styles.followUpDescription}>
+                  The follow-up chat window has expired.
+                </p>
+                <Link href="/connect">
+                  <Button variant="secondary" size="sm">Book New Consultation</Button>
+                </Link>
+              </>
+            ) : (
+              <p className={styles.followUpDescription}>
+                Follow-up chat will be available once your veterinarian has completed the notes.
+              </p>
+            )}
+          </div>
         </div>
       )}
 
@@ -366,12 +474,35 @@ export function ConsultationDetailContent({ consultationId }: ConsultationDetail
         </div>
       )}
 
-      {/* Full page link */}
-      <div className={styles.fullPageLink}>
-        <Link href={`/consultations/${consultation.id}`} className={styles.link}>
-          View Full Details Page
-        </Link>
-      </div>
+      {/* Cancel Confirmation Modal */}
+      <Modal
+        isOpen={cancelModalOpen}
+        onClose={() => setCancelModalOpen(false)}
+        title="Cancel Consultation"
+        size="sm"
+      >
+        <div className={styles.cancelModal}>
+          <p className={styles.cancelMessage}>
+            Are you sure you want to cancel this consultation? This action cannot be undone.
+          </p>
+          <div className={styles.cancelActions}>
+            <Button
+              variant="ghost"
+              onClick={() => setCancelModalOpen(false)}
+              disabled={cancelling}
+            >
+              Keep Consultation
+            </Button>
+            <Button
+              variant="danger"
+              onClick={handleCancelConsultation}
+              loading={cancelling}
+            >
+              Cancel Consultation
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

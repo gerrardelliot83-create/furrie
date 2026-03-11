@@ -100,19 +100,3 @@
   color: var(--color-text-tertiary);
 }
 
-.actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-4) var(--space-4);
-  border-top: 1px solid var(--color-border-light);
-}
-
-.deleteButton {
-  color: var(--color-error);
-}
-
-.deleteButton:hover {
-  background: rgba(220, 38, 38, 0.1);
-  color: var(--color-error);
-}

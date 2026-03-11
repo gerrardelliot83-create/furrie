@@ -84,12 +84,6 @@ export function PetList({ initialPets }: PetListProps) {
     panel.openPetDetail(id);
   }, [panel]);
 
-  const handleEditClick = useCallback((id: string) => {
-    panel.openPetDetail(id);
-    // Switch to edit immediately after opening
-    setTimeout(() => panel.switchToEdit(), 0);
-  }, [panel]);
-
   // Edit success handler — refresh detail view and update pets list
   const handleEditSuccess = useCallback((updatedPet: Pet) => {
     setPets((prev) => prev.map((p) => p.id === updatedPet.id ? updatedPet : p));
@@ -126,9 +120,7 @@ export function PetList({ initialPets }: PetListProps) {
           <PetCard
             key={pet.id}
             pet={pet}
-            onDelete={handleDeleteClick}
             onCardClick={handleCardClick}
-            onEditClick={handleEditClick}
           />
         ))}
       </div>
@@ -143,7 +135,7 @@ export function PetList({ initialPets }: PetListProps) {
         headerActions={headerActions}
       >
         {panel.entityId && panel.contentType === 'pet-detail' && (
-          <PetDetailContent key={detailKey} petId={panel.entityId} />
+          <PetDetailContent key={detailKey} petId={panel.entityId} onDelete={handleDeleteClick} />
         )}
         {panel.entityId && panel.contentType === 'pet-edit' && panelPet && (
           <PetForm

@@ -26,13 +26,15 @@
     "all": "All",
     "none": "None",
     "required": "Required",
-    "optional": "Optional"
+    "optional": "Optional",
+    "carePlans": "Care Plans"
   },
   "nav": {
     "home": "Home",
     "myPets": "My Pets",
     "connect": "Connect",
     "consultations": "Consultations",
+    "carePlans": "Care Plans",
     "history": "Consultations",
     "profile": "Profile",
     "dashboard": "Dashboard",

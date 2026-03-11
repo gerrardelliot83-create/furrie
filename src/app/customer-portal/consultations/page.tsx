@@ -55,6 +55,12 @@ export default async function ConsultationsPage({ searchParams }: ConsultationsP
   // Fetch consultations based on tab
   let consultations: Awaited<ReturnType<typeof mapConsultationWithRelationsFromDB>>[] = [];
   let totalCount = 0;
+  const followUpMetaMap: Record<string, {
+    lastMessage: string | null;
+    lastMessageAt: string | null;
+    lastMessageRole: string | null;
+    unreadCount: number;
+  }> = {};
 
   if (activeTab !== 'follow-ups') {
     const from = (currentPage - 1) * PAGE_SIZE;
@@ -82,10 +88,11 @@ export default async function ConsultationsPage({ searchParams }: ConsultationsP
     );
     totalCount = count || 0;
   } else {
-    // For follow-ups tab, fetch active follow-up threads
+    // For follow-ups tab, fetch active follow-up threads with latest message
     const { data } = await supabase
       .from('follow_up_threads')
       .select(`
+        id,
         consultation_id,
         consultations!follow_up_threads_consultation_id_fkey (
           *,
@@ -95,6 +102,9 @@ export default async function ConsultationsPage({ searchParams }: ConsultationsP
           profiles!consultations_vet_id_fkey (
             id, full_name, avatar_url
           )
+        ),
+        follow_up_messages (
+          id, content, sender_role, created_at
         )
       `)
       .eq('is_active', true)
@@ -109,6 +119,42 @@ export default async function ConsultationsPage({ searchParams }: ConsultationsP
           )
         );
       totalCount = consultations.length;
+
+      // Build follow-up metadata (last message + unread count)
+      for (const thread of data) {
+        if (!thread.consultations) continue;
+        const consultationId = thread.consultation_id;
+        const messages = (thread.follow_up_messages || []) as Array<{
+          id: string;
+          content: string;
+          sender_role: string;
+          created_at: string;
+        }>;
+
+        // Sort messages by created_at descending
+        const sorted = [...messages].sort(
+          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+
+        const lastMsg = sorted[0] || null;
+
+        // Approximate unread: count vet messages after customer's last message
+        const customerLastMsgIndex = sorted.findIndex((m) => m.sender_role === 'customer');
+        const customerLastMsgTime = customerLastMsgIndex >= 0
+          ? new Date(sorted[customerLastMsgIndex].created_at).getTime()
+          : 0;
+
+        const unreadCount = sorted.filter(
+          (m) => m.sender_role === 'vet' && new Date(m.created_at).getTime() > customerLastMsgTime
+        ).length;
+
+        followUpMetaMap[consultationId] = {
+          lastMessage: lastMsg?.content || null,
+          lastMessageAt: lastMsg?.created_at || null,
+          lastMessageRole: lastMsg?.sender_role || null,
+          unreadCount,
+        };
+      }
     }
   }
 
@@ -153,6 +199,7 @@ export default async function ConsultationsPage({ searchParams }: ConsultationsP
           activeTab={activeTab}
           currentPage={currentPage}
           totalPages={totalPages}
+          followUpMeta={activeTab === 'follow-ups' ? followUpMetaMap : undefined}
         />
       </div>
     </div>

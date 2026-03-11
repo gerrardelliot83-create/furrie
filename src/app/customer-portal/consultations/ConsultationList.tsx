@@ -2,24 +2,35 @@
 
 import { useCallback, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import type { ConsultationWithRelations } from '@/lib/utils/consultationMapper';
 import type { ConsultationStatus, ConsultationOutcome } from '@/types';
 import { getStatusVariant, getStatusDisplayText } from '@/lib/utils/statusHelpers';
 import { formatDate, formatTime } from '@/lib/utils';
 import { useDetailPanel } from '@/hooks/useDetailPanel';
+import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { DetailPanel } from '@/components/ui/DetailPanel';
 import { ConsultationDetailContent } from '@/components/customer/ConsultationDetailContent';
+import { ConsultationChatContent } from '@/components/customer/ConsultationChatContent';
 import { EditConcernForm } from '@/components/customer/EditConcernForm';
 import styles from './Consultations.module.css';
+
+interface FollowUpMeta {
+  lastMessage: string | null;
+  lastMessageAt: string | null;
+  lastMessageRole: string | null;
+  unreadCount: number;
+}
 
 interface ConsultationListProps {
   consultations: ConsultationWithRelations[];
   activeTab: 'upcoming' | 'past' | 'follow-ups';
   currentPage: number;
   totalPages: number;
+  followUpMeta?: Record<string, FollowUpMeta>;
 }
 
 function formatDuration(startedAt: string | null | undefined, endedAt: string | null | undefined): string {
@@ -31,15 +42,33 @@ function formatDuration(startedAt: string | null | undefined, endedAt: string | 
   return `${diffMins} min`;
 }
 
+function formatRelativeTime(dateStr: string): string {
+  const now = new Date();
+  const date = new Date(dateStr);
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'now';
+  if (diffMins < 60) return `${diffMins}m`;
+  if (diffHours < 24) return `${diffHours}h`;
+  if (diffDays < 7) return `${diffDays}d`;
+  return formatDate(dateStr);
+}
+
 export function ConsultationList({
   consultations,
   activeTab,
   currentPage,
   totalPages,
+  followUpMeta,
 }: ConsultationListProps) {
   const t = useTranslations('consultation');
   const tCommon = useTranslations('common');
+  const router = useRouter();
   const panel = useDetailPanel();
+  const { user } = useAuth();
 
   // Track which consultation is selected for edit concern form
   const [detailKey, setDetailKey] = useState(0);
@@ -58,24 +87,40 @@ export function ConsultationList({
     panel.switchToDetail();
   }, [panel]);
 
+  const handleCancelSuccess = useCallback(() => {
+    panel.close();
+    router.refresh();
+  }, [panel, router]);
+
+  const handleOpenChat = useCallback(() => {
+    panel.switchToChat();
+  }, [panel]);
+
+  const handleBackFromChat = useCallback(() => {
+    panel.switchToDetail();
+  }, [panel]);
+
   // Get the selected consultation for edit form
   const selectedConsultation = panel.entityId
     ? consultations.find((c) => c.id === panel.entityId)
     : null;
 
-  // Panel title
-  const panelTitle = panel.contentType === 'consultation-edit'
-    ? 'Edit Concern'
-    : selectedConsultation
-      ? `${selectedConsultation.pet?.name || 'Consultation'} - ${selectedConsultation.consultationNumber}`
-      : 'Consultation Details';
+  // Panel title based on content type
+  const getPanelTitle = () => {
+    if (panel.contentType === 'consultation-edit') return 'Edit Concern';
+    if (panel.contentType === 'consultation-chat') return 'Follow-up Chat';
+    if (selectedConsultation) {
+      return `${selectedConsultation.pet?.name || 'Consultation'} - ${selectedConsultation.consultationNumber}`;
+    }
+    return 'Consultation Details';
+  };
 
   // Header actions
   const headerActions = panel.contentType === 'consultation-detail' && selectedConsultation
     && ['pending', 'scheduled'].includes(selectedConsultation.status)
     ? (
       <Button
-        variant="ghost"
+        variant="secondary"
         size="sm"
         onClick={() => panel.switchToEdit()}
       >
@@ -83,6 +128,13 @@ export function ConsultationList({
       </Button>
     )
     : null;
+
+  // Determine if we're showing the panel
+  const isPanelOpen = panel.isOpen && (
+    panel.contentType === 'consultation-detail' ||
+    panel.contentType === 'consultation-edit' ||
+    panel.contentType === 'consultation-chat'
+  );
 
   if (consultations.length === 0) {
     return (
@@ -110,6 +162,107 @@ export function ConsultationList({
           </Link>
         )}
       </div>
+    );
+  }
+
+  // Follow-ups tab: render chat-style cards
+  if (activeTab === 'follow-ups' && followUpMeta) {
+    return (
+      <>
+        {/* Chat-style cards for follow-ups */}
+        <div className={styles.followUpList}>
+          {consultations.map((consultation) => {
+            const meta = followUpMeta[consultation.id];
+            const hasUnread = meta && meta.unreadCount > 0;
+
+            return (
+              <button
+                key={consultation.id}
+                type="button"
+                className={styles.followUpCard}
+                onClick={() => panel.openConsultationDetail(consultation.id)}
+              >
+                <div className={styles.followUpCardLeft}>
+                  <div className={styles.followUpAvatar}>
+                    {consultation.vet?.avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={consultation.vet.avatarUrl}
+                        alt={consultation.vet.fullName}
+                        className={styles.followUpAvatarImg}
+                      />
+                    ) : (
+                      <span className={styles.followUpAvatarFallback}>
+                        {consultation.vet?.fullName?.charAt(0) || 'V'}
+                      </span>
+                    )}
+                  </div>
+                  <div className={styles.followUpInfo}>
+                    <div className={styles.followUpTopRow}>
+                      <span className={styles.followUpVetName}>
+                        {consultation.vet ? `Dr. ${consultation.vet.fullName}` : 'Veterinarian'}
+                      </span>
+                      {meta?.lastMessageAt && (
+                        <span className={styles.followUpTime}>
+                          {formatRelativeTime(meta.lastMessageAt)}
+                        </span>
+                      )}
+                    </div>
+                    <span className={styles.followUpPet}>
+                      Re: {consultation.pet?.name || 'Pet'} ({consultation.pet?.breed || ''})
+                    </span>
+                    {meta?.lastMessage && (
+                      <span className={`${styles.followUpPreview} ${meta.lastMessageRole === 'vet' ? styles.followUpPreviewVet : ''}`}>
+                        {meta.lastMessage.length > 80 ? `${meta.lastMessage.slice(0, 80)}...` : meta.lastMessage}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {hasUnread && (
+                  <div className={styles.followUpUnread}>
+                    <span className={styles.unreadBadge}>{meta.unreadCount}</span>
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Detail / Edit / Chat Panel */}
+        <DetailPanel
+          isOpen={isPanelOpen}
+          onClose={panel.close}
+          title={getPanelTitle()}
+          size={panel.panelSize}
+          onToggleSize={panel.toggleSize}
+          headerActions={headerActions}
+        >
+          {panel.entityId && panel.contentType === 'consultation-detail' && (
+            <ConsultationDetailContent
+              key={detailKey}
+              consultationId={panel.entityId}
+              onCancelSuccess={handleCancelSuccess}
+              onOpenChat={handleOpenChat}
+            />
+          )}
+          {panel.entityId && panel.contentType === 'consultation-chat' && user && (
+            <ConsultationChatContent
+              consultationId={panel.entityId}
+              currentUserId={user.id}
+              onBack={handleBackFromChat}
+            />
+          )}
+          {panel.entityId && panel.contentType === 'consultation-edit' && selectedConsultation && (
+            <EditConcernForm
+              consultationId={panel.entityId}
+              initialConcern={selectedConsultation.concernText || ''}
+              initialSymptoms={selectedConsultation.symptomCategories || []}
+              onSuccess={handleEditSuccess}
+              onCancel={handleEditCancel}
+            />
+          )}
+        </DetailPanel>
+      </>
     );
   }
 
@@ -341,17 +494,29 @@ export function ConsultationList({
         </div>
       )}
 
-      {/* Detail / Edit Panel */}
+      {/* Detail / Edit / Chat Panel */}
       <DetailPanel
-        isOpen={panel.isOpen && (panel.contentType === 'consultation-detail' || panel.contentType === 'consultation-edit')}
+        isOpen={isPanelOpen}
         onClose={panel.close}
-        title={panelTitle}
+        title={getPanelTitle()}
         size={panel.panelSize}
         onToggleSize={panel.toggleSize}
         headerActions={headerActions}
       >
         {panel.entityId && panel.contentType === 'consultation-detail' && (
-          <ConsultationDetailContent key={detailKey} consultationId={panel.entityId} />
+          <ConsultationDetailContent
+            key={detailKey}
+            consultationId={panel.entityId}
+            onCancelSuccess={handleCancelSuccess}
+            onOpenChat={handleOpenChat}
+          />
+        )}
+        {panel.entityId && panel.contentType === 'consultation-chat' && user && (
+          <ConsultationChatContent
+            consultationId={panel.entityId}
+            currentUserId={user.id}
+            onBack={handleBackFromChat}
+          />
         )}
         {panel.entityId && panel.contentType === 'consultation-edit' && selectedConsultation && (
           <EditConcernForm

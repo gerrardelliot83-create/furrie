@@ -8,7 +8,7 @@
   background-color: var(--color-bg-page);
 }
 
-/* Mobile Header - visible on mobile only (logo + notification bell) */
+/* Mobile Header - visible on mobile only (logo + notification bell + profile) */
 .mobileHeader {
   display: flex;
   align-items: center;
@@ -26,6 +26,30 @@
   display: flex;
   align-items: center;
   text-decoration: none;
+}
+
+.mobileHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.mobileProfileButton {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  background: var(--color-info-light);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--transition-fast);
+}
+
+.mobileProfileButton:hover {
+  background: rgba(30, 80, 129, 0.15);
 }
 
 .logoImage {
@@ -156,7 +180,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding-bottom: calc(68px + env(safe-area-inset-bottom, 0)); /* Space for bottom nav */
+  padding-bottom: calc(78px + env(safe-area-inset-bottom, 0)); /* Extra space for raised connect button */
 }
 
 .content {
@@ -167,34 +191,111 @@
   padding: var(--page-padding-y) var(--page-padding-x);
 }
 
-/* Mobile Bottom Navigation */
+/* ==========================================
+   Mobile Bottom Navigation — Notched Center
+   ========================================== */
 .bottomNav {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
   display: flex;
-  align-items: center;
-  justify-content: space-around;
-  background-color: var(--color-bg-primary);
-  border-top: 1px solid var(--gray-100);
-  padding: var(--space-2) 0;
-  padding-bottom: calc(var(--space-2) + env(safe-area-inset-bottom, 0));
+  align-items: flex-end;
+  justify-content: center;
   z-index: var(--z-fixed);
-  min-height: 64px;
+  /* No background here — the ::before pseudo creates it with the notch */
 }
 
+/* Nav bar background with semicircle notch cutout */
+.bottomNav::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(64px + env(safe-area-inset-bottom, 0));
+  background-color: var(--color-bg-primary);
+  border-top: 1px solid var(--gray-100);
+  /* Semicircle notch in the center using radial gradient mask */
+  -webkit-mask-image: radial-gradient(circle 32px at 50% 0, transparent 31px, black 32px);
+  mask-image: radial-gradient(circle 32px at 50% 0, transparent 31px, black 32px);
+}
+
+/* Left and right pairs of nav items */
+.navSide {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  height: 64px;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  position: relative;
+  z-index: 1;
+}
+
+/* Center container for the raised Connect button */
+.navCenter {
+  width: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 2;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/* Raised gradient Connect button */
+.connectButton {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, var(--color-sage), var(--color-butter));
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  transform: translateY(-10px);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.15),
+    0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.connectButton:hover {
+  transform: translateY(-12px);
+  box-shadow:
+    0 6px 16px rgba(0, 0, 0, 0.2),
+    0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.connectButton:active {
+  transform: translateY(-8px);
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.15),
+    0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.connectButtonActive {
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.15),
+    0 1px 3px rgba(0, 0, 0, 0.08),
+    0 0 0 3px rgba(30, 80, 129, 0.3);
+}
+
+/* Individual nav items in the side pairs */
 .navItem {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  padding: var(--space-1) var(--space-3);
+  padding: var(--space-1) var(--space-2);
   color: var(--gray-400);
   text-decoration: none;
   -webkit-tap-highlight-color: transparent;
   transition: color var(--transition-fast);
-  min-width: 60px;
+  min-width: 52px;
   min-height: 44px;
   justify-content: center;
   position: relative;
@@ -214,8 +315,9 @@
 }
 
 .navLabel {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: var(--font-weight-medium);
+  white-space: nowrap;
 }
 
 /* Tablet+ styles */

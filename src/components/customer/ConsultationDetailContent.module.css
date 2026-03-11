@@ -53,6 +53,36 @@
   width: 100%;
 }
 
+/* Cancel button */
+.cancelButton {
+  color: var(--color-error);
+  width: 100%;
+}
+
+.cancelButton:hover {
+  background: rgba(220, 38, 38, 0.08);
+  color: var(--color-error);
+}
+
+/* Cancel confirmation modal */
+.cancelModal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.cancelMessage {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
+}
+
+.cancelActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
 /* Pet row */
 .petRow {
   display: flex;
@@ -202,6 +232,31 @@
   object-fit: cover;
 }
 
+/* In-person visit warning */
+.inPersonWarning {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: var(--radius-md);
+  color: var(--color-warning);
+  margin-bottom: var(--space-3);
+}
+
+.inPersonWarning strong {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.urgencyText {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin: var(--space-1) 0 0;
+}
+
 /* Summary */
 .summaryItem {
   margin-bottom: var(--space-3);
@@ -222,6 +277,20 @@
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
   line-height: var(--line-height-relaxed);
+}
+
+/* Follow-up */
+.followUpInfo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.followUpDescription {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
+  margin: 0;
 }
 
 /* Prescription */
@@ -256,21 +325,4 @@
   color: var(--color-text-secondary);
   font-style: italic;
   margin-top: var(--space-2);
-}
-
-/* Full page link */
-.fullPageLink {
-  text-align: center;
-  padding: var(--space-3) 0;
-}
-
-.link {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-link);
-  text-decoration: none;
-}
-
-.link:hover {
-  text-decoration: underline;
 }

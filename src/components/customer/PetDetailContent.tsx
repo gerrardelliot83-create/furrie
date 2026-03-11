@@ -9,19 +9,33 @@ import { usePets } from '@/hooks/usePets';
 import { calculateAge, formatDate } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import styles from './PetDetailContent.module.css';
 
-interface PetDetailContentProps {
-  petId: string;
+interface CarePlanSummary {
+  id: string;
+  title: string;
+  status: string;
+  category: string;
+  totalSteps: number;
+  completedSteps: number;
+  vet: { full_name: string } | null;
 }
 
-export function PetDetailContent({ petId }: PetDetailContentProps) {
+interface PetDetailContentProps {
+  petId: string;
+  onDelete?: (petId: string) => void;
+}
+
+export function PetDetailContent({ petId, onDelete }: PetDetailContentProps) {
   const t = useTranslations('pets');
   const { getPet } = usePets();
   const [pet, setPet] = useState<Pet | null>(null);
+  const [carePlans, setCarePlans] = useState<CarePlanSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedPhoto, setSelectedPhoto] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -37,6 +51,25 @@ export function PetDetailContent({ petId }: PetDetailContentProps) {
       }
       setLoading(false);
     });
+
+    // Fetch care plans separately (non-blocking)
+    fetch(`/api/care-plans?petId=${petId}`)
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (cancelled || !data) return;
+        setCarePlans(data.map((plan: Record<string, unknown>) => ({
+          id: plan.id,
+          title: plan.title,
+          status: plan.status,
+          category: plan.category || '',
+          totalSteps: (plan as { totalSteps?: number }).totalSteps || 0,
+          completedSteps: (plan as { completedSteps?: number }).completedSteps || 0,
+          vet: plan.vet as { full_name: string } | null,
+        })));
+      })
+      .catch(() => {
+        // Silently fail — care plans are non-critical
+      });
 
     return () => { cancelled = true; };
   }, [petId, getPet]);
@@ -76,20 +109,42 @@ export function PetDetailContent({ petId }: PetDetailContentProps) {
     }
   }
 
-  const primaryPhoto = pet.photoUrls?.[0];
+  const photos = pet.photoUrls || [];
+  const currentPhoto = photos[selectedPhoto] || photos[0];
 
   return (
     <div className={styles.container}>
-      {/* Photo */}
-      {primaryPhoto && (
+      {/* Photo Gallery */}
+      {photos.length > 0 && (
         <div className={styles.photoSection}>
           <Image
-            src={primaryPhoto}
+            src={currentPhoto}
             alt={pet.name}
             width={400}
             height={300}
             className={styles.photo}
           />
+          {photos.length > 1 && (
+            <div className={styles.thumbnails}>
+              {photos.map((url, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  className={`${styles.thumbnail} ${index === selectedPhoto ? styles.thumbnailActive : ''}`}
+                  onClick={() => setSelectedPhoto(index)}
+                  aria-label={`View photo ${index + 1}`}
+                >
+                  <Image
+                    src={url}
+                    alt={`${pet.name} photo ${index + 1}`}
+                    width={60}
+                    height={60}
+                    className={styles.thumbnailImage}
+                  />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -211,6 +266,7 @@ export function PetDetailContent({ petId }: PetDetailContentProps) {
                   <div className={styles.vaccinationDetails}>
                     <span>Given: {formatDate(vax.date)}</span>
                     {vax.nextDueDate && <span>Due: {formatDate(vax.nextDueDate)}</span>}
+                    {vax.administeredBy && <span>By: {vax.administeredBy}</span>}
                   </div>
                 </div>
               ))}
@@ -241,12 +297,106 @@ export function PetDetailContent({ petId }: PetDetailContentProps) {
         </Card>
       )}
 
-      {/* View Full Profile link (navigates to full page) */}
-      <div className={styles.fullProfileLink}>
-        <Link href={`/pets/${pet.id}`} className={styles.link}>
-          View Full Profile Page
-        </Link>
-      </div>
+      {/* Care Plans */}
+      {carePlans.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Care Plans</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className={styles.carePlanList}>
+              {carePlans.map((plan) => {
+                const progress = plan.totalSteps > 0
+                  ? Math.round((plan.completedSteps / plan.totalSteps) * 100)
+                  : 0;
+                return (
+                  <Link
+                    key={plan.id}
+                    href={`/care-plans`}
+                    className={styles.carePlanItem}
+                  >
+                    <div className={styles.carePlanHeader}>
+                      <span className={styles.carePlanTitle}>{plan.title}</span>
+                      <Badge variant={plan.status === 'completed' ? 'success' : 'info'} size="sm">
+                        {plan.status === 'completed' ? 'Completed' : 'Active'}
+                      </Badge>
+                    </div>
+                    {plan.vet && (
+                      <p className={styles.carePlanVet}>
+                        By Dr. {plan.vet.full_name}
+                      </p>
+                    )}
+                    {plan.totalSteps > 0 && (
+                      <div className={styles.carePlanProgress}>
+                        <div className={styles.progressBar}>
+                          <div
+                            className={styles.progressFill}
+                            style={{ width: `${progress}%` }}
+                          />
+                        </div>
+                        <span className={styles.progressText}>
+                          {plan.completedSteps}/{plan.totalSteps}
+                        </span>
+                      </div>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Diet & Insurance */}
+      {(pet.dietType || pet.insuranceProvider) && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Other Information</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <dl className={styles.infoGrid}>
+              {pet.dietType && (
+                <div className={styles.infoItem}>
+                  <dt>{t('diet')}</dt>
+                  <dd>{pet.dietType}</dd>
+                </div>
+              )}
+              {pet.dietDetails && (
+                <div className={styles.infoItem}>
+                  <dt>Diet Details</dt>
+                  <dd>{pet.dietDetails}</dd>
+                </div>
+              )}
+              {pet.insuranceProvider && (
+                <div className={styles.infoItem}>
+                  <dt>Insurance Provider</dt>
+                  <dd>{pet.insuranceProvider}</dd>
+                </div>
+              )}
+              {pet.insurancePolicyNumber && (
+                <div className={styles.infoItem}>
+                  <dt>Policy Number</dt>
+                  <dd>{pet.insurancePolicyNumber}</dd>
+                </div>
+              )}
+            </dl>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Delete Pet */}
+      {onDelete && (
+        <div className={styles.dangerZone}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onDelete(petId)}
+            className={styles.deleteButton}
+          >
+            Delete Pet
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

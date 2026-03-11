@@ -13,10 +13,14 @@ import styles from './PetCard.module.css';
 interface PetCardProps {
   pet: Pet;
   onDelete?: (id: string) => void;
+  /** When provided, intercepts card click to open detail panel instead of navigating */
+  onCardClick?: (id: string) => void;
+  /** When provided, intercepts edit click to open edit panel instead of navigating */
+  onEditClick?: (id: string) => void;
   className?: string;
 }
 
-export function PetCard({ pet, onDelete, className }: PetCardProps) {
+export function PetCard({ pet, onDelete, onCardClick, onEditClick, className }: PetCardProps) {
   const t = useTranslations('pets');
   const tCommon = useTranslations('common');
 
@@ -44,7 +48,11 @@ export function PetCard({ pet, onDelete, className }: PetCardProps) {
 
   return (
     <div className={cn(styles.card, className)}>
-      <Link href={`/pets/${pet.id}`} className={styles.cardLink}>
+      <Link
+        href={`/pets/${pet.id}`}
+        className={styles.cardLink}
+        onClick={onCardClick ? (e) => { e.preventDefault(); onCardClick(pet.id); } : undefined}
+      >
         <div className={styles.content}>
           <div className={cn(styles.avatar, primaryPhoto && (pet.species === 'dog' ? styles.avatarDog : styles.avatarCat))}>
             {primaryPhoto ? (
@@ -79,7 +87,10 @@ export function PetCard({ pet, onDelete, className }: PetCardProps) {
         </div>
       </Link>
       <div className={styles.actions}>
-        <Link href={`/pets/${pet.id}/edit`}>
+        <Link
+          href={`/pets/${pet.id}/edit`}
+          onClick={onEditClick ? (e) => { e.preventDefault(); onEditClick(pet.id); } : undefined}
+        >
           <Button variant="ghost" size="sm">
             {tCommon('edit')}
           </Button>

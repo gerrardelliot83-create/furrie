@@ -11,9 +11,13 @@ interface EditConcernFormProps {
   consultationId: string;
   initialConcern: string;
   initialSymptoms: string[];
+  /** When provided, called instead of router.push on successful save */
+  onSuccess?: () => void;
+  /** When provided, called instead of router.back on cancel */
+  onCancel?: () => void;
 }
 
-export function EditConcernForm({ consultationId, initialConcern, initialSymptoms }: EditConcernFormProps) {
+export function EditConcernForm({ consultationId, initialConcern, initialSymptoms, onSuccess, onCancel }: EditConcernFormProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [concernText, setConcernText] = useState(initialConcern);
@@ -37,8 +41,12 @@ export function EditConcernForm({ consultationId, initialConcern, initialSymptom
       }
 
       toast('Concerns updated successfully', 'success');
-      router.push(`/consultations/${consultationId}`);
-      router.refresh();
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        router.push(`/consultations/${consultationId}`);
+        router.refresh();
+      }
     } catch (error) {
       toast(error instanceof Error ? error.message : 'Failed to update concerns', 'error');
     } finally {
@@ -66,7 +74,9 @@ export function EditConcernForm({ consultationId, initialConcern, initialSymptom
 
       <div className={styles.actions}>
         <Button type="button" variant="ghost" onClick={() => {
-          if (window.history.length > 1) {
+          if (onCancel) {
+            onCancel();
+          } else if (window.history.length > 1) {
             router.back();
           } else {
             router.push(`/consultations/${consultationId}`);

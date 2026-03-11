@@ -28,6 +28,10 @@ interface PetFormProps {
   pet?: Pet;
   mode: 'create' | 'edit';
   className?: string;
+  /** When provided, called instead of router.push on successful save */
+  onSuccess?: (pet: Pet) => void;
+  /** When provided, called instead of router.back on cancel */
+  onCancel?: () => void;
 }
 
 interface FormErrors {
@@ -48,7 +52,7 @@ const DIET_OPTIONS = [
   { value: 'mixed', label: 'Mixed diet' },
 ];
 
-export function PetForm({ pet, mode, className }: PetFormProps) {
+export function PetForm({ pet, mode, className, onSuccess, onCancel }: PetFormProps) {
   const router = useRouter();
   const t = useTranslations('pets');
   const tCommon = useTranslations('common');
@@ -289,7 +293,11 @@ export function PetForm({ pet, mode, className }: PetFormProps) {
         } else if (newPet) {
           isDirtyRef.current = false;
           success('Pet added successfully');
-          router.push(`/pets/${newPet.id}`);
+          if (onSuccess) {
+            onSuccess(newPet);
+          } else {
+            router.push(`/pets/${newPet.id}`);
+          }
         }
       } else if (pet) {
         const { pet: updatedPet, error } = await updatePet(pet.id, dataToSubmit);
@@ -298,11 +306,15 @@ export function PetForm({ pet, mode, className }: PetFormProps) {
         } else if (updatedPet) {
           isDirtyRef.current = false;
           success('Pet updated successfully');
-          router.push(`/pets/${updatedPet.id}`);
+          if (onSuccess) {
+            onSuccess(updatedPet);
+          } else {
+            router.push(`/pets/${updatedPet.id}`);
+          }
         }
       }
     },
-    [formData, hasInsurance, mode, pet, validateForm, createPet, updatePet, router, success, showError]
+    [formData, hasInsurance, mode, pet, validateForm, createPet, updatePet, router, success, showError, onSuccess]
   );
 
   return (
@@ -835,7 +847,9 @@ export function PetForm({ pet, mode, className }: PetFormProps) {
           variant="ghost"
           onClick={() => {
             isDirtyRef.current = false;
-            if (window.history.length > 1) {
+            if (onCancel) {
+              onCancel();
+            } else if (window.history.length > 1) {
               router.back();
             } else {
               router.push('/pets');

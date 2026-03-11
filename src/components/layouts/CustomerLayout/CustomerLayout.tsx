@@ -16,7 +16,7 @@ const navItems = [
   { href: '/dashboard', label: 'Home', icon: HomeIcon },
   { href: '/pets', label: 'My Pets', icon: PetsIcon },
   { href: '/connect', label: 'Connect', icon: ConnectIcon },
-  { href: '/consultations', label: 'History', icon: HistoryIcon },
+  { href: '/consultations', label: 'Consultations', icon: HistoryIcon },
 ];
 
 export function CustomerLayout({ children }: CustomerLayoutProps) {

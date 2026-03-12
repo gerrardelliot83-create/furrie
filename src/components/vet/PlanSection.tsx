@@ -68,7 +68,7 @@ export function PlanSection({ data, onChange, petSpecies, diagnosis }: PlanSecti
     <div className={styles.sectionGrid}>
       {/* Medications */}
       <div className={styles.fullWidth}>
-        <label className={styles.label}>Medications</label>
+        <label className={styles.label}>Medications <span className={styles.optional}>(optional)</span></label>
         <div className={styles.medicationsContainer}>
           {data.medications.map((medication, index) => (
             <MedicationEntry
@@ -92,7 +92,7 @@ export function PlanSection({ data, onChange, petSpecies, diagnosis }: PlanSecti
 
       {/* Recommendations */}
       <div className={styles.halfWidth}>
-        <label className={styles.label}>Dietary Recommendations</label>
+        <label className={styles.label}>Dietary Recommendations <span className={styles.optional}>(optional)</span></label>
         <textarea
           value={data.dietaryRecommendations}
           onChange={(e) => onChange({ dietaryRecommendations: e.target.value })}
@@ -103,7 +103,7 @@ export function PlanSection({ data, onChange, petSpecies, diagnosis }: PlanSecti
       </div>
 
       <div className={styles.halfWidth}>
-        <label className={styles.label}>Lifestyle Modifications</label>
+        <label className={styles.label}>Lifestyle Modifications <span className={styles.optional}>(optional)</span></label>
         <textarea
           value={data.lifestyleModifications}
           onChange={(e) => onChange({ lifestyleModifications: e.target.value })}
@@ -114,7 +114,7 @@ export function PlanSection({ data, onChange, petSpecies, diagnosis }: PlanSecti
       </div>
 
       <div className={styles.fullWidth}>
-        <label className={styles.label}>Home Care Instructions</label>
+        <label className={styles.label}>Home Care Instructions <span className={styles.optional}>(optional)</span></label>
         <textarea
           value={data.homeCareInstructions}
           onChange={(e) => onChange({ homeCareInstructions: e.target.value })}
@@ -125,7 +125,7 @@ export function PlanSection({ data, onChange, petSpecies, diagnosis }: PlanSecti
       </div>
 
       <div className={styles.fullWidth}>
-        <label className={styles.label}>Warning Signs to Watch For</label>
+        <label className={styles.label}>Warning Signs to Watch For <span className={styles.optional}>(optional)</span></label>
         <textarea
           value={data.warningSigns}
           onChange={(e) => onChange({ warningSigns: e.target.value })}
@@ -137,7 +137,7 @@ export function PlanSection({ data, onChange, petSpecies, diagnosis }: PlanSecti
 
       {/* Follow-up */}
       <div className={styles.halfWidth}>
-        <label className={styles.label}>Follow-up Timeframe</label>
+        <label className={styles.label}>Follow-up Timeframe <span className={styles.optional}>(optional)</span></label>
         <select
           value={data.followUpTimeframe}
           onChange={(e) => onChange({ followUpTimeframe: e.target.value })}
@@ -192,7 +192,7 @@ export function PlanSection({ data, onChange, petSpecies, diagnosis }: PlanSecti
 
       {/* Additional diagnostics */}
       <div className={styles.halfWidth}>
-        <label className={styles.label}>Additional Diagnostics Needed</label>
+        <label className={styles.label}>Additional Diagnostics Needed <span className={styles.optional}>(optional)</span></label>
         <textarea
           value={data.additionalDiagnostics}
           onChange={(e) => onChange({ additionalDiagnostics: e.target.value })}
@@ -203,7 +203,7 @@ export function PlanSection({ data, onChange, petSpecies, diagnosis }: PlanSecti
       </div>
 
       <div className={styles.halfWidth}>
-        <label className={styles.label}>Referral to Specialist</label>
+        <label className={styles.label}>Referral to Specialist <span className={styles.optional}>(optional)</span></label>
         <textarea
           value={data.referralSpecialist}
           onChange={(e) => onChange({ referralSpecialist: e.target.value })}

@@ -7,6 +7,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { NotificationBell } from '@/components/ui/NotificationBell/NotificationBell';
+import { Modal } from '@/components/ui/Modal';
+import { Button } from '@/components/ui/Button';
 import styles from './VetLayout.module.css';
 
 interface VetLayoutProps {
@@ -25,24 +27,54 @@ export function VetLayout({ children }: VetLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isAvailable, setIsAvailable] = useState<boolean | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
-  // Fetch vet availability status
+  // Fetch vet availability status and subscribe to real-time changes
   useEffect(() => {
     const supabase = createClient();
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      // Initial fetch
       const { data } = await supabase
         .from('vet_profiles')
         .select('is_available')
         .eq('id', user.id)
         .single();
       if (data) setIsAvailable(data.is_available);
+
+      // Subscribe to real-time updates for this vet's availability
+      channel = supabase
+        .channel(`vet-availability-${user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'vet_profiles',
+            filter: `id=eq.${user.id}`,
+          },
+          (payload) => {
+            if (payload.new && 'is_available' in payload.new) {
+              setIsAvailable(payload.new.is_available as boolean);
+            }
+          }
+        )
+        .subscribe();
     })();
+
+    return () => {
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
   }, []);
 
   // Unlock AudioContext on first user interaction (for video calls)
@@ -172,7 +204,7 @@ export function VetLayout({ children }: VetLayoutProps) {
             <span>{isAvailable === null ? '...' : isAvailable ? 'Available' : 'Unavailable'}</span>
           </div>
           <button
-            onClick={handleLogout}
+            onClick={() => setShowLogoutConfirm(true)}
             disabled={isLoggingOut}
             className={styles.logoutButton}
           >
@@ -181,6 +213,28 @@ export function VetLayout({ children }: VetLayoutProps) {
           </button>
         </div>
       </aside>
+
+      {/* Logout Confirmation Modal */}
+      <Modal
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        title="Sign Out"
+        size="sm"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          <p style={{ margin: 0, color: 'var(--color-text-secondary)' }}>
+            Are you sure you want to sign out?
+          </p>
+          <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'flex-end' }}>
+            <Button variant="ghost" onClick={() => setShowLogoutConfirm(false)} disabled={isLoggingOut}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={handleLogout} loading={isLoggingOut}>
+              Sign Out
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Main Content */}
       <main className={styles.main}>

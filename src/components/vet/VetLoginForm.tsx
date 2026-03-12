@@ -25,12 +25,18 @@ export function VetLoginForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Check for error param (e.g., wrong account type)
+  // Delay toast slightly to ensure the Toast portal is mounted after Suspense hydration
   useEffect(() => {
     const errorParam = searchParams.get('error');
-    if (errorParam === 'wrong_account') {
-      toast(t('wrongAccount'), 'error');
-    } else if (errorParam) {
-      toast(errorParam, 'error');
+    if (errorParam) {
+      const timer = setTimeout(() => {
+        if (errorParam === 'wrong_account') {
+          toast(t('wrongAccount'), 'error');
+        } else {
+          toast(errorParam, 'error');
+        }
+      }, 150);
+      return () => clearTimeout(timer);
     }
   }, [searchParams, toast, t]);
 

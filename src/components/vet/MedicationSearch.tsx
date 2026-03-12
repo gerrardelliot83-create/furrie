@@ -94,6 +94,9 @@ export function MedicationSearch({
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
     setInputValue(query);
+    // Commit to parent immediately so form state is always in sync
+    // (prevents race condition when user types then clicks Save/Generate without blurring)
+    onChange(query);
 
     if (query.length >= 2) {
       const searchResults = searchMedications(query).slice(0, 10);
@@ -104,7 +107,7 @@ export function MedicationSearch({
       setResults([]);
       setIsOpen(query.length === 0 && previousMeds.length > 0);
     }
-  }, [previousMeds.length]);
+  }, [previousMeds.length, onChange]);
 
   const handleSelect = useCallback((medication: MedicationOption) => {
     setInputValue(medication.name);

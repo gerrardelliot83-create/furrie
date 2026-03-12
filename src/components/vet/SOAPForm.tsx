@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
 import { createClient } from '@/lib/supabase/client';
 import { revalidateConsultationPath } from '@/app/actions/revalidate';
@@ -72,6 +73,8 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [confirmDialogSections, setConfirmDialogSections] = useState('');
   const autosaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const savePromiseRef = useRef<Promise<boolean> | null>(null);
   const pendingManualSaveRef = useRef(false);
@@ -263,6 +266,10 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
     router.push(`/consultations/${consultationId}/prescription`);
   };
 
+  // Maximum consultation duration cap (in minutes)
+  // Consultations are 15-30 min slots; 60 min is a generous safety margin
+  const MAX_DURATION_MINUTES = 60;
+
   const handleComplete = async () => {
     // Validate required fields
     if (!formData.chiefComplaint) {
@@ -274,7 +281,7 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
       return;
     }
 
-    // Warn about empty optional sections
+    // Warn about empty optional sections (using in-page modal instead of window.confirm)
     const missingSections: string[] = [];
     if (!formData.vitalSigns.temperature && !formData.vitalSigns.heartRate && !formData.vitalSigns.respiratoryRate && !formData.vitalSigns.weight) {
       missingSections.push('Vital Signs');
@@ -286,11 +293,17 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
       missingSections.push('Plan');
     }
     if (missingSections.length > 0) {
-      const proceed = window.confirm(
-        `You haven't filled in: ${missingSections.join(', ')}. Continue anyway?`
-      );
-      if (!proceed) return;
+      setConfirmDialogSections(missingSections.join(', '));
+      setShowConfirmDialog(true);
+      return; // Wait for user to confirm via modal
     }
+
+    // No missing sections — proceed directly
+    await executeComplete();
+  };
+
+  const executeComplete = async () => {
+    setShowConfirmDialog(false);
 
     // Cancel autosave and save notes first
     cancelAutosave();
@@ -300,16 +313,47 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
       return;
     }
 
+    // Calculate duration with a safety cap to prevent absurd values
+    // (e.g., 13935 min when a stale 'active' consultation is completed days later)
+    const now = new Date();
+    const endedAt = now.toISOString();
+
     // Update consultation status to closed with success outcome
     const supabase = createClient();
+
+    // First, fetch the consultation to get started_at for duration calculation
+    const { data: consultation } = await supabase
+      .from('consultations')
+      .select('started_at, duration_minutes')
+      .eq('id', consultationId)
+      .single();
+
+    let durationMinutes: number | null = null;
+    if (consultation?.started_at) {
+      const rawDuration = Math.ceil(
+        (now.getTime() - new Date(consultation.started_at).getTime()) / 60000
+      );
+      // Cap duration — if it exceeds MAX_DURATION_MINUTES, something went wrong
+      // (webhook failure, browser crash, etc.)
+      durationMinutes = Math.min(rawDuration, MAX_DURATION_MINUTES);
+    }
+
+    // Only set duration if not already set by Daily.co webhook
+    const updateData: Record<string, unknown> = {
+      status: 'closed',
+      outcome: 'success',
+      ended_at: endedAt,
+      updated_at: endedAt,
+    };
+
+    // Only override duration if it wasn't set by the webhook or if it's clearly wrong
+    if (!consultation?.duration_minutes || consultation.duration_minutes > MAX_DURATION_MINUTES) {
+      updateData.duration_minutes = durationMinutes;
+    }
+
     const { error } = await supabase
       .from('consultations')
-      .update({
-        status: 'closed',
-        outcome: 'success',
-        ended_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', consultationId);
 
     if (error) {
@@ -532,6 +576,29 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
           Complete Consultation
         </Button>
       </div>
+
+      {/* Confirmation modal for incomplete optional sections */}
+      <Modal
+        isOpen={showConfirmDialog}
+        onClose={() => setShowConfirmDialog(false)}
+        title="Incomplete Sections"
+        size="sm"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          <p style={{ margin: 0, color: 'var(--color-text-secondary)' }}>
+            You haven&apos;t filled in: <strong>{confirmDialogSections}</strong>.
+            Do you want to continue anyway?
+          </p>
+          <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'flex-end' }}>
+            <Button variant="ghost" onClick={() => setShowConfirmDialog(false)}>
+              Go Back
+            </Button>
+            <Button variant="primary" onClick={executeComplete}>
+              Continue Anyway
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

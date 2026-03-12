@@ -34,7 +34,7 @@ export function AssessmentSection({ data, onChange, petSpecies }: AssessmentSect
       </div>
 
       <div className={styles.fullWidth}>
-        <label className={styles.label}>Differential Diagnoses</label>
+        <label className={styles.label}>Differential Diagnoses <span className={styles.optional}>(optional)</span></label>
         <textarea
           value={data.differentialDiagnoses.join('\n')}
           onChange={(e) => onChange({
@@ -48,7 +48,7 @@ export function AssessmentSection({ data, onChange, petSpecies }: AssessmentSect
       </div>
 
       <div className={styles.fullWidth}>
-        <label className={styles.label}>Confidence Level</label>
+        <label className={styles.label}>Confidence Level <span className={styles.optional}>(optional)</span></label>
         <div className={styles.confidenceButtons}>
           {(['low', 'medium', 'high'] as const).map((level) => (
             <button
@@ -67,7 +67,7 @@ export function AssessmentSection({ data, onChange, petSpecies }: AssessmentSect
       </div>
 
       <div className={styles.fullWidth}>
-        <label className={styles.label}>Teleconsultation Limitations</label>
+        <label className={styles.label}>Teleconsultation Limitations <span className={styles.optional}>(optional)</span></label>
         <textarea
           value={data.teleconsultationLimitations}
           onChange={(e) => onChange({ teleconsultationLimitations: e.target.value })}

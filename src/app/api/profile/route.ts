@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 import type { User } from '@/types';
 
 // Map database profile to User type
@@ -151,6 +152,19 @@ export async function PATCH(request: Request) {
         { error: 'Failed to update profile', code: 'UPDATE_ERROR' },
         { status: 500 }
       );
+    }
+
+    // Sync full_name to Supabase Auth user_metadata so the profile
+    // trigger doesn't overwrite it if the profile row is ever recreated
+    if (updateData.full_name) {
+      try {
+        await supabaseAdmin.auth.admin.updateUserById(user.id, {
+          user_metadata: { full_name: updateData.full_name },
+        });
+      } catch (metadataError) {
+        // Non-critical: profile table has the correct name, auth metadata is a backup
+        console.error('Failed to sync name to auth metadata:', metadataError);
+      }
     }
 
     // Map to User type

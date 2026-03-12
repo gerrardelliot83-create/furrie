@@ -94,9 +94,10 @@
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
-  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  word-break: break-word;
+  line-height: var(--line-height-tight, 1.25);
 }
 
 .petBreed {

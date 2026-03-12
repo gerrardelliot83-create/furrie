@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from '@uploadthing/react';
 import { generateClientDropzoneAccept, generatePermittedFileTypes } from 'uploadthing/client';
 import { useUploadThing } from '@/lib/uploadthing/hooks';
@@ -24,6 +24,13 @@ export function FileUpload({
 }: FileUploadProps) {
   const [files, setFiles] = useState<File[]>([]);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [mounted, setMounted] = useState(false);
+
+  // Prevent hydration mismatch — useDropzone generates browser-specific attributes
+  // that differ between server-side rendering and client-side hydration
+  useEffect(() => {
+    setMounted(true); // eslint-disable-line react-hooks/set-state-in-effect -- Standard mounted pattern
+  }, []);
 
   const { startUpload, isUploading, routeConfig } = useUploadThing(endpoint, {
     onClientUploadComplete: (res) => {
@@ -75,6 +82,48 @@ export function FileUpload({
   const removeFile = (index: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== index));
   };
+
+  // SSR placeholder — render a static dropzone shell during server rendering
+  // to prevent hydration mismatch from useDropzone's browser-specific attributes
+  if (!mounted) {
+    return (
+      <div className={cn(styles.container, className)}>
+        <div className={styles.dropzone}>
+          <div className={styles.dropzoneContent}>
+            <svg
+              className={styles.icon}
+              width="40"
+              height="40"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            <p className={styles.text}>
+              Drag & drop files here, or tap to select
+            </p>
+            <p className={styles.hint}>
+              {endpoint === 'medicalDocument'
+                ? 'PDF or images up to 16MB'
+                : endpoint === 'consultationVideo'
+                ? 'Video up to 64MB (MP4)'
+                : endpoint === 'consultationImage'
+                ? 'Images up to 8MB'
+                : endpoint === 'consultationDocument'
+                ? 'PDF documents up to 16MB'
+                : 'Images up to 4MB'}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={cn(styles.container, className)}>

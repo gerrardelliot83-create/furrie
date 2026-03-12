@@ -43,6 +43,14 @@ const textStyle = 'font-size: 16px; color: #333; margin: 0 0 16px 0;';
 const labelStyle = 'margin: 0 0 4px 0; color: #666; font-size: 13px;';
 const valueStyle = 'margin: 0 0 12px 0; color: #333; font-size: 16px; font-weight: 600;';
 
+/** Generate a personalized greeting, falling back to generic "Welcome!" for unknown names */
+function emailGreeting(name: string): string {
+  if (!name || name === 'there' || name === 'User') {
+    return 'Welcome!';
+  }
+  return `Dear ${name},`;
+}
+
 function formatDateTime(isoDate: string): string {
   try {
     const date = new Date(isoDate);
@@ -84,7 +92,7 @@ export function welcomeEmail(params: {
   return {
     subject: 'Welcome to Furrie!',
     html: wrapEmailBody(`
-      <p style="${textStyle}">Dear ${params.customerName},</p>
+      <p style="${textStyle}">${emailGreeting(params.customerName)}</p>
       <p style="${textStyle}">
         Welcome to Furrie! We're glad you've joined India's trusted veterinary teleconsultation platform.
       </p>
@@ -121,7 +129,7 @@ export function bookingConfirmationEmail(params: {
   return {
     subject: `Consultation Booked - ${params.consultationNumber}`,
     html: wrapEmailBody(`
-      <p style="${textStyle}">Dear ${params.customerName},</p>
+      <p style="${textStyle}">${emailGreeting(params.customerName)}</p>
       <p style="${textStyle}">
         Your consultation for <strong>${params.petName}</strong> has been successfully booked.
       </p>
@@ -160,7 +168,7 @@ export function paymentReceiptEmail(params: {
   return {
     subject: `Payment Receipt - ${params.consultationNumber}`,
     html: wrapEmailBody(`
-      <p style="${textStyle}">Dear ${params.customerName},</p>
+      <p style="${textStyle}">${emailGreeting(params.customerName)}</p>
       <p style="${textStyle}">Your payment has been received successfully.</p>
       <div style="${infoBox}">
         <p style="${labelStyle}">Consultation</p>
@@ -237,7 +245,7 @@ export function customerOneHourReminderEmail(params: {
   return {
     subject: `Reminder: Consultation in 1 Hour - ${params.petName}`,
     html: wrapEmailBody(`
-      <p style="${textStyle}">Dear ${params.customerName},</p>
+      <p style="${textStyle}">${emailGreeting(params.customerName)}</p>
       <p style="${textStyle}">
         Your consultation for <strong>${params.petName}</strong> with Dr. ${params.vetName} is in <strong>1 hour</strong>.
       </p>
@@ -297,7 +305,7 @@ export function customerFifteenMinReminderEmail(params: {
   return {
     subject: `Starting Soon: Consultation for ${params.petName}`,
     html: wrapEmailBody(`
-      <p style="${textStyle}">Dear ${params.customerName},</p>
+      <p style="${textStyle}">${emailGreeting(params.customerName)}</p>
       <p style="${textStyle}">
         Your consultation for <strong>${params.petName}</strong> with Dr. ${params.vetName} starts in <strong>15 minutes</strong>.
       </p>
@@ -352,7 +360,7 @@ export function consultationCompletedEmail(params: {
   return {
     subject: `Consultation Completed - ${params.petName}`,
     html: wrapEmailBody(`
-      <p style="${textStyle}">Dear ${params.customerName},</p>
+      <p style="${textStyle}">${emailGreeting(params.customerName)}</p>
       <p style="${textStyle}">
         Your consultation for <strong>${params.petName}</strong> with Dr. ${params.vetName} has been completed.
       </p>
@@ -382,7 +390,7 @@ export function followUpAvailableEmail(params: {
   return {
     subject: `Follow-Up Available - ${params.petName}`,
     html: wrapEmailBody(`
-      <p style="${textStyle}">Dear ${params.customerName},</p>
+      <p style="${textStyle}">${emailGreeting(params.customerName)}</p>
       <p style="${textStyle}">
         A follow-up thread has been created for <strong>${params.petName}</strong>'s recent consultation with Dr. ${params.vetName}.
       </p>
@@ -411,7 +419,7 @@ export function missedAppointmentEmail(params: {
   return {
     subject: `Missed Appointment - ${params.petName}`,
     html: wrapEmailBody(`
-      <p style="${textStyle}">Dear ${params.customerName},</p>
+      <p style="${textStyle}">${emailGreeting(params.customerName)}</p>
       <p style="${textStyle}">
         Unfortunately, the consultation for <strong>${params.petName}</strong> scheduled for
         <strong>${formatDateTime(params.scheduledAt)}</strong> was missed.
@@ -440,7 +448,7 @@ export function plusActivatedEmail(params: {
   return {
     subject: `Furrie Plus Activated for ${params.petName}!`,
     html: wrapEmailBody(`
-      <p style="${textStyle}">Dear ${params.customerName},</p>
+      <p style="${textStyle}">${emailGreeting(params.customerName)}</p>
       <p style="${textStyle}">
         Furrie Plus has been activated for <strong>${params.petName}</strong>!
       </p>
@@ -478,7 +486,7 @@ export function subscriptionExpiredEmail(params: {
   return {
     subject: `Furrie Plus Expired - ${params.petName}`,
     html: wrapEmailBody(`
-      <p style="${textStyle}">Dear ${params.customerName},</p>
+      <p style="${textStyle}">${emailGreeting(params.customerName)}</p>
       <p style="${textStyle}">
         Your Furrie Plus subscription for <strong>${params.petName}</strong> expired on <strong>${formatDate(params.expiredAt)}</strong>.
       </p>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { getRecordingLink } from '@/lib/daily';
 import { createHmac } from 'crypto';
+import { checkPlusSubscriptionWithClient, calculateThreadExpiry } from '@/lib/utils/followUpHelpers';
 
 const DAILY_WEBHOOK_SECRET = process.env.DAILY_WEBHOOK_SECRET;
 
@@ -144,7 +145,7 @@ async function handleMeetingEnded(payload: {
   // Fetch current consultation status
   const { data: consultation, error: fetchError } = await supabaseAdmin
     .from('consultations')
-    .select('status, started_at')
+    .select('status, started_at, customer_id, pet_id')
     .eq('id', consultationId)
     .single();
 
@@ -179,17 +180,31 @@ async function handleMeetingEnded(payload: {
   } else {
     console.log('Consultation completed:', consultationId);
 
-    // Set follow-up expiry (7 days from now for free users)
-    // TODO: Check if user has Plus subscription for indefinite follow-up
-    const followUpExpiry = new Date();
-    followUpExpiry.setDate(followUpExpiry.getDate() + 7);
+    // Check Plus subscription for follow-up expiry
+    // Plus users get indefinite follow-up, free users get 7 days
+    let isPlusUser = false;
+    if (consultation.customer_id && consultation.pet_id) {
+      try {
+        isPlusUser = await checkPlusSubscriptionWithClient(
+          supabaseAdmin,
+          consultation.customer_id,
+          consultation.pet_id
+        );
+      } catch (subErr) {
+        console.error('Failed to check Plus subscription:', subErr);
+      }
+    }
+
+    const followUpExpiry = calculateThreadExpiry(isPlusUser);
 
     await supabaseAdmin
       .from('consultations')
       .update({
-        follow_up_expires_at: followUpExpiry.toISOString(),
+        follow_up_expires_at: followUpExpiry,
       })
       .eq('id', consultationId);
+
+    console.log(`Follow-up expiry set for ${consultationId}: ${followUpExpiry ?? 'indefinite (Plus user)'}`);
   }
 }
 

@@ -81,10 +81,14 @@ export default async function VetConsultationsPage({ searchParams }: PageProps) 
     .order('created_at', { ascending: false });
 
   // Apply status filter (using consolidated statuses)
-  if (statusFilter === 'in_progress') {
+  if (statusFilter === 'scheduled') {
+    query = query.in('status', ['pending', 'scheduled']);
+  } else if (statusFilter === 'in_progress') {
     query = query.eq('status', 'active');
   } else if (statusFilter === 'completed') {
     query = query.eq('status', 'closed').eq('outcome', 'success');
+  } else if (statusFilter === 'missed') {
+    query = query.eq('status', 'closed').eq('outcome', 'no_show');
   }
 
   // Apply search filter — match pet name or customer name via concern_text (full text)
@@ -133,6 +137,12 @@ export default async function VetConsultationsPage({ searchParams }: PageProps) 
             All
           </Link>
           <Link
+            href="/consultations?status=scheduled"
+            className={statusFilter === 'scheduled' ? styles.filterTabActive : styles.filterTab}
+          >
+            Scheduled
+          </Link>
+          <Link
             href="/consultations?status=in_progress"
             className={statusFilter === 'in_progress' ? styles.filterTabActive : styles.filterTab}
           >
@@ -143,6 +153,12 @@ export default async function VetConsultationsPage({ searchParams }: PageProps) 
             className={statusFilter === 'completed' ? styles.filterTabActive : styles.filterTab}
           >
             Completed
+          </Link>
+          <Link
+            href="/consultations?status=missed"
+            className={statusFilter === 'missed' ? styles.filterTabActive : styles.filterTab}
+          >
+            Missed
           </Link>
         </div>
 

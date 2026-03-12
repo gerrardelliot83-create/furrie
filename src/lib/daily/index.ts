@@ -383,6 +383,52 @@ export async function stopRecording(roomName: string): Promise<void> {
 }
 
 /**
+ * Gets meetings for a specific room from Daily.co API
+ * Used by the stale-active-consultations cron to determine actual call status/duration
+ * @param roomName - The Daily.co room name (e.g., furrie-{consultationId})
+ * @returns Meeting data or null if no meetings found / API error
+ */
+export async function getMeetingsByRoom(roomName: string): Promise<{
+  duration: number;
+  ended: boolean;
+  ongoing: boolean;
+} | null> {
+  if (!DAILY_API_KEY) {
+    throw new Error('DAILY_API_KEY is not configured');
+  }
+
+  const response = await fetch(
+    `${DAILY_API_URL}/meetings?room=${encodeURIComponent(roomName)}&limit=1`,
+    {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${DAILY_API_KEY}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    console.error(`Failed to get meetings for room ${roomName}: HTTP ${response.status}`);
+    return null;
+  }
+
+  const data = await response.json();
+  const meetings = data.data;
+
+  if (!meetings || meetings.length === 0) {
+    return null;
+  }
+
+  const meeting = meetings[0];
+  const ongoing = meeting.ongoing ?? false;
+  const ended = !ongoing;
+  // Duration is in seconds from Daily.co API
+  const duration = meeting.duration ?? 0;
+
+  return { duration, ended, ongoing };
+}
+
+/**
  * Gets the recording access link for a room
  * @param recordingId - The recording ID from webhook
  */

@@ -43,7 +43,34 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Query failed' }, { status: 500 });
   }
 
-  if (!expiredConsultations || expiredConsultations.length === 0) {
+  // Also find stale 'active' consultations that were never closed
+  // (e.g., Daily.co webhook failed, browser crashed during call)
+  // Active consultations older than 2 hours are considered stale
+  const staleActiveCutoff = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+
+  const { data: staleActiveConsultations, error: staleError } = await supabaseAdmin
+    .from('consultations')
+    .select(`
+      id,
+      customer_id,
+      vet_id,
+      scheduled_at,
+      pets!consultations_pet_id_fkey (name)
+    `)
+    .eq('status', 'active')
+    .lt('updated_at', staleActiveCutoff.toISOString());
+
+  if (staleError) {
+    console.error('Failed to fetch stale active consultations:', staleError);
+  }
+
+  // Merge both lists for processing
+  const allExpired = [
+    ...(expiredConsultations || []).map((c) => ({ ...c, _reason: 'missed' as const })),
+    ...(staleActiveConsultations || []).map((c) => ({ ...c, _reason: 'stale_active' as const })),
+  ];
+
+  if (allExpired.length === 0) {
     return NextResponse.json({ processed: 0, results: [] });
   }
 
@@ -54,17 +81,30 @@ export async function GET(request: Request) {
     notifiedVet: boolean;
   }> = [];
 
-  for (const consultation of expiredConsultations) {
-    // Mark as closed with missed outcome
+  for (const consultation of allExpired) {
+    const isMissed = consultation._reason === 'missed';
+    const outcome = isMissed ? 'missed' : 'no_show';
+    const expectedStatus = isMissed ? 'scheduled' : 'active';
+
+    // Mark as closed with appropriate outcome
+    const updateData: Record<string, unknown> = {
+      status: 'closed',
+      outcome,
+      updated_at: new Date().toISOString(),
+    };
+
+    // For stale active consultations, cap duration at 60 minutes
+    // to prevent absurd duration values (e.g., 13935 min from days-old 'active' status)
+    if (!isMissed) {
+      updateData.duration_minutes = 0;
+      updateData.ended_at = new Date().toISOString();
+    }
+
     const { error: updateError } = await supabaseAdmin
       .from('consultations')
-      .update({
-        status: 'closed',
-        outcome: 'missed',
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', consultation.id)
-      .eq('status', 'scheduled'); // Only if still scheduled
+      .eq('status', expectedStatus); // Only if still in expected status
 
     if (updateError) {
       console.error(`Failed to mark consultation ${consultation.id} as missed:`, updateError);
@@ -87,12 +127,17 @@ export async function GET(request: Request) {
     let notifiedCustomer = false;
     let notifiedVet = false;
 
+    const notifTitle = isMissed ? 'Appointment missed' : 'Consultation ended';
+    const notifBody = isMissed
+      ? `Your consultation for ${petName} scheduled for ${dateTimeStr} was missed. You can book a new appointment.`
+      : `Your consultation for ${petName} has been automatically closed due to inactivity.`;
+
     // Notify customer (in-app)
     await supabaseAdmin.from('notifications').insert({
       user_id: consultation.customer_id,
-      type: 'consultation_missed',
-      title: 'Appointment missed',
-      body: `Your consultation for ${petName} scheduled for ${dateTimeStr} was missed. You can book a new appointment.`,
+      type: isMissed ? 'consultation_missed' : 'consultation_closed',
+      title: notifTitle,
+      body: notifBody,
       channel: 'in_app',
       data: {
         consultationId: consultation.id,
@@ -102,21 +147,23 @@ export async function GET(request: Request) {
     });
     notifiedCustomer = true;
 
-    // Send missed email to customer
-    const { data: customerProfile } = await supabaseAdmin
-      .from('profiles')
-      .select('email, full_name')
-      .eq('id', consultation.customer_id)
-      .single();
+    // Send missed email to customer (only for scheduled-missed, not stale active)
+    if (isMissed) {
+      const { data: customerProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('email, full_name')
+        .eq('id', consultation.customer_id)
+        .single();
 
-    if (customerProfile?.email) {
-      const emailResult = await sendMissedAppointmentEmail(customerProfile.email, {
-        customerName: customerProfile.full_name || 'there',
-        petName,
-        scheduledAt: consultation.scheduled_at,
-      });
-      if (!emailResult.success) {
-        console.error('Missed appointment email failed:', emailResult.error);
+      if (customerProfile?.email) {
+        const emailResult = await sendMissedAppointmentEmail(customerProfile.email, {
+          customerName: customerProfile.full_name || 'there',
+          petName,
+          scheduledAt: consultation.scheduled_at,
+        });
+        if (!emailResult.success) {
+          console.error('Missed appointment email failed:', emailResult.error);
+        }
       }
     }
 
@@ -124,9 +171,11 @@ export async function GET(request: Request) {
     if (consultation.vet_id) {
       await supabaseAdmin.from('notifications').insert({
         user_id: consultation.vet_id,
-        type: 'consultation_missed',
-        title: 'Appointment missed',
-        body: `Consultation for ${petName} scheduled for ${dateTimeStr} was not joined and has been marked as missed.`,
+        type: isMissed ? 'consultation_missed' : 'consultation_closed',
+        title: notifTitle,
+        body: isMissed
+          ? `Consultation for ${petName} scheduled for ${dateTimeStr} was not joined and has been marked as missed.`
+          : `Consultation for ${petName} has been automatically closed due to inactivity.`,
         channel: 'in_app',
         data: {
           consultationId: consultation.id,
@@ -144,7 +193,7 @@ export async function GET(request: Request) {
       notifiedVet,
     });
 
-    console.log(`Consultation ${consultation.id} marked as missed`);
+    console.log(`Consultation ${consultation.id} marked as ${isMissed ? 'missed' : 'stale-closed'}`);
   }
 
   return NextResponse.json({

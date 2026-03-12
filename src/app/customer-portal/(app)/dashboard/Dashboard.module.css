@@ -317,11 +317,11 @@
   }
 
   .greeting {
-    display: none; /* Greeting shown in topbar on desktop */
+    font-size: 32px;
   }
 
   .subtitle {
-    display: none;
+    font-size: 16px;
   }
 
   .petsScroll {

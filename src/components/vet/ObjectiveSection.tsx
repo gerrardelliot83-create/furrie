@@ -34,7 +34,7 @@ export function ObjectiveSection({ data, onChange, petSpecies }: ObjectiveSectio
   return (
     <div className={styles.sectionGrid}>
       <div className={styles.fullWidth}>
-        <label className={styles.label}>General Appearance</label>
+        <label className={styles.label}>General Appearance <span className={styles.optional}>(optional)</span></label>
         <textarea
           value={data.generalAppearance}
           onChange={(e) => onChange({ generalAppearance: e.target.value })}
@@ -45,7 +45,7 @@ export function ObjectiveSection({ data, onChange, petSpecies }: ObjectiveSectio
       </div>
 
       <div className={styles.fullWidth}>
-        <label className={styles.label}>Body Condition Score</label>
+        <label className={styles.label}>Body Condition Score <span className={styles.optional}>(optional)</span></label>
         <BodyConditionScore
           value={data.bodyConditionScore}
           onChange={(value) => onChange({ bodyConditionScore: value })}
@@ -54,7 +54,7 @@ export function ObjectiveSection({ data, onChange, petSpecies }: ObjectiveSectio
       </div>
 
       <div className={styles.fullWidth}>
-        <label className={styles.label}>Visible Physical Findings</label>
+        <label className={styles.label}>Visible Physical Findings <span className={styles.optional}>(optional)</span></label>
         <textarea
           value={data.visiblePhysicalFindings}
           onChange={(e) => onChange({ visiblePhysicalFindings: e.target.value })}
@@ -65,7 +65,7 @@ export function ObjectiveSection({ data, onChange, petSpecies }: ObjectiveSectio
       </div>
 
       <div className={styles.halfWidth}>
-        <label className={styles.label}>Respiratory Pattern</label>
+        <label className={styles.label}>Respiratory Pattern <span className={styles.optional}>(optional)</span></label>
         <textarea
           value={data.respiratoryPattern}
           onChange={(e) => onChange({ respiratoryPattern: e.target.value })}
@@ -76,7 +76,7 @@ export function ObjectiveSection({ data, onChange, petSpecies }: ObjectiveSectio
       </div>
 
       <div className={styles.halfWidth}>
-        <label className={styles.label}>Gait/Mobility</label>
+        <label className={styles.label}>Gait/Mobility <span className={styles.optional}>(optional)</span></label>
         <textarea
           value={data.gaitMobility}
           onChange={(e) => onChange({ gaitMobility: e.target.value })}
@@ -87,7 +87,7 @@ export function ObjectiveSection({ data, onChange, petSpecies }: ObjectiveSectio
       </div>
 
       <div className={styles.fullWidth}>
-        <label className={styles.label}>Vital Signs (if reported by owner)</label>
+        <label className={styles.label}>Vital Signs (if reported by owner) <span className={styles.optional}>(optional)</span></label>
         <div className={styles.vitalsGrid}>
           <div className={styles.vitalField}>
             <label className={styles.smallLabel}>Temperature (°C)</label>

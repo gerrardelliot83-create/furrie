@@ -88,6 +88,21 @@ export function calculateAge(dateOfBirth: Date | string): { years: number; month
 }
 
 /**
+ * Format a veterinarian's display name with "Dr." prefix.
+ * Prevents duplication when the DB already stores names with "Dr." prefix.
+ * e.g., "Dr. Test Veterinarian" -> "Dr. Test Veterinarian" (no change)
+ *       "Test Veterinarian" -> "Dr. Test Veterinarian" (prefix added)
+ */
+export function formatVetName(name: string | null | undefined): string {
+  if (!name) return 'Veterinarian';
+  const trimmed = name.trim();
+  if (trimmed.startsWith('Dr.') || trimmed.startsWith('Dr ')) {
+    return trimmed;
+  }
+  return `Dr. ${trimmed}`;
+}
+
+/**
  * Generate a consultation number
  */
 export function generateConsultationNumber(): string {

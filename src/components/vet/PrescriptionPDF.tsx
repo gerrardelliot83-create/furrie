@@ -216,7 +216,7 @@ export function PrescriptionPDF({ data }: PrescriptionPDFProps) {
           <Text style={styles.sectionTitle}>Veterinarian Details</Text>
           <View style={styles.row}>
             <Text style={styles.label}>Name:</Text>
-            <Text style={styles.value}>Dr. {data.vetName}</Text>
+            <Text style={styles.value}>{data.vetName?.startsWith('Dr.') || data.vetName?.startsWith('Dr ') ? data.vetName : `Dr. ${data.vetName}`}</Text>
           </View>
           <View style={styles.row}>
             <Text style={styles.label}>VCI Registration:</Text>

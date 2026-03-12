@@ -381,7 +381,7 @@ export function ConnectFlow({ initialPets, plusPetIds = [], pendingConsultation,
                   </svg>
                 </div>
                 <div className={styles.selectedTimeText}>
-                  <span className={styles.selectedTimeLabel}>Appointment time:</span>
+                  <span className={styles.selectedTimeLabel}>Appointment time: </span>
                   <span className={styles.selectedTimeValue}>{formatSelectedTime()}</span>
                 </div>
                 <button

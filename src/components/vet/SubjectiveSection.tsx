@@ -36,7 +36,7 @@ export function SubjectiveSection({ data, onChange }: SubjectiveSectionProps) {
       </div>
 
       <div className={styles.fullWidth}>
-        <label className={styles.label}>History of Present Illness</label>
+        <label className={styles.label}>History of Present Illness <span className={styles.optional}>(optional)</span></label>
         <textarea
           value={data.historyPresentIllness}
           onChange={(e) => onChange({ historyPresentIllness: e.target.value })}
@@ -47,7 +47,7 @@ export function SubjectiveSection({ data, onChange }: SubjectiveSectionProps) {
       </div>
 
       <div className={styles.halfWidth}>
-        <label className={styles.label}>Behavior Changes</label>
+        <label className={styles.label}>Behavior Changes <span className={styles.optional}>(optional)</span></label>
         <textarea
           value={data.behaviorChanges}
           onChange={(e) => onChange({ behaviorChanges: e.target.value })}
@@ -58,7 +58,7 @@ export function SubjectiveSection({ data, onChange }: SubjectiveSectionProps) {
       </div>
 
       <div className={styles.halfWidth}>
-        <label className={styles.label}>Appetite Changes</label>
+        <label className={styles.label}>Appetite Changes <span className={styles.optional}>(optional)</span></label>
         <textarea
           value={data.appetiteChanges}
           onChange={(e) => onChange({ appetiteChanges: e.target.value })}
@@ -69,7 +69,7 @@ export function SubjectiveSection({ data, onChange }: SubjectiveSectionProps) {
       </div>
 
       <div className={styles.halfWidth}>
-        <label className={styles.label}>Activity Level Changes</label>
+        <label className={styles.label}>Activity Level Changes <span className={styles.optional}>(optional)</span></label>
         <textarea
           value={data.activityLevelChanges}
           onChange={(e) => onChange({ activityLevelChanges: e.target.value })}
@@ -80,7 +80,7 @@ export function SubjectiveSection({ data, onChange }: SubjectiveSectionProps) {
       </div>
 
       <div className={styles.halfWidth}>
-        <label className={styles.label}>Diet Information</label>
+        <label className={styles.label}>Diet Information <span className={styles.optional}>(optional)</span></label>
         <textarea
           value={data.dietInfo}
           onChange={(e) => onChange({ dietInfo: e.target.value })}
@@ -91,7 +91,7 @@ export function SubjectiveSection({ data, onChange }: SubjectiveSectionProps) {
       </div>
 
       <div className={styles.fullWidth}>
-        <label className={styles.label}>Previous Treatments</label>
+        <label className={styles.label}>Previous Treatments <span className={styles.optional}>(optional)</span></label>
         <textarea
           value={data.previousTreatments}
           onChange={(e) => onChange({ previousTreatments: e.target.value })}
@@ -102,7 +102,7 @@ export function SubjectiveSection({ data, onChange }: SubjectiveSectionProps) {
       </div>
 
       <div className={styles.halfWidth}>
-        <label className={styles.label}>Environmental Factors</label>
+        <label className={styles.label}>Environmental Factors <span className={styles.optional}>(optional)</span></label>
         <textarea
           value={data.environmentalFactors}
           onChange={(e) => onChange({ environmentalFactors: e.target.value })}
@@ -113,7 +113,7 @@ export function SubjectiveSection({ data, onChange }: SubjectiveSectionProps) {
       </div>
 
       <div className={styles.halfWidth}>
-        <label className={styles.label}>Other Pets in Household</label>
+        <label className={styles.label}>Other Pets in Household <span className={styles.optional}>(optional)</span></label>
         <textarea
           value={data.otherPetsHousehold}
           onChange={(e) => onChange({ otherPetsHousehold: e.target.value })}

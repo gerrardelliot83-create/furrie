@@ -42,6 +42,9 @@ export function FieldAutocomplete({
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
     setInputValue(query);
+    // Commit to parent immediately so form state is always in sync
+    // (prevents race condition when user types then clicks Save/Generate without blurring)
+    onChange(query);
 
     if (query.length === 0) {
       setFilteredOptions(options);
@@ -52,7 +55,7 @@ export function FieldAutocomplete({
 
     setIsOpen(true);
     setHighlightedIndex(-1);
-  }, [options]);
+  }, [options, onChange]);
 
   const handleSelect = useCallback((option: string) => {
     setInputValue(option);

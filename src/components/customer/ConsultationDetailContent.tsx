@@ -438,7 +438,7 @@ export function ConsultationDetailContent({ consultationId, onCancelSuccess, onO
       {/* Prescription */}
       {prescription?.pdf_url && (
         <div className={styles.section}>
-          <h3 className={styles.sectionTitle}>Prescription</h3>
+          <h3 className={styles.sectionTitle}>Treatment Plan</h3>
           <div className={styles.prescriptionRow}>
             <span className={styles.prescriptionNumber}>{prescription.prescription_number}</span>
             <a href={prescription.pdf_url} target="_blank" rel="noopener noreferrer">

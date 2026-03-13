@@ -260,7 +260,7 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
     cancelAutosave();
     const saved = await saveNotes(false);
     if (!saved) {
-      toast('Please save your notes before generating a prescription', 'error');
+      toast('Please save your notes before generating a treatment plan', 'error');
       return;
     }
     router.push(`/consultations/${consultationId}/prescription`);
@@ -570,7 +570,7 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
 
       <div className={styles.footer}>
         <Button variant="secondary" onClick={handleGeneratePrescription}>
-          Generate Prescription
+          Generate Treatment Plan
         </Button>
         <Button variant="primary" onClick={handleComplete}>
           Complete Consultation

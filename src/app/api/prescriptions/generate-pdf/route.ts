@@ -194,7 +194,7 @@ export async function POST(request: Request) {
       const uint8Array = new Uint8Array(pdfBuffer);
       const file = new File(
         [uint8Array],
-        `prescription-${prescriptionNumber}.pdf`,
+        `treatment-plan-${prescriptionNumber}.pdf`,
         { type: 'application/pdf' }
       );
       const uploadResponse = await utapi.uploadFiles([file]);
@@ -266,8 +266,8 @@ export async function POST(request: Request) {
       await supabaseAdmin.from('notifications').insert({
         user_id: consultation.customer_id,
         type: 'prescription_ready',
-        title: 'Prescription Ready',
-        body: `Your prescription for ${pet?.name || 'your pet'} is ready. Check your email or consultation details.`,
+        title: 'Treatment Plan Ready',
+        body: `Your treatment plan for ${pet?.name || 'your pet'} is ready. Check your email or consultation details.`,
         channel: 'in_app',
         data: { consultationId },
       });
@@ -281,7 +281,7 @@ export async function POST(request: Request) {
     return new NextResponse(uint8Array, {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="prescription-${prescriptionNumber}.pdf"`,
+        'Content-Disposition': `attachment; filename="treatment-plan-${prescriptionNumber}.pdf"`,
       },
     });
   } catch (error) {

@@ -25,7 +25,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     paddingBottom: 15,
     borderBottomWidth: 2,
-    borderBottomColor: '#770002',
+    borderBottomColor: '#1E5081',
   },
   logo: {
     width: 120,
@@ -34,7 +34,7 @@ const styles = StyleSheet.create({
   logoFallback: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#770002',
+    color: '#1E5081',
   },
   prescriptionInfo: {
     textAlign: 'right',
@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 10,
     fontWeight: 'bold',
-    color: '#770002',
+    color: '#1E5081',
     marginBottom: 8,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
   diagnosisTitle: {
     fontSize: 11,
     fontWeight: 'bold',
-    color: '#770002',
+    color: '#1E5081',
     marginBottom: 6,
   },
   diagnosisText: {
@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
   },
   medicationHeader: {
     flexDirection: 'row',
-    backgroundColor: '#770002',
+    backgroundColor: '#1E5081',
     padding: 8,
     marginBottom: 1,
   },
@@ -201,11 +201,11 @@ export function PrescriptionPDF({ data }: PrescriptionPDFProps) {
           {/* eslint-disable-next-line jsx-a11y/alt-text */}
           <Image
             style={styles.logo}
-            src="/assets/furrie-logo-dark.png"
+            src="/assets/logo/furrie-logo-dark-blue.png"
           />
           <View style={styles.prescriptionInfo}>
             <Text style={styles.prescriptionNumber}>
-              Prescription #{data.prescriptionNumber}
+              Treatment Plan #{data.prescriptionNumber}
             </Text>
             <Text style={styles.date}>Date: {data.date}</Text>
           </View>
@@ -285,7 +285,7 @@ export function PrescriptionPDF({ data }: PrescriptionPDFProps) {
         {/* Medications Table */}
         {data.medications.length > 0 && (
           <View style={styles.medicationsSection}>
-            <Text style={styles.sectionTitle}>Prescription (Rx)</Text>
+            <Text style={styles.sectionTitle}>Treatment Plan (Rx)</Text>
             <View style={styles.medicationHeader}>
               <Text style={[styles.medicationHeaderText, styles.medicationCol1]}>
                 Medication

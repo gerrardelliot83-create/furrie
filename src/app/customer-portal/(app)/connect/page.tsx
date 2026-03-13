@@ -61,6 +61,20 @@ export default async function ConnectPage({
     })
     .map((sub) => sub.pet_id as string);
 
+  // Check for active pack credits
+  const { data: activePack } = await supabase
+    .from('consultation_packs')
+    .select('id, remaining_count')
+    .eq('customer_id', user.id)
+    .eq('status', 'active')
+    .gt('remaining_count', 0)
+    .order('purchased_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  const hasPackCredit = !!activePack && activePack.remaining_count > 0;
+  const packCreditsRemaining = activePack?.remaining_count ?? 0;
+
   // Check for pending consultations (payment abandoned)
   const { data: pendingConsultation } = await supabase
     .from('consultations')
@@ -83,6 +97,8 @@ export default async function ConnectPage({
       <ConnectFlow
         initialPets={pets}
         plusPetIds={plusPetIds}
+        hasPackCredit={hasPackCredit}
+        packCreditsRemaining={packCreditsRemaining}
         preselectedPetId={preselectedPetId || null}
         pendingConsultation={pendingConsultation ? {
           id: pendingConsultation.id,

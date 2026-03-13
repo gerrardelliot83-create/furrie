@@ -83,7 +83,7 @@ export async function GET(request: Request) {
 
   for (const consultation of allExpired) {
     const isMissed = consultation._reason === 'missed';
-    const outcome = isMissed ? 'missed' : 'no_show';
+    const outcome = isMissed ? 'missed' : 'failed';
     const expectedStatus = isMissed ? 'scheduled' : 'active';
 
     // Mark as closed with appropriate outcome

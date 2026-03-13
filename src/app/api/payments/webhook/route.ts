@@ -239,6 +239,37 @@ export async function POST(request: Request) {
           })
           .eq('id', payment.subscription_id);
       }
+
+      // Handle pack purchase: create consultation_packs record
+      const { data: paymentRecord } = await supabase
+        .from('payments')
+        .select('id, customer_id, metadata')
+        .eq('cashfree_order_id', orderId)
+        .single();
+
+      const metadata = paymentRecord?.metadata as Record<string, unknown> | null;
+      if (metadata?.type === 'pack_purchase' && paymentRecord?.customer_id) {
+        const packSize = metadata.packSize as number;
+        const unitPrice = metadata.unitPrice as number;
+        const discountPercent = metadata.discountPercent as number;
+
+        const { error: packError } = await supabase
+          .from('consultation_packs')
+          .insert({
+            customer_id: paymentRecord.customer_id,
+            pack_size: packSize,
+            total_consultations: packSize,
+            unit_price: unitPrice,
+            discount_percent: discountPercent,
+            total_price: amount || 0,
+            status: 'active',
+            payment_id: paymentRecord.id,
+          });
+
+        if (packError) {
+          console.error('Failed to create pack from webhook:', packError);
+        }
+      }
     }
 
     // Acknowledge webhook receipt

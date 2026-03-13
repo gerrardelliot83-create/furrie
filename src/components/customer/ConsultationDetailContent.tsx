@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { formatDate, formatTime, formatCurrency } from '@/lib/utils';
 import { getStatusVariant, getStatusDisplayText } from '@/lib/utils/statusHelpers';
+import { FEATURES } from '@/lib/config/features';
 import type { ConsultationStatus, ConsultationOutcome } from '@/types';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -309,7 +310,7 @@ export function ConsultationDetailContent({ consultationId, onCancelSuccess, onO
             <div className={styles.detailItem}>
               <span className={styles.detailLabel}>Payment</span>
               <span className={styles.detailValue}>
-                <Badge variant="success" size="sm">Furrie Plus</Badge>
+                <Badge variant="success" size="sm">{FEATURES.ENABLE_SUBSCRIPTIONS ? 'Furrie Plus' : 'Pack Credit'}</Badge>
               </span>
             </div>
           )}

@@ -1,3 +1,46 @@
+/* Usage Summary Bar */
+.summaryBar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: linear-gradient(135deg, rgba(200, 214, 155, 0.15) 0%, rgba(246, 230, 165, 0.1) 100%);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-3);
+}
+
+.summaryIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: rgba(200, 214, 155, 0.3);
+  border-radius: var(--radius-md);
+  color: #3a6a2e;
+  flex-shrink: 0;
+}
+
+.summaryContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.summaryLabel {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.summaryValue {
+  font-size: 18px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-navy);
+}
+
+.summaryValueHighlight {
+  color: var(--color-primary);
+}
+
 .packsList {
   display: flex;
   flex-direction: column;
@@ -23,6 +66,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
+  margin-top: var(--space-2);
 }
 
 .creditSummary {
@@ -32,17 +76,20 @@
 }
 
 .buyButton {
-  padding: var(--space-2) var(--space-4);
-  background: var(--color-bg-primary);
-  border: 1.5px solid var(--color-primary);
-  color: var(--color-primary);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
+  padding: var(--space-3) var(--space-5);
+  background: var(--color-navy);
+  border: none;
+  color: var(--color-text-inverse);
+  border-radius: var(--radius-full);
+  font-size: 14px;
+  font-weight: var(--font-weight-semibold);
   cursor: pointer;
   transition: all var(--transition-fast);
+  min-height: 44px;
 }
 
 .buyButton:hover {
-  background: color-mix(in srgb, var(--color-primary) 5%, var(--color-bg-primary));
+  background: var(--color-blue-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(1, 15, 58, 0.2);
 }

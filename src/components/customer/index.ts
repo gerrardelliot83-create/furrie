@@ -7,3 +7,4 @@ export { BreedSelect } from './BreedSelect';
 export { PetPhotoUpload } from './PetPhotoUpload';
 export { PetCard } from './PetCard';
 export { PetForm } from './PetForm';
+export { PackCtaCard } from './PackCtaCard';

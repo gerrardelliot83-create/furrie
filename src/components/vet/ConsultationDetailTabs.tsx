@@ -113,7 +113,7 @@ export function ConsultationDetailTabs({
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate prescription');
+        throw new Error(errorData.error || 'Failed to generate treatment plan');
       }
 
       const blob = await response.blob();
@@ -123,7 +123,7 @@ export function ConsultationDetailTabs({
       // Trigger download
       const link = document.createElement('a');
       link.href = url;
-      link.download = `prescription-${consultationId}.pdf`;
+      link.download = `treatment-plan-${consultationId}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -142,11 +142,11 @@ export function ConsultationDetailTabs({
         setExistingPrescription(data);
       }
 
-      toast('Prescription generated and emailed to customer', 'success');
+      toast('Treatment plan generated and emailed to customer', 'success');
     } catch (error) {
       console.error('Error generating prescription:', error);
       toast(
-        error instanceof Error ? error.message : 'Failed to generate prescription',
+        error instanceof Error ? error.message : 'Failed to generate treatment plan',
         'error'
       );
     } finally {
@@ -213,7 +213,7 @@ export function ConsultationDetailTabs({
   const tabs: { key: TabKey; label: string }[] = [
     { key: 'overview', label: 'Overview' },
     { key: 'soap', label: 'SOAP Notes' },
-    { key: 'rx', label: 'Prescription' },
+    { key: 'rx', label: 'Treatment Plan' },
   ];
 
   const hasPrescriptionData = existingPrescription || pdfUrl;
@@ -273,7 +273,7 @@ export function ConsultationDetailTabs({
           {/* Existing Prescription */}
           {existingPrescription && (
             <div className={styles.rxCard}>
-              <h3 className={styles.rxCardTitle}>Existing Prescription</h3>
+              <h3 className={styles.rxCardTitle}>Existing Treatment Plan</h3>
               <div className={styles.rxDetails}>
                 <div className={styles.rxDetail}>
                   <span className={styles.rxLabel}>Number</span>
@@ -294,7 +294,7 @@ export function ConsultationDetailTabs({
                   variant="secondary"
                   onClick={() => window.open(existingPrescription.pdf_url!, '_blank')}
                 >
-                  View Prescription PDF
+                  View Treatment Plan PDF
                 </Button>
               )}
             </div>
@@ -303,17 +303,17 @@ export function ConsultationDetailTabs({
           {/* Generate Section */}
           <div className={styles.rxCard}>
             <h3 className={styles.rxCardTitle}>
-              {existingPrescription ? 'Regenerate Prescription' : 'Generate Prescription'}
+              {existingPrescription ? 'Regenerate Treatment Plan' : 'Generate Treatment Plan'}
             </h3>
             <p className={styles.rxDescription}>
               {existingPrescription
-                ? 'Regenerate the prescription PDF if changes were made to the SOAP notes.'
-                : 'Generate a PDF prescription based on the SOAP notes. Includes vet credentials, diagnosis, medications, and recommendations.'}
+                ? 'Regenerate the treatment plan PDF if changes were made to the SOAP notes.'
+                : 'Generate a PDF treatment plan based on the SOAP notes. Includes vet credentials, diagnosis, medications, and recommendations.'}
             </p>
 
             {!hasSoapNotes && !isRxLoading && (
               <p className={styles.rxWarning}>
-                Please complete SOAP notes first before generating a prescription.
+                Please complete SOAP notes first before generating a treatment plan.
               </p>
             )}
 
@@ -331,7 +331,7 @@ export function ConsultationDetailTabs({
                     ? 'Generating...'
                     : existingPrescription
                       ? 'Regenerate PDF'
-                      : 'Generate Prescription PDF'}
+                      : 'Generate Treatment Plan PDF'}
                 </Button>
               )}
               {hasPrescriptionData && (

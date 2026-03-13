@@ -82,24 +82,24 @@ export async function sendPrescriptionEmail(params: {
 }) {
   const html = `
     <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 0 auto; padding: 0;">
-      <div style="background: #770002; padding: 24px; text-align: center;">
+      <div style="background: #1E5081; padding: 24px; text-align: center;">
         <img src="https://app.furrie.in/assets/furrie-logo.png" alt="Furrie" style="height: 40px; width: auto;" />
         <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 14px;">Veterinary Teleconsultation</p>
       </div>
       <div style="padding: 32px 24px; background: #ffffff;">
         <p style="font-size: 16px; color: #333; margin: 0 0 16px 0;">Dear ${params.customerName},</p>
         <p style="font-size: 16px; color: #333; margin: 0 0 16px 0;">
-          Your prescription for <strong>${params.petName}</strong> is now ready.
+          Your treatment plan for <strong>${params.petName}</strong> is now ready.
         </p>
-        <div style="background: #f8f8f8; border-left: 4px solid #770002; padding: 16px; margin: 24px 0;">
-          <p style="margin: 0 0 8px 0; color: #666; font-size: 14px;">Prescription Number</p>
+        <div style="background: #f8f8f8; border-left: 4px solid #1E5081; padding: 16px; margin: 24px 0;">
+          <p style="margin: 0 0 8px 0; color: #666; font-size: 14px;">Treatment Plan Number</p>
           <p style="margin: 0; color: #333; font-size: 18px; font-weight: 600;">${params.prescriptionNumber}</p>
         </div>
         <p style="font-size: 16px; color: #333; margin: 0 0 16px 0;">
-          Dr. ${params.vetName} has completed your teleconsultation and prescribed the attached medication for ${params.petName}.
+          Dr. ${params.vetName} has completed your teleconsultation and prepared the attached treatment plan for ${params.petName}.
         </p>
         <p style="font-size: 16px; color: #333; margin: 0 0 16px 0;">
-          The prescription PDF is attached to this email. You can also access it anytime through the Furrie app.
+          The treatment plan PDF is attached to this email. You can also access it anytime through the Furrie app.
         </p>
         <p style="font-size: 16px; color: #333; margin: 32px 0 0 0;">
           Best regards,<br>
@@ -116,11 +116,11 @@ export async function sendPrescriptionEmail(params: {
 
   return sendEmail({
     to: params.customerEmail,
-    subject: `Prescription for ${params.petName} - ${params.prescriptionNumber}`,
+    subject: `Treatment Plan for ${params.petName} - ${params.prescriptionNumber}`,
     html,
     from: FROM_PRESCRIPTIONS,
     attachments: [{
-      filename: `prescription-${params.prescriptionNumber}.pdf`,
+      filename: `treatment-plan-${params.prescriptionNumber}.pdf`,
       content: params.pdfBuffer,
     }],
   });

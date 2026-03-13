@@ -20,6 +20,7 @@
   position: sticky;
   top: 0;
   z-index: var(--z-sticky);
+  overflow: hidden;
 }
 
 .mobileLogoLink {
@@ -53,7 +54,7 @@
 }
 
 .logoImage {
-  height: 75px;
+  height: 44px;
   width: auto;
   object-fit: contain;
 }

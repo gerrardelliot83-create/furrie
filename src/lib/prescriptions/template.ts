@@ -34,9 +34,9 @@ export interface PrescriptionMedication {
   instructions: string;
 }
 
-export const PRESCRIPTION_DISCLAIMER = `This prescription is valid for 30 days from the date of issue. Follow-up consultation is recommended if symptoms persist or worsen. For any emergency, please visit the nearest veterinary clinic immediately.
+export const PRESCRIPTION_DISCLAIMER = `This treatment plan is valid for 30 days from the date of issue. Follow-up consultation is recommended if symptoms persist or worsen. For any emergency, please visit the nearest veterinary clinic immediately.
 
-This prescription was generated via a teleconsultation. Certain physical examinations were not possible, and the diagnosis is based on the information provided by the pet parent and visual assessment during the video consultation.`;
+This treatment plan was generated via a teleconsultation. Certain physical examinations were not possible, and the diagnosis is based on the information provided by the pet parent and visual assessment during the video consultation.`;
 
 export const FURRIE_FOOTER = 'Generated via Furrie Teleconsultation Platform | www.furrie.in';
 

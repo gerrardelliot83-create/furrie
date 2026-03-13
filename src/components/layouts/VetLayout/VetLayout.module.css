@@ -253,6 +253,11 @@
     position: sticky;
     top: 0;
     z-index: var(--z-sticky);
+    overflow: hidden;
+  }
+
+  .logoImage {
+    height: 44px;
   }
 
   .sidebar {

@@ -418,7 +418,7 @@ export default async function ConsultationDetailPage({ params }: ConsultationDet
       {/* Prescription */}
       {hasPrescription && consultation.prescription?.pdfUrl && (
         <section className={styles.card}>
-          <h2 className={styles.cardTitle}>Prescription</h2>
+          <h2 className={styles.cardTitle}>Treatment Plan</h2>
           <div className={styles.prescriptionRow}>
             <div className={styles.prescriptionInfo}>
               <p className={styles.prescriptionNumber}>

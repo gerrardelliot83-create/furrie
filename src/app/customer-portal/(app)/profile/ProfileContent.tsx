@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import type { User } from '@/types';
+import { FEATURES } from '@/lib/config/features';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
@@ -112,33 +113,35 @@ export function ProfileContent({ profile, hasActiveSubscription = false }: Profi
         </Button>
       </section>
 
-      {/* Subscription Status */}
-      <section className={styles.card}>
-        <h3 className={styles.cardTitle}>{t('subscription')}</h3>
-        <div className={styles.subscriptionInfo}>
-          <div className={styles.planBadge}>
+      {/* Subscription Status -- hidden when ENABLE_SUBSCRIPTIONS is false */}
+      {FEATURES.ENABLE_SUBSCRIPTIONS && (
+        <section className={styles.card}>
+          <h3 className={styles.cardTitle}>{t('subscription')}</h3>
+          <div className={styles.subscriptionInfo}>
+            <div className={styles.planBadge}>
+              {hasActiveSubscription ? (
+                <span className={styles.plusBadge}>{tSub('plus')}</span>
+              ) : (
+                <span className={styles.freeBadge}>{tSub('free')}</span>
+              )}
+            </div>
             {hasActiveSubscription ? (
-              <span className={styles.plusBadge}>{tSub('plus')}</span>
+              <p className={styles.subscriptionText}>
+                Enjoy unlimited follow-ups, priority access, and more.
+              </p>
             ) : (
-              <span className={styles.freeBadge}>{tSub('free')}</span>
+              <>
+                <p className={styles.subscriptionText}>
+                  Upgrade to Furrie Plus for unlimited follow-ups and priority access.
+                </p>
+                <Button variant="accent" size="sm">
+                  {tSub('upgrade')}
+                </Button>
+              </>
             )}
           </div>
-          {hasActiveSubscription ? (
-            <p className={styles.subscriptionText}>
-              Enjoy unlimited follow-ups, priority access, and more.
-            </p>
-          ) : (
-            <>
-              <p className={styles.subscriptionText}>
-                Upgrade to Furrie Plus for unlimited follow-ups and priority access.
-              </p>
-              <Button variant="accent" size="sm">
-                {tSub('upgrade')}
-              </Button>
-            </>
-          )}
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Quick Links */}
       <section className={styles.card}>

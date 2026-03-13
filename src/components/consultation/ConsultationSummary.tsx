@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import type { Pet } from '@/types';
+import { FEATURES } from '@/lib/config/features';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import styles from './ConsultationSummary.module.css';
@@ -124,7 +125,7 @@ export function ConsultationSummary({
 
       {/* Pricing Card */}
       <div className={styles.pricingCard}>
-        {isPlusUser ? (
+        {(FEATURES.ENABLE_SUBSCRIPTIONS && isPlusUser) ? (
           <div className={styles.plusBadge}>
             <svg
               width="20"
@@ -208,7 +209,7 @@ export function ConsultationSummary({
           disabled={!agreedToTerms || loading}
           loading={loading}
         >
-          {isPlusUser || hasPackCredit ? 'Connect Now' : 'Pay & Connect'}
+          {(FEATURES.ENABLE_SUBSCRIPTIONS && isPlusUser) || hasPackCredit ? 'Connect Now' : 'Pay & Connect'}
         </Button>
       </div>
     </div>

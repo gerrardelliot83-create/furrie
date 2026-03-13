@@ -28,6 +28,26 @@ export async function POST(request: Request) {
       );
     }
 
+    // Guard: Plus subscribers should not purchase packs
+    // (Plus already covers consultations; packs would be wasted money)
+    const { data: activeSubscriptions } = await supabaseAdmin
+      .from('subscriptions')
+      .select('id')
+      .eq('customer_id', user.id)
+      .eq('status', 'active')
+      .eq('plan_type', 'plus')
+      .limit(1);
+
+    if (activeSubscriptions && activeSubscriptions.length > 0) {
+      return NextResponse.json(
+        {
+          error: 'You have an active Furrie Plus subscription. Pack purchase is not available for Plus subscribers.',
+          code: 'PLUS_SUBSCRIBER_CANNOT_BUY_PACK',
+        },
+        { status: 409 }
+      );
+    }
+
     const body = (await request.json()) as PurchaseRequest;
 
     // Validate pack size

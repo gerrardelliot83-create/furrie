@@ -3,7 +3,9 @@ import { createClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { findAvailableVetForSlot, SCHEDULING_CONSTANTS } from '@/lib/scheduling';
 import { checkPlusSubscriptionWithClient } from '@/lib/utils/followUpHelpers';
+import { findActivePackWithCredits, deductPackCredit } from '@/lib/utils/packHelpers';
 import { sendBookingConfirmationEmail, sendVetNewBookingEmail } from '@/lib/email';
+import { PACK_UNIT_PRICE } from '@/types';
 
 interface MediaUploadRef {
   url: string;
@@ -151,6 +153,13 @@ export async function POST(request: Request) {
     // Check if customer has active Plus subscription BEFORE vet matching (affects ranking)
     const isPlusUser = await checkPlusSubscriptionWithClient(supabase, user.id, body.petId);
 
+    // Check if customer has an active pack with remaining credits
+    // Priority: Plus subscription > Pack credits > Single payment
+    const activePack = !isPlusUser
+      ? await findActivePackWithCredits(supabaseAdmin, user.id)
+      : null;
+    const hasPackCredit = activePack !== null;
+
     // Find an available vet for this slot with load balancing + Plus priority
     const vetId = await findAvailableVetForSlot(body.scheduledAt, [], isPlusUser);
 
@@ -173,7 +182,9 @@ export async function POST(request: Request) {
 
     // Create consultation
     // Plus users: status='scheduled' directly (no payment needed), is_free=true, is_priority=true
+    // Pack users: status='scheduled' directly (pack credit deducted), is_free=true
     // Free users: status='pending' (will change to 'scheduled' after payment)
+    const isFreeBooking = isPlusUser || hasPackCredit;
     const { data: consultation, error: createError } = await supabaseAdmin
       .from('consultations')
       .insert({
@@ -181,13 +192,13 @@ export async function POST(request: Request) {
         vet_id: vetId,
         pet_id: body.petId,
         type: 'scheduled',
-        status: isPlusUser ? 'scheduled' : 'pending',
+        status: isFreeBooking ? 'scheduled' : 'pending',
         scheduled_at: body.scheduledAt,
         concern_text: body.concernText || null,
         symptom_categories: body.symptomCategories || [],
         duration_minutes: 30,
         is_priority: isPlusUser,
-        is_free: isPlusUser,
+        is_free: isFreeBooking,
       })
       .select(
         `
@@ -223,6 +234,22 @@ export async function POST(request: Request) {
       );
     }
 
+    // Deduct pack credit if booking with pack
+    if (hasPackCredit && activePack) {
+      const deducted = await deductPackCredit(
+        supabaseAdmin,
+        activePack.id,
+        consultation.id,
+        activePack.used_count,
+        activePack.total_consultations
+      );
+      if (!deducted) {
+        console.error('Failed to deduct pack credit for consultation:', consultation.id);
+        // Consultation was already created as scheduled - don't fail the booking
+        // The pack credit will be out of sync but admin can fix
+      }
+    }
+
     // Send realtime notification to vet via broadcast channel
     // This bypasses RLS issues since broadcasts don't go through postgres
     try {
@@ -243,8 +270,8 @@ export async function POST(request: Request) {
       console.error('Failed to send vet notification:', notifyError);
     }
 
-    // Send booking emails (non-blocking for Plus users who are immediately scheduled)
-    if (isPlusUser) {
+    // Send booking emails (non-blocking for Plus/pack users who are immediately scheduled)
+    if (isFreeBooking) {
       // Get customer email for booking confirmation
       const { data: customerProfile } = await supabaseAdmin
         .from('profiles')
@@ -294,7 +321,7 @@ export async function POST(request: Request) {
         user_id: user.id,
         type: 'booking_confirmation',
         title: 'Booking Confirmed',
-        body: `Your consultation for ${pet.name} has been booked${isPlusUser ? '' : ' (pending payment)'}.`,
+        body: `Your consultation for ${pet.name} has been booked${isFreeBooking ? '' : ' (pending payment)'}.`,
         channel: 'in_app',
         data: { consultationId: consultation.id },
       });
@@ -345,13 +372,14 @@ export async function POST(request: Request) {
           : null,
       },
       isPlusUser,
+      hasPackCredit,
+      packCreditsRemaining: activePack ? activePack.remaining_count - (hasPackCredit ? 1 : 0) : 0,
     };
 
-    // Only include payment info for non-Plus users
-    if (!isPlusUser) {
-      const consultationFee = 499;
+    // Only include payment info for users who need to pay
+    if (!isFreeBooking) {
       responseData.payment = {
-        amount: consultationFee,
+        amount: PACK_UNIT_PRICE,
         currency: 'INR',
         description: `Consultation for ${pet.name}`,
       };

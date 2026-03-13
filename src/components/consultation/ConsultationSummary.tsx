@@ -13,6 +13,8 @@ interface ConsultationSummaryProps {
   concernText: string;
   symptoms: string[];
   isPlusUser?: boolean;
+  hasPackCredit?: boolean;
+  packCreditsRemaining?: number;
   onSubmit: () => void;
   onBack: () => void;
   loading?: boolean;
@@ -24,6 +26,8 @@ export function ConsultationSummary({
   concernText,
   symptoms,
   isPlusUser = false,
+  hasPackCredit = false,
+  packCreditsRemaining = 0,
   onSubmit,
   onBack,
   loading = false,
@@ -136,6 +140,22 @@ export function ConsultationSummary({
             </svg>
             <span>Included in your Furrie Plus plan</span>
           </div>
+        ) : hasPackCredit ? (
+          <div className={styles.plusBadge}>
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            <span>Using pack credit ({packCreditsRemaining} remaining after this)</span>
+          </div>
         ) : (
           <>
             <div className={styles.priceRow}>
@@ -188,7 +208,7 @@ export function ConsultationSummary({
           disabled={!agreedToTerms || loading}
           loading={loading}
         >
-          {isPlusUser ? 'Connect Now' : 'Pay & Connect'}
+          {isPlusUser || hasPackCredit ? 'Connect Now' : 'Pay & Connect'}
         </Button>
       </div>
     </div>

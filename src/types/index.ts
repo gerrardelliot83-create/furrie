@@ -231,6 +231,43 @@ export interface CarePlanStepResponse {
   createdAt: string;
 }
 
+// Consultation Packs
+export type PackSize = 3 | 5 | 10;
+export type PackStatus = 'active' | 'exhausted' | 'expired' | 'cancelled';
+
+export const PACK_PRICING: Record<PackSize, { discount: number; totalPrice: number }> = {
+  3: { discount: 10, totalPrice: 807 },
+  5: { discount: 25, totalPrice: 1121 },
+  10: { discount: 50, totalPrice: 1495 },
+};
+
+export const PACK_UNIT_PRICE = 299;
+
+export interface ConsultationPack {
+  id: string;
+  customerId: string;
+  packSize: PackSize;
+  totalConsultations: number;
+  usedCount: number;
+  remainingCount: number;
+  unitPrice: number;
+  discountPercent: number;
+  totalPrice: number;
+  status: PackStatus;
+  paymentId: string | null;
+  purchasedAt: string;
+  expiresAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ConsultationPackUse {
+  id: string;
+  packId: string;
+  consultationId: string;
+  usedAt: string;
+}
+
 export interface Notification {
   id: string;
   userId: string;

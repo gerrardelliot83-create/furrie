@@ -46,11 +46,13 @@ interface PendingConsultation {
 interface ConnectFlowProps {
   initialPets: Pet[];
   plusPetIds?: string[];
+  hasPackCredit?: boolean;
+  packCreditsRemaining?: number;
   pendingConsultation?: PendingConsultation;
   preselectedPetId?: string | null;
 }
 
-export function ConnectFlow({ initialPets, plusPetIds = [], pendingConsultation, preselectedPetId }: ConnectFlowProps) {
+export function ConnectFlow({ initialPets, plusPetIds = [], hasPackCredit = false, packCreditsRemaining = 0, pendingConsultation, preselectedPetId }: ConnectFlowProps) {
   const tCommon = useTranslations('common');
   const router = useRouter();
 
@@ -76,6 +78,7 @@ export function ConnectFlow({ initialPets, plusPetIds = [], pendingConsultation,
 
   const selectedPet = pets.find((p) => p.id === selectedPetId);
   const isPlusUser = selectedPetId ? plusPetIds.includes(selectedPetId) : false;
+  const isFreeBooking = isPlusUser || hasPackCredit;
   const showEmergencyWarning = hasSevereSymptoms(symptoms);
 
   // Step number for indicator (5 steps now)
@@ -87,7 +90,7 @@ export function ConnectFlow({ initialPets, plusPetIds = [], pendingConsultation,
     'confirmation': 5,
   }[currentStep];
 
-  const stepLabels = ['Pet', 'Concern', 'Time', isPlusUser ? 'Review' : 'Pay', 'Done'];
+  const stepLabels = ['Pet', 'Concern', 'Time', isFreeBooking ? 'Review' : 'Pay', 'Done'];
 
   // Navigation handlers
   const goToStep = (step: FlowStep) => {
@@ -150,9 +153,9 @@ export function ConnectFlow({ initialPets, plusPetIds = [], pendingConsultation,
         throw new Error(bookData.error || 'Failed to book consultation');
       }
 
-      // Server response is authoritative for subscription status
-      if (bookData.isPlusUser) {
-        // Plus user: consultation is already status='scheduled', skip payment
+      // Server response is authoritative for subscription/pack status
+      if (bookData.isPlusUser || bookData.hasPackCredit) {
+        // Plus user or pack credit: consultation is already status='scheduled', skip payment
         setBookedConsultation({
           id: bookData.consultation.id,
           consultationNumber: bookData.consultation.consultationNumber,
@@ -399,6 +402,8 @@ export function ConnectFlow({ initialPets, plusPetIds = [], pendingConsultation,
               concernText={concernText}
               symptoms={symptoms}
               isPlusUser={isPlusUser}
+              hasPackCredit={hasPackCredit}
+              packCreditsRemaining={packCreditsRemaining}
               onSubmit={handleBookAndPay}
               onBack={() => goToStep('select-time')}
               loading={loading}

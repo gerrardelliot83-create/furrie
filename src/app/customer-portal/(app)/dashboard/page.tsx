@@ -10,6 +10,7 @@ import { withTimeout } from '@/lib/utils/queryTimeout';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { ConsultationCard } from '@/components/consultation';
+import { PackSection } from '@/components/customer/PackSection';
 import styles from './Dashboard.module.css';
 
 export const maxDuration = 30;
@@ -104,15 +105,19 @@ export default async function CustomerDashboard() {
       .eq('status', 'active')
       .order('created_at', { ascending: false })
       .limit(5),
+    // [5] Active consultation packs
+    supabase
+      .from('consultation_packs')
+      .select('id, pack_size, remaining_count, total_consultations, total_price, discount_percent, status, purchased_at, expires_at')
+      .eq('customer_id', user.id)
+      .eq('status', 'active')
+      .order('purchased_at', { ascending: true }),
   ]);
 
   type QueryResult = Awaited<typeof allQueries>;
+  const emptyResult = { data: null, error: null, count: null, status: 0, statusText: '' };
   const fallback = [
-    { data: null, error: null, count: null, status: 0, statusText: '' },
-    { data: null, error: null, count: null, status: 0, statusText: '' },
-    { data: null, error: null, count: null, status: 0, statusText: '' },
-    { data: null, error: null, count: null, status: 0, statusText: '' },
-    { data: null, error: null, count: null, status: 0, statusText: '' },
+    emptyResult, emptyResult, emptyResult, emptyResult, emptyResult, emptyResult,
   ] as unknown as QueryResult;
 
   const [
@@ -121,6 +126,7 @@ export default async function CustomerDashboard() {
     { data: upcomingData },
     { data: recentData },
     { data: carePlansData },
+    { data: packsData },
   ] = await withTimeout(allQueries, QUERY_TIMEOUT, fallback);
 
   const userName = profile?.full_name || 'there';
@@ -206,6 +212,16 @@ export default async function CustomerDashboard() {
           </Link>
         </div>
       </section>
+
+      {/* Consultation Packs */}
+      {(packsData && packsData.length > 0) && (
+        <section className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <h2 className={styles.sectionTitle}>My Packs</h2>
+          </div>
+          <PackSection packs={packsData} />
+        </section>
+      )}
 
       {/* Your Pets */}
       <section className={styles.section}>

@@ -8,11 +8,18 @@ export default function DashboardLoading() {
         <div className={styles.skeletonLine} style={{ width: '60%', height: '28px' }} />
       </div>
 
-      {/* CTA skeleton */}
-      <div className={styles.ctaSkeleton}>
-        <div className={styles.skeletonLine} style={{ width: '70%', height: '20px' }} />
-        <div className={styles.skeletonLine} style={{ width: '50%', height: '16px', marginTop: '8px' }} />
-        <div className={styles.skeletonButton} />
+      {/* CTA grid skeleton */}
+      <div className={styles.ctaGridSkeleton}>
+        <div className={styles.ctaSkeleton}>
+          <div className={styles.skeletonLine} style={{ width: '70%', height: '20px' }} />
+          <div className={styles.skeletonLine} style={{ width: '50%', height: '16px', marginTop: '8px' }} />
+          <div className={styles.skeletonButton} />
+        </div>
+        <div className={styles.ctaSkeleton}>
+          <div className={styles.skeletonLine} style={{ width: '60%', height: '20px' }} />
+          <div className={styles.skeletonLine} style={{ width: '80%', height: '16px', marginTop: '8px' }} />
+          <div className={styles.skeletonButton} />
+        </div>
       </div>
 
       {/* Pets section skeleton */}

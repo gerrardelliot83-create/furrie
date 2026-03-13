@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { ConsultationCard } from '@/components/consultation';
 import { PackSection } from '@/components/customer/PackSection';
+import { PackCtaCard } from '@/components/customer';
 import styles from './Dashboard.module.css';
 
 export const maxDuration = 30;
@@ -193,8 +194,8 @@ export default async function CustomerDashboard() {
         </p>
       </header>
 
-      {/* Quick Connect CTA */}
-      <section className={styles.ctaSection}>
+      {/* CTA Grid: Connect + Packs */}
+      <section className={styles.ctaGrid}>
         <div className={styles.ctaCard}>
           <div className={styles.ctaContent}>
             <div className={styles.ctaIcon}>
@@ -211,6 +212,7 @@ export default async function CustomerDashboard() {
             {tConsultation('startConsultation')}
           </Link>
         </div>
+        <PackCtaCard packs={packsData || []} />
       </section>
 
       {/* Consultation Packs */}

@@ -65,8 +65,8 @@ export async function POST() {
       subject: 'Furrie Email Test - Configuration Verified',
       html: `
         <div style="font-family: system-ui, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: #770002; padding: 24px; text-align: center;">
-            <img src="https://app.furrie.in/assets/furrie-logo.png" alt="Furrie" style="height: 40px;" />
+          <div style="background-color: #dbe6bc; background: linear-gradient(to right, #dbe6bc, #faf2ce); padding: 24px; text-align: center;">
+            <img src="https://app.furrie.in/assets/logo/furrie-logo-dark-blue.png" alt="Furrie" style="height: 40px;" />
           </div>
           <div style="padding: 32px 24px;">
             <h2 style="color: #333; margin: 0 0 16px;">Email Configuration Test</h2>

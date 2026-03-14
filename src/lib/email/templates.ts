@@ -16,9 +16,9 @@ function wrapEmailBody(bodyHtml: string): string {
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="margin: 0; padding: 0; background-color: #f5f5f5; font-family: system-ui, -apple-system, sans-serif;">
   <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
-    <div style="background: #770002; padding: 24px; text-align: center;">
+    <div style="background-color: #dbe6bc; background: linear-gradient(to right, #dbe6bc, #faf2ce); padding: 24px; text-align: center;">
       <img src="${LOGO_URL}" alt="Furrie" style="height: 40px; width: auto;" />
-      <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 14px;">Veterinary Teleconsultation</p>
+      <p style="color: #475569; margin: 8px 0 0 0; font-size: 14px;">Veterinary Teleconsultation</p>
     </div>
     <div style="padding: 32px 24px;">
       ${bodyHtml}
@@ -37,8 +37,8 @@ function wrapEmailBody(bodyHtml: string): string {
 }
 
 // Shared styles
-const btnPrimary = 'display: inline-block; padding: 12px 32px; background-color: #770002; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;';
-const infoBox = 'background: #f8f8f8; border-left: 4px solid #770002; padding: 16px; margin: 24px 0;';
+const btnPrimary = 'display: inline-block; padding: 12px 32px; background-color: #3971b8; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;';
+const infoBox = 'background: #f8f8f8; border-left: 4px solid #3971b8; padding: 16px; margin: 24px 0;';
 const textStyle = 'font-size: 16px; color: #333; line-height: 1.6; margin: 0 0 16px 0;';
 const labelStyle = 'margin: 0 0 4px 0; color: #666; font-size: 13px;';
 const valueStyle = 'margin: 0 0 12px 0; color: #333; font-size: 16px; font-weight: 600;';

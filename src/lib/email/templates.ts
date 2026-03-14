@@ -5,7 +5,7 @@
  * Logo is loaded from the production domain as an absolute URL.
  */
 
-const LOGO_URL = 'https://app.furrie.in/assets/furrie-logo.png';
+const LOGO_URL = 'https://app.furrie.in/assets/logo/furrie-logo-dark-blue.png';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://app.furrie.in';
 const VET_URL = 'https://vet.furrie.in';
 
@@ -25,10 +25,10 @@ function wrapEmailBody(bodyHtml: string): string {
     </div>
     <div style="background: #f5f5f5; padding: 16px 24px; text-align: center;">
       <p style="margin: 0; font-size: 12px; color: #999;">
-        This is an automated message from Furrie. Please do not reply to this email.
+        This is an automated message from Furrie. Please do not reply unless instructed to in the email above.
       </p>
       <p style="margin: 4px 0 0 0; font-size: 12px; color: #999;">
-        Furrie Veterinary Teleconsultation &bull; India
+        Furrie &mdash; Veterinary Teleconsultation &mdash; India
       </p>
     </div>
   </div>
@@ -39,16 +39,16 @@ function wrapEmailBody(bodyHtml: string): string {
 // Shared styles
 const btnPrimary = 'display: inline-block; padding: 12px 32px; background-color: #770002; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;';
 const infoBox = 'background: #f8f8f8; border-left: 4px solid #770002; padding: 16px; margin: 24px 0;';
-const textStyle = 'font-size: 16px; color: #333; margin: 0 0 16px 0;';
+const textStyle = 'font-size: 16px; color: #333; line-height: 1.6; margin: 0 0 16px 0;';
 const labelStyle = 'margin: 0 0 4px 0; color: #666; font-size: 13px;';
 const valueStyle = 'margin: 0 0 12px 0; color: #333; font-size: 16px; font-weight: 600;';
 
-/** Generate a personalized greeting, falling back to generic "Welcome!" for unknown names */
+/** Generate a personalized greeting, falling back to generic "Hey there," for unknown names */
 function emailGreeting(name: string): string {
   if (!name || name === 'there' || name === 'User') {
-    return 'Welcome!';
+    return 'Hey there,';
   }
-  return `Dear ${name},`;
+  return `Hey ${name},`;
 }
 
 function formatDateTime(isoDate: string): string {
@@ -90,27 +90,26 @@ export function welcomeEmail(params: {
   customerName: string;
 }): { subject: string; html: string } {
   return {
-    subject: 'Welcome to Furrie!',
+    subject: `Welcome to Furrie, ${params.customerName}`,
     html: wrapEmailBody(`
       <p style="${textStyle}">${emailGreeting(params.customerName)}</p>
       <p style="${textStyle}">
-        Welcome to Furrie! We're glad you've joined India's trusted veterinary teleconsultation platform.
+        Welcome to Furrie. You now have a team of licensed veterinarians a video call away &mdash; anytime your pet needs care, guidance, or just a professional opinion.
       </p>
-      <p style="${textStyle}">With Furrie, you can:</p>
+      <p style="${textStyle}">Here's what you can do:</p>
       <ul style="font-size: 16px; color: #333; margin: 0 0 24px 0; padding-left: 20px; line-height: 1.8;">
-        <li>Connect with licensed veterinarians via video call</li>
-        <li>Get prescriptions delivered digitally</li>
-        <li>Manage your pet's health records in one place</li>
-        <li>Access follow-up consultations within 7 days</li>
+        <li><strong>Talk to a vet</strong> &mdash; Book a live video consultation with a licensed veterinarian. Available 24/7, anywhere in India.</li>
+        <li><strong>Get a custom care plan</strong> &mdash; Every consultation ends with a plan built specifically for your pet: nutrition, recovery, special care &mdash; whatever they need.</li>
+        <li><strong>Ask a vet anything</strong> &mdash; Got a quick question? Our vets are available for async Q&amp;A. No consultation needed.</li>
       </ul>
       <p style="${textStyle}">
-        Start by adding your pet's profile, then book your first consultation.
+        The best place to start is adding your pet's profile. It takes about a minute and helps our vets give better, more personalised care from the very first call.
       </p>
       <div style="text-align: center; margin: 32px 0;">
         <a href="${APP_URL}/pets/new" style="${btnPrimary}">Add Your Pet</a>
       </div>
       <p style="${textStyle}">
-        Best regards,<br><strong>The Furrie Team</strong>
+        Talk soon,<br><strong>Team Furrie</strong>
       </p>
     `),
   };
@@ -127,28 +126,37 @@ export function bookingConfirmationEmail(params: {
   consultationNumber: string;
 }): { subject: string; html: string } {
   return {
-    subject: `Consultation Booked - ${params.consultationNumber}`,
+    subject: `Confirmed — ${params.petName}'s consultation with Dr. ${params.vetName}`,
     html: wrapEmailBody(`
       <p style="${textStyle}">${emailGreeting(params.customerName)}</p>
       <p style="${textStyle}">
-        Your consultation for <strong>${params.petName}</strong> has been successfully booked.
+        You're all set. ${params.petName}'s consultation has been booked.
       </p>
       <div style="${infoBox}">
-        <p style="${labelStyle}">Consultation Number</p>
+        <p style="${labelStyle}">Consultation</p>
         <p style="${valueStyle}">${params.consultationNumber}</p>
-        <p style="${labelStyle}">Veterinarian</p>
+        <p style="${labelStyle}">Vet</p>
         <p style="${valueStyle}">Dr. ${params.vetName}</p>
-        <p style="${labelStyle}">Scheduled For</p>
-        <p style="margin: 0; color: #333; font-size: 16px; font-weight: 600;">${formatDateTime(params.scheduledAt)}</p>
+        <p style="${labelStyle}">Scheduled</p>
+        <p style="margin: 0; color: #333; font-size: 16px; font-weight: 600;">${formatDateTime(params.scheduledAt)} IST</p>
       </div>
       <p style="${textStyle}">
-        You'll receive a reminder 1 hour and 15 minutes before your appointment. You can join the video call 5 minutes before the scheduled time.
+        We'll send you a reminder 1 hour before and again at 15 minutes with your video call link. No need to download anything &mdash; the call happens right in your browser.
+      </p>
+      <p style="${textStyle}"><strong>A few things that help:</strong></p>
+      <ul style="font-size: 16px; color: #333; margin: 0 0 24px 0; padding-left: 20px; line-height: 1.8;">
+        <li>Have ${params.petName} nearby during the call</li>
+        <li>Find a quiet spot with stable internet</li>
+        <li>If you have any previous health records or photos of symptoms, keep them handy</li>
+      </ul>
+      <p style="${textStyle}">
+        You can view or manage your consultation anytime from your dashboard.
       </p>
       <div style="text-align: center; margin: 32px 0;">
         <a href="${APP_URL}/consultations" style="${btnPrimary}">View Consultation</a>
       </div>
       <p style="${textStyle}">
-        Best regards,<br><strong>The Furrie Team</strong>
+        See you soon,<br><strong>Team Furrie</strong>
       </p>
     `),
   };
@@ -166,25 +174,28 @@ export function paymentReceiptEmail(params: {
   paidAt: string;
 }): { subject: string; html: string } {
   return {
-    subject: `Payment Receipt - ${params.consultationNumber}`,
+    subject: `Payment received — ${params.consultationNumber}`,
     html: wrapEmailBody(`
       <p style="${textStyle}">${emailGreeting(params.customerName)}</p>
-      <p style="${textStyle}">Your payment has been received successfully.</p>
+      <p style="${textStyle}">Your payment has been received. Here are the details for your records.</p>
       <div style="${infoBox}">
         <p style="${labelStyle}">Consultation</p>
         <p style="${valueStyle}">${params.consultationNumber} (${params.petName})</p>
-        <p style="${labelStyle}">Amount Paid</p>
+        <p style="${labelStyle}">Amount</p>
         <p style="${valueStyle}">Rs. ${params.amount}</p>
         <p style="${labelStyle}">Payment ID</p>
         <p style="${valueStyle}">${params.paymentId}</p>
         <p style="${labelStyle}">Date</p>
-        <p style="margin: 0; color: #333; font-size: 16px; font-weight: 600;">${formatDate(params.paidAt)}</p>
+        <p style="margin: 0; color: #333; font-size: 16px; font-weight: 600;">${formatDate(params.paidAt)} IST</p>
       </div>
-      <p style="font-size: 13px; color: #666; margin: 24px 0 0 0;">
-        This serves as your digital receipt. For any payment-related queries, please contact support.
+      <p style="${textStyle}">
+        This email serves as your digital receipt. Your consultation booking confirmation has been sent separately.
       </p>
       <p style="${textStyle}">
-        Best regards,<br><strong>The Furrie Team</strong>
+        If anything looks off, just reply to this email and we'll sort it out.
+      </p>
+      <p style="${textStyle}">
+        <strong>Team Furrie</strong>
       </p>
     `),
   };
@@ -202,32 +213,38 @@ export function vetNewBookingEmail(params: {
   consultationNumber: string;
   isPriority: boolean;
 }): { subject: string; html: string } {
-  const priorityBadge = params.isPriority
-    ? '<span style="display: inline-block; background: #FDB603; color: #333; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; margin-left: 8px;">PLUS</span>'
+  const priorityBlock = params.isPriority
+    ? `<div style="background: #FFFBEB; border-left: 4px solid #F59E0B; padding: 12px 16px; margin: 0 0 24px 0;">
+        <p style="margin: 0; color: #92400E; font-size: 14px; font-weight: 600;">PLUS SUBSCRIBER &mdash; PRIORITY</p>
+      </div>`
     : '';
 
   return {
-    subject: `New Consultation Assigned - ${params.consultationNumber}`,
+    subject: `New consultation assigned — ${params.consultationNumber}`,
     html: wrapEmailBody(`
       <p style="${textStyle}">Dear Dr. ${params.vetName},</p>
       <p style="${textStyle}">
-        A new consultation has been assigned to you.${priorityBadge}
+        A new consultation has been assigned to you.
       </p>
+      ${priorityBlock}
       <div style="${infoBox}">
-        <p style="${labelStyle}">Consultation Number</p>
+        <p style="${labelStyle}">Consultation</p>
         <p style="${valueStyle}">${params.consultationNumber}</p>
         <p style="${labelStyle}">Pet Parent</p>
         <p style="${valueStyle}">${params.customerName}</p>
         <p style="${labelStyle}">Pet</p>
         <p style="${valueStyle}">${params.petName} (${params.petSpecies})</p>
-        <p style="${labelStyle}">Scheduled For</p>
-        <p style="margin: 0; color: #333; font-size: 16px; font-weight: 600;">${formatDateTime(params.scheduledAt)}</p>
+        <p style="${labelStyle}">Scheduled</p>
+        <p style="margin: 0; color: #333; font-size: 16px; font-weight: 600;">${formatDateTime(params.scheduledAt)} IST</p>
       </div>
+      <p style="${textStyle}">
+        You'll receive a reminder 1 hour before and again at 15 minutes with the consultation link. You can view all upcoming consultations in your dashboard.
+      </p>
       <div style="text-align: center; margin: 32px 0;">
         <a href="${VET_URL}/consultations" style="${btnPrimary}">View Dashboard</a>
       </div>
       <p style="${textStyle}">
-        Best regards,<br><strong>The Furrie Team</strong>
+        <strong>Team Furrie</strong>
       </p>
     `),
   };
@@ -243,21 +260,27 @@ export function customerOneHourReminderEmail(params: {
   scheduledAt: string;
 }): { subject: string; html: string } {
   return {
-    subject: `Reminder: Consultation in 1 Hour - ${params.petName}`,
+    subject: `1 hour to go — ${params.petName}'s consultation with Dr. ${params.vetName}`,
     html: wrapEmailBody(`
       <p style="${textStyle}">${emailGreeting(params.customerName)}</p>
       <p style="${textStyle}">
-        Your consultation for <strong>${params.petName}</strong> with Dr. ${params.vetName} is in <strong>1 hour</strong>.
+        Quick reminder &mdash; ${params.petName}'s consultation with Dr. ${params.vetName} is in about an hour.
       </p>
       <div style="${infoBox}">
-        <p style="${labelStyle}">Appointment Time</p>
-        <p style="margin: 0; color: #333; font-size: 16px; font-weight: 600;">${formatDateTime(params.scheduledAt)}</p>
+        <p style="${labelStyle}">Time</p>
+        <p style="margin: 0; color: #333; font-size: 16px; font-weight: 600;">${formatDateTime(params.scheduledAt)} IST</p>
       </div>
+      <p style="${textStyle}">A couple of things to get ready:</p>
+      <ul style="font-size: 16px; color: #333; margin: 0 0 24px 0; padding-left: 20px; line-height: 1.8;">
+        <li>Find a quiet spot with stable wifi</li>
+        <li>Have ${params.petName} nearby (or at least within reach)</li>
+        <li>Keep any health records, medication details, or symptom photos handy</li>
+      </ul>
       <p style="${textStyle}">
-        Please ensure you have a stable internet connection and are in a quiet area for the video call.
+        We'll send you the video call link 15 minutes before the consultation starts.
       </p>
       <p style="${textStyle}">
-        Best regards,<br><strong>The Furrie Team</strong>
+        <strong>Team Furrie</strong>
       </p>
     `),
   };
@@ -273,21 +296,24 @@ export function vetOneHourReminderEmail(params: {
   scheduledAt: string;
 }): { subject: string; html: string } {
   return {
-    subject: `Reminder: Consultation in 1 Hour - ${params.petName}`,
+    subject: `1 hour to go — consultation for ${params.petName}`,
     html: wrapEmailBody(`
       <p style="${textStyle}">Dear Dr. ${params.vetName},</p>
       <p style="${textStyle}">
-        You have a consultation for <strong>${params.petName}</strong> (${params.customerName}) in <strong>1 hour</strong>.
+        Your consultation for ${params.petName} (${params.customerName}) is scheduled in about 1 hour.
       </p>
       <div style="${infoBox}">
-        <p style="${labelStyle}">Appointment Time</p>
-        <p style="margin: 0; color: #333; font-size: 16px; font-weight: 600;">${formatDateTime(params.scheduledAt)}</p>
+        <p style="${labelStyle}">Time</p>
+        <p style="margin: 0; color: #333; font-size: 16px; font-weight: 600;">${formatDateTime(params.scheduledAt)} IST</p>
       </div>
+      <p style="${textStyle}">
+        You'll receive the consultation link 15 minutes before the session.
+      </p>
       <div style="text-align: center; margin: 32px 0;">
         <a href="${VET_URL}/consultations" style="${btnPrimary}">View Dashboard</a>
       </div>
       <p style="${textStyle}">
-        Best regards,<br><strong>The Furrie Team</strong>
+        <strong>Team Furrie</strong>
       </p>
     `),
   };
@@ -303,20 +329,23 @@ export function customerFifteenMinReminderEmail(params: {
   consultationId: string;
 }): { subject: string; html: string } {
   return {
-    subject: `Starting Soon: Consultation for ${params.petName}`,
+    subject: `Starting soon — ${params.petName}'s consultation`,
     html: wrapEmailBody(`
       <p style="${textStyle}">${emailGreeting(params.customerName)}</p>
       <p style="${textStyle}">
-        Your consultation for <strong>${params.petName}</strong> with Dr. ${params.vetName} starts in <strong>15 minutes</strong>.
+        ${params.petName}'s consultation with Dr. ${params.vetName} starts in about 15 minutes.
       </p>
       <p style="${textStyle}">
-        You can join the video call now. Please have any relevant pet documents or photos ready.
+        When you're ready, tap the button below to join the video call.
       </p>
       <div style="text-align: center; margin: 32px 0;">
         <a href="${APP_URL}/consultations/${params.consultationId}/video" style="${btnPrimary}">Join Video Call</a>
       </div>
       <p style="${textStyle}">
-        Best regards,<br><strong>The Furrie Team</strong>
+        Make sure ${params.petName} is with you and you're somewhere with a stable connection. Dr. ${params.vetName} will be waiting.
+      </p>
+      <p style="${textStyle}">
+        <strong>Team Furrie</strong>
       </p>
     `),
   };
@@ -332,17 +361,17 @@ export function vetFifteenMinReminderEmail(params: {
   consultationId: string;
 }): { subject: string; html: string } {
   return {
-    subject: `Starting Soon: Consultation for ${params.petName}`,
+    subject: `Starting soon — consultation for ${params.petName}`,
     html: wrapEmailBody(`
       <p style="${textStyle}">Dear Dr. ${params.vetName},</p>
       <p style="${textStyle}">
-        Your consultation for <strong>${params.petName}</strong> (${params.customerName}) starts in <strong>15 minutes</strong>.
+        Your consultation for ${params.petName} (${params.customerName}) starts in about 15 minutes.
       </p>
       <div style="text-align: center; margin: 32px 0;">
         <a href="${VET_URL}/consultations/${params.consultationId}" style="${btnPrimary}">Open Consultation</a>
       </div>
       <p style="${textStyle}">
-        Best regards,<br><strong>The Furrie Team</strong>
+        <strong>Team Furrie</strong>
       </p>
     `),
   };
@@ -358,20 +387,29 @@ export function consultationCompletedEmail(params: {
   consultationId: string;
 }): { subject: string; html: string } {
   return {
-    subject: `Consultation Completed - ${params.petName}`,
+    subject: `${params.petName}'s consultation with Dr. ${params.vetName} — complete`,
     html: wrapEmailBody(`
       <p style="${textStyle}">${emailGreeting(params.customerName)}</p>
       <p style="${textStyle}">
-        Your consultation for <strong>${params.petName}</strong> with Dr. ${params.vetName} has been completed.
+        ${params.petName}'s consultation with Dr. ${params.vetName} is now complete, and the notes from your session are ready.
       </p>
       <p style="${textStyle}">
-        The vet may have generated a prescription which you can access from your dashboard. You can also rate your experience to help us improve.
+        You can view the full consultation details &mdash; including Dr. ${params.vetName}'s notes and any recommendations &mdash; in your dashboard.
       </p>
       <div style="text-align: center; margin: 32px 0;">
         <a href="${APP_URL}/consultations/${params.consultationId}" style="${btnPrimary}">View Details</a>
       </div>
       <p style="${textStyle}">
-        Best regards,<br><strong>The Furrie Team</strong>
+        If Dr. ${params.vetName} has prescribed any medication or created a care plan, you'll find those in your dashboard too. And if a follow-up thread has been opened, you'll receive a separate email about that shortly.
+      </p>
+      <p style="${textStyle}">
+        One last thing &mdash; if you have a moment, we'd appreciate your feedback on the consultation. It helps us keep the care quality high and helps Dr. ${params.vetName} continue to improve.
+      </p>
+      <p style="${textStyle}">
+        Thank you for trusting Furrie with ${params.petName}'s care.
+      </p>
+      <p style="${textStyle}">
+        <strong>Team Furrie</strong>
       </p>
     `),
   };
@@ -388,21 +426,30 @@ export function followUpAvailableEmail(params: {
   consultationId: string;
 }): { subject: string; html: string } {
   return {
-    subject: `Follow-Up Available - ${params.petName}`,
+    subject: `Follow-up open — stay in touch with Dr. ${params.vetName} about ${params.petName}`,
     html: wrapEmailBody(`
       <p style="${textStyle}">${emailGreeting(params.customerName)}</p>
       <p style="${textStyle}">
-        A follow-up thread has been created for <strong>${params.petName}</strong>'s recent consultation with Dr. ${params.vetName}.
+        Dr. ${params.vetName} has opened a follow-up thread for ${params.petName}. This means you can continue the conversation &mdash; share progress updates, ask follow-up questions, or flag anything new &mdash; without booking another consultation.
       </p>
-      <p style="${textStyle}">
-        You can send follow-up messages to the vet until <strong>${formatDate(params.expiresAt)}</strong>.
-        Use this to report on your pet's progress or ask clarifying questions.
-      </p>
+      <div style="${infoBox}">
+        <p style="${labelStyle}">Follow-up available until</p>
+        <p style="margin: 0; color: #333; font-size: 16px; font-weight: 600;">${formatDate(params.expiresAt)} IST</p>
+      </div>
+      <p style="${textStyle}">Use this thread for things like:</p>
+      <ul style="font-size: 16px; color: #333; margin: 0 0 24px 0; padding-left: 20px; line-height: 1.8;">
+        <li>"The medication is working / not working"</li>
+        <li>"I noticed something new since our call"</li>
+        <li>"Quick question about the care plan"</li>
+      </ul>
       <div style="text-align: center; margin: 32px 0;">
         <a href="${APP_URL}/consultations/${params.consultationId}" style="${btnPrimary}">Open Follow-Up</a>
       </div>
       <p style="${textStyle}">
-        Best regards,<br><strong>The Furrie Team</strong>
+        Dr. ${params.vetName} will respond within the follow-up window. If anything feels urgent before then, you can always book a new consultation.
+      </p>
+      <p style="${textStyle}">
+        <strong>Team Furrie</strong>
       </p>
     `),
   };
@@ -417,21 +464,26 @@ export function missedAppointmentEmail(params: {
   scheduledAt: string;
 }): { subject: string; html: string } {
   return {
-    subject: `Missed Appointment - ${params.petName}`,
+    subject: `We missed you — ${params.petName}'s consultation`,
     html: wrapEmailBody(`
       <p style="${textStyle}">${emailGreeting(params.customerName)}</p>
       <p style="${textStyle}">
-        Unfortunately, the consultation for <strong>${params.petName}</strong> scheduled for
-        <strong>${formatDateTime(params.scheduledAt)}</strong> was missed.
+        It looks like ${params.petName}'s consultation scheduled for ${formatDateTime(params.scheduledAt)} IST didn't happen &mdash; no one joined the call.
       </p>
       <p style="${textStyle}">
-        If you still need veterinary care, please book a new consultation at your convenience.
+        No worries at all. Things come up.
+      </p>
+      <p style="${textStyle}">
+        If ${params.petName} still needs to see a vet, you can book a new consultation whenever you're ready. Our vets are available 24/7.
       </p>
       <div style="text-align: center; margin: 32px 0;">
         <a href="${APP_URL}/connect" style="${btnPrimary}">Book New Consultation</a>
       </div>
       <p style="${textStyle}">
-        Best regards,<br><strong>The Furrie Team</strong>
+        If you're having any trouble with the platform or need help with anything, just reply to this email. We're here.
+      </p>
+      <p style="${textStyle}">
+        <strong>Team Furrie</strong>
       </p>
     `),
   };
@@ -446,30 +498,33 @@ export function plusActivatedEmail(params: {
   expiresAt: string;
 }): { subject: string; html: string } {
   return {
-    subject: `Furrie Plus Activated for ${params.petName}!`,
+    subject: `Furrie Plus is active for ${params.petName}`,
     html: wrapEmailBody(`
       <p style="${textStyle}">${emailGreeting(params.customerName)}</p>
       <p style="${textStyle}">
-        Furrie Plus has been activated for <strong>${params.petName}</strong>!
+        Great news &mdash; Furrie Plus is now active for ${params.petName}.
       </p>
       <div style="${infoBox}">
         <p style="${labelStyle}">Plan</p>
         <p style="${valueStyle}">Furrie Plus</p>
-        <p style="${labelStyle}">Valid Until</p>
-        <p style="margin: 0; color: #333; font-size: 16px; font-weight: 600;">${formatDate(params.expiresAt)}</p>
+        <p style="${labelStyle}">Active until</p>
+        <p style="margin: 0; color: #333; font-size: 16px; font-weight: 600;">${formatDate(params.expiresAt)} IST</p>
       </div>
-      <p style="${textStyle}">Your Furrie Plus benefits include:</p>
+      <p style="${textStyle}">Here's what this means for ${params.petName}:</p>
       <ul style="font-size: 16px; color: #333; margin: 0 0 24px 0; padding-left: 20px; line-height: 1.8;">
-        <li>Unlimited consultations during your subscription</li>
-        <li>Priority matching with top-rated veterinarians</li>
-        <li>Extended follow-up window</li>
-        <li>No per-consultation charges</li>
+        <li><strong>Unlimited consultations</strong> &mdash; Talk to a vet as often as you need. No per-consultation charges.</li>
+        <li><strong>Priority vet matching</strong> &mdash; You're moved to the front of the queue when booking.</li>
+        <li><strong>Extended follow-up</strong> &mdash; Longer follow-up windows with your vet after every consultation.</li>
+        <li><strong>Custom care plans</strong> &mdash; Every consultation includes a personalised plan for ${params.petName}.</li>
       </ul>
+      <p style="${textStyle}">
+        The best way to make the most of Plus is to book a consultation whenever something comes up &mdash; even for small questions. That's what it's for.
+      </p>
       <div style="text-align: center; margin: 32px 0;">
         <a href="${APP_URL}/connect" style="${btnPrimary}">Book a Consultation</a>
       </div>
       <p style="${textStyle}">
-        Best regards,<br><strong>The Furrie Team</strong>
+        Welcome to Plus,<br><strong>Team Furrie</strong>
       </p>
     `),
   };
@@ -484,20 +539,26 @@ export function subscriptionExpiredEmail(params: {
   expiredAt: string;
 }): { subject: string; html: string } {
   return {
-    subject: `Furrie Plus Expired - ${params.petName}`,
+    subject: `Your Furrie Plus plan for ${params.petName} has ended`,
     html: wrapEmailBody(`
       <p style="${textStyle}">${emailGreeting(params.customerName)}</p>
       <p style="${textStyle}">
-        Your Furrie Plus subscription for <strong>${params.petName}</strong> expired on <strong>${formatDate(params.expiredAt)}</strong>.
+        Just a heads up &mdash; ${params.petName}'s Furrie Plus subscription ended on ${formatDate(params.expiredAt)} IST.
       </p>
       <p style="${textStyle}">
-        You can still book consultations at regular per-session rates. To renew your Plus benefits, please contact our support team.
+        This means unlimited consultations and priority matching are no longer active. But you can still book consultations at our standard rate anytime.
+      </p>
+      <p style="${textStyle}">
+        If you'd like to renew Plus, get in touch with us and we'll get you set up again.
       </p>
       <div style="text-align: center; margin: 32px 0;">
         <a href="${APP_URL}/dashboard" style="${btnPrimary}">Go to Dashboard</a>
       </div>
       <p style="${textStyle}">
-        Best regards,<br><strong>The Furrie Team</strong>
+        We're still here for ${params.petName} whenever you need us.
+      </p>
+      <p style="${textStyle}">
+        <strong>Team Furrie</strong>
       </p>
     `),
   };
@@ -512,11 +573,14 @@ export function vetWelcomeEmail(params: {
   temporaryPassword: string;
 }): { subject: string; html: string } {
   return {
-    subject: 'Welcome to Furrie - Your Vet Account is Ready',
+    subject: `Welcome to Furrie, Dr. ${params.vetName} — your account is ready`,
     html: wrapEmailBody(`
       <p style="${textStyle}">Dear Dr. ${params.vetName},</p>
       <p style="${textStyle}">
-        Your veterinarian account on Furrie has been created. You can now access the vet portal to manage your consultations.
+        Welcome to Furrie. We're glad to have you on the platform.
+      </p>
+      <p style="${textStyle}">
+        Your vet account has been created. Here are your login credentials:
       </p>
       <div style="${infoBox}">
         <p style="${labelStyle}">Email</p>
@@ -524,14 +588,22 @@ export function vetWelcomeEmail(params: {
         <p style="${labelStyle}">Temporary Password</p>
         <p style="margin: 0; color: #333; font-size: 16px; font-weight: 600; font-family: monospace;">${params.temporaryPassword}</p>
       </div>
-      <p style="font-size: 14px; color: #c00; margin: 0 0 24px 0; font-weight: 600;">
-        Please change your password after your first login.
+      <div style="background: #FEF2F2; border-left: 4px solid #DC2626; padding: 12px 16px; margin: 0 0 24px 0;">
+        <p style="margin: 0; color: #991B1B; font-size: 14px; font-weight: 600;">
+          Important: Please change your password immediately after your first login. This temporary password will remain active until you do, and we strongly recommend updating it before your first consultation.
+        </p>
+      </div>
+      <p style="${textStyle}">
+        Once you're logged in, you'll be able to view your consultation schedule, conduct video consultations, submit notes, create care plans, and manage prescriptions &mdash; all from your vet dashboard.
       </p>
       <div style="text-align: center; margin: 32px 0;">
         <a href="${VET_URL}/login" style="${btnPrimary}">Login to Vet Portal</a>
       </div>
       <p style="${textStyle}">
-        Best regards,<br><strong>The Furrie Team</strong>
+        If you have any questions about the platform or need support getting set up, reply to this email. We're here to help.
+      </p>
+      <p style="${textStyle}">
+        Welcome aboard,<br><strong>Team Furrie</strong>
       </p>
     `),
   };
@@ -549,31 +621,31 @@ export function carePlanCreatedEmail(params: {
 }): { subject: string; html: string } {
   const { customerName, petName, vetName, planTitle, planCategory, stepCount, petId } = params;
   return {
-    subject: `New Care Plan for ${petName}: ${planTitle}`,
+    subject: `${petName}'s new care plan — ${planTitle}`,
     html: wrapEmailBody(`
-      <h1 style="font-size: 24px; color: #333; margin: 0 0 8px 0;">New Care Plan</h1>
+      <p style="${textStyle}">${emailGreeting(customerName)}</p>
       <p style="${textStyle}">
-        Hi ${customerName},
-      </p>
-      <p style="${textStyle}">
-        Dr. ${vetName} has created a new care plan for <strong>${petName}</strong>.
+        Dr. ${vetName} has created a new care plan for ${petName}.
       </p>
       <div style="${infoBox}">
         <p style="${labelStyle}">Plan</p>
         <p style="${valueStyle}">${planTitle}</p>
         <p style="${labelStyle}">Category</p>
-        <p style="${valueStyle}">${planCategory.charAt(0).toUpperCase() + planCategory.slice(1)} Care</p>
+        <p style="${valueStyle}">${planCategory.charAt(0).toUpperCase() + planCategory.slice(1)}</p>
         <p style="${labelStyle}">Steps</p>
-        <p style="${valueStyle}">${stepCount} step${stepCount !== 1 ? 's' : ''} to follow</p>
+        <p style="${valueStyle}">${stepCount} step${stepCount !== 1 ? 's' : ''}</p>
       </div>
       <p style="${textStyle}">
-        Open the plan in the Furrie app to see the steps and get started.
+        This plan was built specifically for ${petName} based on your consultation. You'll find each step laid out clearly in your dashboard &mdash; what to do, when to do it, and what to watch for.
       </p>
       <div style="text-align: center; margin: 32px 0;">
         <a href="${APP_URL}/pets/${petId}" style="${btnPrimary}">View Care Plan</a>
       </div>
       <p style="${textStyle}">
-        Best regards,<br><strong>The Furrie Team</strong>
+        If you have questions about any of the steps, you can use your follow-up thread or book a quick consultation with Dr. ${vetName}.
+      </p>
+      <p style="${textStyle}">
+        <strong>Team Furrie</strong>
       </p>
     `),
   };

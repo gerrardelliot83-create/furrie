@@ -334,6 +334,111 @@ export type Database = {
           },
         ]
       }
+      consultation_pack_uses: {
+        Row: {
+          consultation_id: string
+          id: string
+          pack_id: string
+          used_at: string | null
+        }
+        Insert: {
+          consultation_id: string
+          id?: string
+          pack_id: string
+          used_at?: string | null
+        }
+        Update: {
+          consultation_id?: string
+          id?: string
+          pack_id?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consultation_pack_uses_consultation_id_fkey"
+            columns: ["consultation_id"]
+            isOneToOne: true
+            referencedRelation: "consultations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultation_pack_uses_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "consultation_packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      consultation_packs: {
+        Row: {
+          created_at: string | null
+          customer_id: string
+          discount_percent: number
+          expires_at: string | null
+          id: string
+          pack_size: number
+          payment_id: string | null
+          purchased_at: string | null
+          remaining_count: number | null
+          status: string
+          total_consultations: number
+          total_price: number
+          unit_price: number
+          updated_at: string | null
+          used_count: number
+        }
+        Insert: {
+          created_at?: string | null
+          customer_id: string
+          discount_percent: number
+          expires_at?: string | null
+          id?: string
+          pack_size: number
+          payment_id?: string | null
+          purchased_at?: string | null
+          remaining_count?: number | null
+          status?: string
+          total_consultations: number
+          total_price: number
+          unit_price?: number
+          updated_at?: string | null
+          used_count?: number
+        }
+        Update: {
+          created_at?: string | null
+          customer_id?: string
+          discount_percent?: number
+          expires_at?: string | null
+          id?: string
+          pack_size?: number
+          payment_id?: string | null
+          purchased_at?: string | null
+          remaining_count?: number | null
+          status?: string
+          total_consultations?: number
+          total_price?: number
+          unit_price?: number
+          updated_at?: string | null
+          used_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consultation_packs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultation_packs_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       consultation_ratings: {
         Row: {
           consultation_id: string

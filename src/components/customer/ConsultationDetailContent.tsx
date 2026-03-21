@@ -300,13 +300,13 @@ export function ConsultationDetailContent({ consultationId, onCancelSuccess, onO
               <span className={styles.detailValue}>{durationMinutes} min</span>
             </div>
           )}
-          {consultation.amount_paid !== null && consultation.amount_paid > 0 && (
+          {FEATURES.ENABLE_PAYMENTS && consultation.amount_paid !== null && consultation.amount_paid > 0 && (
             <div className={styles.detailItem}>
               <span className={styles.detailLabel}>Paid</span>
               <span className={styles.detailValue}>{formatCurrency(consultation.amount_paid)}</span>
             </div>
           )}
-          {consultation.is_free && (
+          {FEATURES.ENABLE_PAYMENTS && consultation.is_free && (
             <div className={styles.detailItem}>
               <span className={styles.detailLabel}>Payment</span>
               <span className={styles.detailValue}>

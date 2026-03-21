@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { ConsultationCard } from '@/components/consultation';
 import { PackSection } from '@/components/customer/PackSection';
+import { FEATURES } from '@/lib/config/features';
 import { PackCtaCard } from '@/components/customer';
 import styles from './Dashboard.module.css';
 
@@ -212,11 +213,11 @@ export default async function CustomerDashboard() {
             {tConsultation('startConsultation')}
           </Link>
         </div>
-        <PackCtaCard packs={packsData || []} />
+        {FEATURES.ENABLE_PAYMENTS && <PackCtaCard packs={packsData || []} />}
       </section>
 
-      {/* Consultation Packs */}
-      {(packsData && packsData.length > 0) && (
+      {/* Consultation Packs — hidden when payments are disabled */}
+      {FEATURES.ENABLE_PAYMENTS && (packsData && packsData.length > 0) && (
         <section className={styles.section}>
           <div className={styles.sectionHeader}>
             <h2 className={styles.sectionTitle}>My Packs</h2>

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import type { Pet } from '@/types';
 import { hasSevereSymptoms } from '@/lib/data/symptoms';
+import { FEATURES } from '@/lib/config/features';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { Textarea } from '@/components/ui/Textarea';
@@ -90,7 +91,7 @@ export function ConnectFlow({ initialPets, plusPetIds = [], hasPackCredit = fals
     'confirmation': 5,
   }[currentStep];
 
-  const stepLabels = ['Pet', 'Concern', 'Time', isFreeBooking ? 'Review' : 'Pay', 'Done'];
+  const stepLabels = ['Pet', 'Concern', 'Time', (!FEATURES.ENABLE_PAYMENTS || isFreeBooking) ? 'Review' : 'Pay', 'Done'];
 
   // Navigation handlers
   const goToStep = (step: FlowStep) => {
@@ -469,7 +470,7 @@ export function ConnectFlow({ initialPets, plusPetIds = [], hasPackCredit = fals
 
   return (
     <div className={styles.container}>
-      {showPendingBanner && pendingConsultation && (
+      {FEATURES.ENABLE_PAYMENTS && showPendingBanner && pendingConsultation && (
         <div className={styles.pendingBanner}>
           <div className={styles.pendingBannerContent}>
             <h3 className={styles.pendingBannerTitle}>You have a pending consultation</h3>

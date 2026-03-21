@@ -49,7 +49,7 @@ export function ConsultationSummary({
 
   return (
     <div className={cn(styles.container, className)}>
-      <h2 className={styles.title}>{t('reviewAndPay')}</h2>
+      <h2 className={styles.title}>{FEATURES.ENABLE_PAYMENTS ? t('reviewAndPay') : 'Review Your Booking'}</h2>
       <p className={styles.subtitle}>Please review your consultation request</p>
 
       {/* Pet Summary Card */}
@@ -124,74 +124,60 @@ export function ConsultationSummary({
         )}
       </div>
 
-      {/* Pricing Card */}
-      <div className={styles.pricingCard}>
-        {(FEATURES.ENABLE_SUBSCRIPTIONS && isPlusUser) ? (
-          <div className={styles.plusBadge}>
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-            <span>Included in your Furrie Plus plan</span>
-          </div>
-        ) : hasPackCredit ? (
-          <div className={styles.plusBadge}>
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-            <span>Using pack credit ({packCreditsRemaining} remaining after this)</span>
-          </div>
-        ) : SKIP_PAYMENTS ? (
-          <>
-            <div className={styles.priceRow}>
-              <span>Consultation Fee</span>
-              <span>{formatCurrency(consultationFee)}</span>
-            </div>
-            <div className={styles.divider} />
-            <div className={styles.softLaunchNotice}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="8" x2="12" y2="12" />
-                <line x1="12" y1="16" x2="12.01" y2="16" />
+      {/* Pricing Card — hidden when payments are disabled */}
+      {FEATURES.ENABLE_PAYMENTS && (
+        <div className={styles.pricingCard}>
+          {(FEATURES.ENABLE_SUBSCRIPTIONS && isPlusUser) ? (
+            <div className={styles.plusBadge}>
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="20 6 9 17 4 12" />
               </svg>
-              <span>Payment will be collected separately. You can proceed with your consultation booking.</span>
+              <span>Included in your Furrie Plus plan</span>
             </div>
-          </>
-        ) : (
-          <>
-            <div className={styles.priceRow}>
-              <span>Consultation Fee</span>
-              <span>{formatCurrency(consultationFee)}</span>
+          ) : hasPackCredit ? (
+            <div className={styles.plusBadge}>
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              <span>Using pack credit ({packCreditsRemaining} remaining after this)</span>
             </div>
-            <div className={styles.priceRow}>
-              <span>GST (18%)</span>
-              <span>{formatCurrency(taxAmount)}</span>
-            </div>
-            <div className={styles.divider} />
-            <div className={cn(styles.priceRow, styles.total)}>
-              <span>Total</span>
-              <span>{formatCurrency(totalAmount)}</span>
-            </div>
-          </>
-        )}
-      </div>
+          ) : (
+            <>
+              <div className={styles.priceRow}>
+                <span>Consultation Fee</span>
+                <span>{formatCurrency(consultationFee)}</span>
+              </div>
+              <div className={styles.priceRow}>
+                <span>GST (18%)</span>
+                <span>{formatCurrency(taxAmount)}</span>
+              </div>
+              <div className={styles.divider} />
+              <div className={cn(styles.priceRow, styles.total)}>
+                <span>Total</span>
+                <span>{formatCurrency(totalAmount)}</span>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Terms Checkbox */}
       <label className={styles.termsLabel}>
@@ -226,7 +212,7 @@ export function ConsultationSummary({
           disabled={!agreedToTerms || loading}
           loading={loading}
         >
-          {(FEATURES.ENABLE_SUBSCRIPTIONS && isPlusUser) || hasPackCredit ? 'Connect Now' : SKIP_PAYMENTS ? 'Book Consultation' : 'Pay & Connect'}
+          {!FEATURES.ENABLE_PAYMENTS ? 'Book Consultation' : (FEATURES.ENABLE_SUBSCRIPTIONS && isPlusUser) || hasPackCredit ? 'Connect Now' : 'Pay & Connect'}
         </Button>
       </div>
     </div>

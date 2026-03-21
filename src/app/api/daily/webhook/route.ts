@@ -24,6 +24,15 @@ export async function POST(request: NextRequest) {
     // Get raw body for signature verification
     const rawBody = await request.text();
 
+    // Allow Daily.co webhook validation pings (sent without signature headers during setup)
+    const userAgent = request.headers.get('user-agent') || '';
+    if (!rawBody || rawBody === '{}' || userAgent.includes('Daily')) {
+      const parsed = rawBody ? JSON.parse(rawBody) : {};
+      if (!parsed.event) {
+        return NextResponse.json({ received: true });
+      }
+    }
+
     // Verify webhook signature if secret is configured
     if (DAILY_WEBHOOK_SECRET) {
       const signature = request.headers.get('x-webhook-signature');

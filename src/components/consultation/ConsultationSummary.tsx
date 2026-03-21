@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import type { Pet } from '@/types';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
+import { SKIP_PAYMENTS } from '@/lib/payments';
 import styles from './ConsultationSummary.module.css';
 
 interface ConsultationSummaryProps {
@@ -136,6 +137,22 @@ export function ConsultationSummary({
             </svg>
             <span>Included in your Furrie Plus plan</span>
           </div>
+        ) : SKIP_PAYMENTS ? (
+          <>
+            <div className={styles.priceRow}>
+              <span>Consultation Fee</span>
+              <span>{formatCurrency(consultationFee)}</span>
+            </div>
+            <div className={styles.divider} />
+            <div className={styles.softLaunchNotice}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+              <span>Payment will be collected separately. You can proceed with your consultation booking.</span>
+            </div>
+          </>
         ) : (
           <>
             <div className={styles.priceRow}>
@@ -188,7 +205,7 @@ export function ConsultationSummary({
           disabled={!agreedToTerms || loading}
           loading={loading}
         >
-          {isPlusUser ? 'Connect Now' : 'Pay & Connect'}
+          {isPlusUser ? 'Connect Now' : SKIP_PAYMENTS ? 'Book Consultation' : 'Pay & Connect'}
         </Button>
       </div>
     </div>

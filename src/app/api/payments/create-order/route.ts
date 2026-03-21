@@ -3,10 +3,18 @@ import { createClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { createOrder, SKIP_PAYMENTS, PAYMENT_GATEWAY } from '@/lib/payments';
 import { sendBookingConfirmationEmail, sendVetNewBookingEmail } from '@/lib/email';
+import { checkRateLimit, getClientIp, RATE_LIMITS, rateLimitResponse } from '@/lib/utils/rate-limit';
 import type { CreateOrderRequest } from '@/lib/payments/types';
 
 export async function POST(request: Request) {
   try {
+    // Rate limit: 10 payment requests per minute per IP
+    const ip = getClientIp(request);
+    const rateCheck = checkRateLimit(`payment:${ip}`, RATE_LIMITS.payment);
+    if (!rateCheck.success) {
+      return rateLimitResponse(rateCheck.resetAt);
+    }
+
     const supabase = await createClient();
 
     // Verify user is authenticated

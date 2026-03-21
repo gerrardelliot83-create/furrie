@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 import createNextIntlPlugin from "next-intl/plugin";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
@@ -24,6 +25,59 @@ const nextConfig: NextConfig = {
         hostname: "*.ufs.sh", // UploadThing V7+ dynamic subdomains
       },
     ],
+  },
+
+  // Security headers for production
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains; preload",
+          },
+          {
+            key: "X-Frame-Options",
+            value: "DENY",
+          },
+          {
+            key: "X-Content-Type-Options",
+            value: "nosniff",
+          },
+          {
+            key: "Referrer-Policy",
+            value: "strict-origin-when-cross-origin",
+          },
+          {
+            key: "X-DNS-Prefetch-Control",
+            value: "on",
+          },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(self), microphone=(self), geolocation=()",
+          },
+          {
+            key: "Content-Security-Policy",
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.daily.co https://*.supabase.co",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: blob: https://*.supabase.co https://api.furrie.in https://utfs.io https://*.ufs.sh https://*.daily.co",
+              "font-src 'self' data:",
+              "connect-src 'self' https://*.supabase.co https://api.furrie.in https://*.daily.co wss://*.daily.co https://utfs.io https://*.ufs.sh https://*.uploadthing.com https://*.ingest.sentry.io",
+              "frame-src 'self' https://*.daily.co",
+              "media-src 'self' blob: https://*.daily.co https://*.supabase.co",
+              "worker-src 'self' blob:",
+              "object-src 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+              "frame-ancestors 'none'",
+            ].join("; "),
+          },
+        ],
+      },
+    ];
   },
 
   // Subdomain-based routing for local development
@@ -57,4 +111,26 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withNextIntl(nextConfig);
+export default withSentryConfig(withNextIntl(nextConfig), {
+  // Upload source maps for better stack traces
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+
+  // Widen client file upload to include all source files
+  widenClientFileUpload: true,
+
+  // Route Sentry events through a tunnel to avoid ad blockers
+  tunnelRoute: "/monitoring",
+
+  // Suppress logs unless in CI
+  silent: !process.env.CI,
+
+  // Automatically tree-shake Sentry logger statements
+  disableLogger: true,
+
+  // Hide source maps from client bundles
+  sourcemaps: {
+    deleteSourcemapsAfterUpload: true,
+  },
+});

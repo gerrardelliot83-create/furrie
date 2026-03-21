@@ -80,6 +80,7 @@ export default function VetVideoRoomPage() {
   const [error, setError] = useState<string | null>(null);
   const [tokenData, setTokenData] = useState<TokenResponse | null>(null);
   const [consultationInfo, setConsultationInfo] = useState<ConsultationInfo | null>(null);
+  const [recordingConsent, setRecordingConsent] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [callObject, setCallObject] = useState<any>(null);
 
@@ -269,14 +270,26 @@ export default function VetVideoRoomPage() {
               <line x1="12" y1="8" x2="12" y2="12" />
               <line x1="12" y1="16" x2="12.01" y2="16" />
             </svg>
-            <span>Remember to start recording once the consultation begins.</span>
+            <span>This consultation will be recorded. Ensure the pet parent is aware that recording begins automatically when you join.</span>
           </div>
+
+          <label className={styles.consentLabel}>
+            <input
+              type="checkbox"
+              checked={recordingConsent}
+              onChange={(e) => setRecordingConsent(e.target.checked)}
+              className={styles.consentCheckbox}
+            />
+            <span className={styles.consentText}>
+              I acknowledge that this consultation will be recorded and the pet parent has been informed.
+            </span>
+          </label>
 
           <div className={styles.actions}>
             <Button variant="ghost" onClick={() => router.push('/consultations')}>
               Cancel
             </Button>
-            <Button variant="primary" onClick={handleJoin}>
+            <Button variant="primary" onClick={handleJoin} disabled={!recordingConsent}>
               Join Consultation
             </Button>
           </div>

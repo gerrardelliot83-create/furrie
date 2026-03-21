@@ -5,6 +5,7 @@ import { findAvailableVetForSlot, SCHEDULING_CONSTANTS } from '@/lib/scheduling'
 import { checkPlusSubscriptionWithClient } from '@/lib/utils/followUpHelpers';
 import { findActivePackWithCredits, deductPackCredit } from '@/lib/utils/packHelpers';
 import { sendBookingConfirmationEmail, sendVetNewBookingEmail } from '@/lib/email';
+import { checkRateLimit, getClientIp, RATE_LIMITS, rateLimitResponse } from '@/lib/utils/rate-limit';
 import { PACK_UNIT_PRICE } from '@/types';
 
 interface MediaUploadRef {
@@ -62,6 +63,13 @@ interface BookRequest {
  */
 export async function POST(request: Request) {
   try {
+    // Rate limit: 10 booking requests per minute per IP
+    const ip = getClientIp(request);
+    const rateCheck = checkRateLimit(`book:${ip}`, RATE_LIMITS.payment);
+    if (!rateCheck.success) {
+      return rateLimitResponse(rateCheck.resetAt);
+    }
+
     const supabase = await createClient();
 
     // Verify authentication

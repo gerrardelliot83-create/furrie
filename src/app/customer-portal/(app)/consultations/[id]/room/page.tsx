@@ -74,6 +74,7 @@ export default function CustomerVideoRoomPage() {
   const [error, setError] = useState<string | null>(null);
   const [tokenData, setTokenData] = useState<TokenResponse | null>(null);
   const [vetInfo, setVetInfo] = useState<VetInfo | null>(null);
+  const [recordingConsent, setRecordingConsent] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [callObject, setCallObject] = useState<any>(null);
 
@@ -240,14 +241,26 @@ export default function CustomerVideoRoomPage() {
               <line x1="12" y1="8" x2="12" y2="12" />
               <line x1="12" y1="16" x2="12.01" y2="16" />
             </svg>
-            <span>This consultation may be recorded for quality and training purposes.</span>
+            <span>This consultation will be recorded. Both audio and video are captured for quality assurance and your medical records.</span>
           </div>
+
+          <label className={styles.consentLabel}>
+            <input
+              type="checkbox"
+              checked={recordingConsent}
+              onChange={(e) => setRecordingConsent(e.target.checked)}
+              className={styles.consentCheckbox}
+            />
+            <span className={styles.consentText}>
+              I understand and agree that this consultation will be recorded for quality assurance and medical record purposes.
+            </span>
+          </label>
 
           <div className={styles.actions}>
             <Button variant="ghost" onClick={handleCancel}>
               Cancel
             </Button>
-            <Button variant="primary" onClick={handleJoin}>
+            <Button variant="primary" onClick={handleJoin} disabled={!recordingConsent}>
               Join Consultation
             </Button>
           </div>

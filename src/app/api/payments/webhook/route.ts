@@ -70,6 +70,21 @@ export async function POST(request: Request) {
       );
     }
 
+    // Use admin client to update payment (bypasses RLS)
+    const supabase = createClient();
+
+    // Idempotency check: if payment already processed, return 200 immediately
+    const { data: existingPayment } = await supabase
+      .from('payments')
+      .select('status')
+      .eq('cashfree_order_id', orderId)
+      .single();
+
+    if (existingPayment?.status === 'completed') {
+      console.log(`[webhook] Payment ${orderId} already completed — skipping duplicate webhook`);
+      return NextResponse.json({ success: true, message: 'Already processed' });
+    }
+
     // Map gateway status to our status
     const statusMap: Record<string, PaymentStatus> = {
       'PAID': 'completed',
@@ -87,9 +102,6 @@ export async function POST(request: Request) {
     };
 
     const status: PaymentStatus = statusMap[statusRaw || ''] || 'pending';
-
-    // Use admin client to update payment (bypasses RLS)
-    const supabase = createClient();
 
     // Update payment record
     const { error: updateError } = await supabase

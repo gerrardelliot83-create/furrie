@@ -32,23 +32,17 @@ export async function POST(request: NextRequest) {
     // Get raw body for signature verification
     const rawBody = await request.text();
 
-    // Allow Daily.co webhook validation pings (sent without signature headers during setup)
-    const userAgent = request.headers.get('user-agent') || '';
-    if (!rawBody || rawBody === '{}' || userAgent.includes('Daily')) {
-      const parsed = rawBody ? JSON.parse(rawBody) : {};
-      if (!parsed.event) {
-        return NextResponse.json({ received: true });
-      }
-    }
-
     // Verify webhook signature if secret is configured
+    // Allow requests without signature headers to pass (Daily.co validation pings)
     if (DAILY_WEBHOOK_SECRET) {
       const signature = request.headers.get('x-webhook-signature');
       const timestamp = request.headers.get('x-webhook-timestamp');
 
       if (!signature || !timestamp) {
-        console.error('Missing webhook signature headers');
-        return NextResponse.json({ error: 'Missing signature' }, { status: 401 });
+        // No signature headers = likely a Daily.co validation ping during webhook setup
+        // Return 200 to pass validation; real events always include signature headers
+        console.log('Webhook request without signature headers — treating as validation ping');
+        return NextResponse.json({ received: true });
       }
 
       // Verify signature: HMAC-SHA256(timestamp.rawBody)

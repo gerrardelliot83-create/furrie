@@ -7,6 +7,14 @@ import { checkPlusSubscriptionWithClient, calculateThreadExpiry } from '@/lib/ut
 const DAILY_WEBHOOK_SECRET = process.env.DAILY_WEBHOOK_SECRET;
 
 /**
+ * GET /api/daily/webhook
+ * Daily.co sends a GET request to validate the webhook URL during registration
+ */
+export async function GET() {
+  return NextResponse.json({ status: 'ok' });
+}
+
+/**
  * POST /api/daily/webhook
  * Handles Daily.co webhook events
  *

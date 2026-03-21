@@ -112,15 +112,19 @@ const nextConfig: NextConfig = {
 };
 
 export default withSentryConfig(withNextIntl(nextConfig), {
-  // Suppress source map upload logs in CI
-  silent: true,
-
   // Upload source maps for better stack traces
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
-
-  // Only upload source maps when SENTRY_AUTH_TOKEN is available
   authToken: process.env.SENTRY_AUTH_TOKEN,
+
+  // Widen client file upload to include all source files
+  widenClientFileUpload: true,
+
+  // Route Sentry events through a tunnel to avoid ad blockers
+  tunnelRoute: "/monitoring",
+
+  // Suppress logs unless in CI
+  silent: !process.env.CI,
 
   // Automatically tree-shake Sentry logger statements
   disableLogger: true,

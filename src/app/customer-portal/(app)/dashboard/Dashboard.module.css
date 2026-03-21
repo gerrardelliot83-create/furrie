@@ -23,6 +23,14 @@
   color: var(--gray-500);
 }
 
+/* CTA Grid */
+.ctaGrid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-bottom: var(--space-2);
+}
+
 /* Quick Connect CTA */
 .ctaSection {
   margin-bottom: var(--space-2);
@@ -310,10 +318,12 @@
 
 /* Tablet+ */
 @media (min-width: 768px) {
-  .ctaCard {
+  .ctaGrid {
     flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
+  }
+
+  .ctaCard {
+    flex: 1;
   }
 
   .greeting {

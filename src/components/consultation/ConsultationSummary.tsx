@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import type { Pet } from '@/types';
+import { FEATURES } from '@/lib/config/features';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { SKIP_PAYMENTS } from '@/lib/payments';
@@ -14,6 +15,8 @@ interface ConsultationSummaryProps {
   concernText: string;
   symptoms: string[];
   isPlusUser?: boolean;
+  hasPackCredit?: boolean;
+  packCreditsRemaining?: number;
   onSubmit: () => void;
   onBack: () => void;
   loading?: boolean;
@@ -25,6 +28,8 @@ export function ConsultationSummary({
   concernText,
   symptoms,
   isPlusUser = false,
+  hasPackCredit = false,
+  packCreditsRemaining = 0,
   onSubmit,
   onBack,
   loading = false,
@@ -121,7 +126,7 @@ export function ConsultationSummary({
 
       {/* Pricing Card */}
       <div className={styles.pricingCard}>
-        {isPlusUser ? (
+        {(FEATURES.ENABLE_SUBSCRIPTIONS && isPlusUser) ? (
           <div className={styles.plusBadge}>
             <svg
               width="20"
@@ -136,6 +141,22 @@ export function ConsultationSummary({
               <polyline points="20 6 9 17 4 12" />
             </svg>
             <span>Included in your Furrie Plus plan</span>
+          </div>
+        ) : hasPackCredit ? (
+          <div className={styles.plusBadge}>
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            <span>Using pack credit ({packCreditsRemaining} remaining after this)</span>
           </div>
         ) : SKIP_PAYMENTS ? (
           <>
@@ -205,7 +226,7 @@ export function ConsultationSummary({
           disabled={!agreedToTerms || loading}
           loading={loading}
         >
-          {isPlusUser ? 'Connect Now' : SKIP_PAYMENTS ? 'Book Consultation' : 'Pay & Connect'}
+          {(FEATURES.ENABLE_SUBSCRIPTIONS && isPlusUser) || hasPackCredit ? 'Connect Now' : SKIP_PAYMENTS ? 'Book Consultation' : 'Pay & Connect'}
         </Button>
       </div>
     </div>

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
 import { createClient } from '@/lib/supabase/server';
+import { FEATURES } from '@/lib/config/features';
 import { mapPetFromDB } from '@/lib/utils/petMapper';
 import { ConnectFlow } from './ConnectFlow';
 import styles from './ConnectPage.module.css';
@@ -45,21 +46,38 @@ export default async function ConnectPage({
 
   const pets = (petsData || []).map(mapPetFromDB);
 
-  // Fetch active Plus subscriptions for the user's pets
-  const { data: subscriptions } = await supabase
-    .from('subscriptions')
-    .select('pet_id, plan_type, status, expires_at')
+  // Fetch active Plus subscriptions (only when subscriptions feature is enabled)
+  let plusPetIds: string[] = [];
+  if (FEATURES.ENABLE_SUBSCRIPTIONS) {
+    const { data: subscriptions } = await supabase
+      .from('subscriptions')
+      .select('pet_id, plan_type, status, expires_at')
+      .eq('customer_id', user.id)
+      .eq('status', 'active')
+      .eq('plan_type', 'plus');
+
+    const now = new Date();
+    plusPetIds = (subscriptions || [])
+      .filter((sub) => {
+        if (!sub.expires_at) return true; // NULL = indefinite
+        return new Date(sub.expires_at) > now;
+      })
+      .map((sub) => sub.pet_id as string);
+  }
+
+  // Check for active pack credits
+  const { data: activePack } = await supabase
+    .from('consultation_packs')
+    .select('id, remaining_count')
     .eq('customer_id', user.id)
     .eq('status', 'active')
-    .eq('plan_type', 'plus');
+    .gt('remaining_count', 0)
+    .order('purchased_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
 
-  const now = new Date();
-  const plusPetIds = (subscriptions || [])
-    .filter((sub) => {
-      if (!sub.expires_at) return true; // NULL = indefinite
-      return new Date(sub.expires_at) > now;
-    })
-    .map((sub) => sub.pet_id as string);
+  const hasPackCredit = !!activePack && activePack.remaining_count > 0;
+  const packCreditsRemaining = activePack?.remaining_count ?? 0;
 
   // Check for pending consultations (payment abandoned)
   const { data: pendingConsultation } = await supabase
@@ -83,6 +101,8 @@ export default async function ConnectPage({
       <ConnectFlow
         initialPets={pets}
         plusPetIds={plusPetIds}
+        hasPackCredit={hasPackCredit}
+        packCreditsRemaining={packCreditsRemaining}
         preselectedPetId={preselectedPetId || null}
         pendingConsultation={pendingConsultation ? {
           id: pendingConsultation.id,

@@ -1,0 +1,137 @@
+.card {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  cursor: default;
+  transition: box-shadow var(--transition-fast);
+}
+
+.card[role='button'] {
+  cursor: pointer;
+}
+
+.card[role='button']:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.inactive {
+  opacity: 0.6;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+
+.packLabel {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.status {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-full);
+}
+
+.status_active {
+  background: color-mix(in srgb, var(--color-sage) 20%, transparent);
+  color: #3a6a2e;
+}
+
+.status_exhausted {
+  background: color-mix(in srgb, var(--color-text-tertiary) 15%, transparent);
+  color: var(--color-text-tertiary);
+}
+
+.status_expired {
+  background: color-mix(in srgb, var(--color-error) 10%, transparent);
+  color: var(--color-error);
+}
+
+.status_cancelled {
+  background: color-mix(in srgb, var(--color-error) 10%, transparent);
+  color: var(--color-error);
+}
+
+.credits {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+}
+
+.remaining {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary);
+  line-height: var(--line-height-tight);
+}
+
+.separator {
+  font-size: var(--font-size-lg);
+  color: var(--color-text-tertiary);
+}
+
+.total {
+  font-size: var(--font-size-lg);
+  color: var(--color-text-tertiary);
+}
+
+.label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-left: var(--space-1);
+}
+
+.progressBar {
+  height: 6px;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-bottom: var(--space-3);
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: var(--radius-full);
+  transition: width var(--transition-base);
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.price {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.discount {
+  font-size: var(--font-size-xs);
+  color: #3a6a2e;
+  background: color-mix(in srgb, var(--color-sage) 20%, transparent);
+  padding: 2px var(--space-1);
+  border-radius: var(--radius-sm);
+}
+
+.date {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.expiry {
+  color: var(--color-warning);
+}

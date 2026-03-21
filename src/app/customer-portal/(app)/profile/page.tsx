@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
 import { createClient } from '@/lib/supabase/server';
 import type { User } from '@/types';
+import { FEATURES } from '@/lib/config/features';
 import { ProfileContent } from './ProfileContent';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -50,15 +51,18 @@ export default async function ProfilePage() {
     updatedAt: profileData.updated_at ?? '',
   };
 
-  // Check for active subscription (any pet with active Plus subscription)
-  const { data: subscriptionData } = await supabase
-    .from('subscriptions')
-    .select('id')
-    .eq('customer_id', user.id)
-    .eq('status', 'active')
-    .limit(1);
+  // Check for active subscription (only when subscriptions feature is enabled)
+  let hasActiveSubscription = false;
+  if (FEATURES.ENABLE_SUBSCRIPTIONS) {
+    const { data: subscriptionData } = await supabase
+      .from('subscriptions')
+      .select('id')
+      .eq('customer_id', user.id)
+      .eq('status', 'active')
+      .limit(1);
 
-  const hasActiveSubscription = (subscriptionData?.length ?? 0) > 0;
+    hasActiveSubscription = (subscriptionData?.length ?? 0) > 0;
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>

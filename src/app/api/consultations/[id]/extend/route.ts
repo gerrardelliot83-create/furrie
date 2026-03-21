@@ -50,8 +50,8 @@ export async function POST(
       );
     }
 
-    // Verify consultation is in progress
-    if (consultation.status !== 'in_progress') {
+    // Verify consultation is active (status='active' per migration 004)
+    if (consultation.status !== 'active') {
       return NextResponse.json(
         { error: 'Can only extend active consultations', code: 'INVALID_STATUS' },
         { status: 400 }

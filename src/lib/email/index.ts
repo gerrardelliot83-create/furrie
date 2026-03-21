@@ -83,32 +83,37 @@ export async function sendPrescriptionEmail(params: {
   const html = `
     <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 0 auto; padding: 0;">
       <div style="background: #1E5081; padding: 24px; text-align: center;">
-        <img src="https://app.furrie.in/assets/furrie-logo.png" alt="Furrie" style="height: 40px; width: auto;" />
+        <img src="https://app.furrie.in/assets/logo/furrie-logo-dark-blue.png" alt="Furrie" style="height: 40px; width: auto;" />
         <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 14px;">Veterinary Teleconsultation</p>
       </div>
       <div style="padding: 32px 24px; background: #ffffff;">
-        <p style="font-size: 16px; color: #333; margin: 0 0 16px 0;">Dear ${params.customerName},</p>
-        <p style="font-size: 16px; color: #333; margin: 0 0 16px 0;">
-          Your treatment plan for <strong>${params.petName}</strong> is now ready.
+        <p style="font-size: 16px; color: #333; line-height: 1.6; margin: 0 0 16px 0;">Dear ${params.customerName},</p>
+        <p style="font-size: 16px; color: #333; line-height: 1.6; margin: 0 0 16px 0;">
+          Dr. ${params.vetName} has prepared a treatment plan for ${params.petName}. The complete plan is attached to this email as a PDF.
         </p>
         <div style="background: #f8f8f8; border-left: 4px solid #1E5081; padding: 16px; margin: 24px 0;">
-          <p style="margin: 0 0 8px 0; color: #666; font-size: 14px;">Treatment Plan Number</p>
+          <p style="margin: 0 0 4px 0; color: #666; font-size: 13px;">Treatment Plan</p>
           <p style="margin: 0; color: #333; font-size: 18px; font-weight: 600;">${params.prescriptionNumber}</p>
         </div>
-        <p style="font-size: 16px; color: #333; margin: 0 0 16px 0;">
-          Dr. ${params.vetName} has completed your teleconsultation and prepared the attached treatment plan for ${params.petName}.
+        <p style="font-size: 16px; color: #333; line-height: 1.6; margin: 0 0 16px 0;">
+          Please review the plan carefully. It includes medication details, dosages, frequency, and any special instructions. If anything is unclear, reach out to Dr. ${params.vetName} through your follow-up thread or book a follow-up consultation.
         </p>
-        <p style="font-size: 16px; color: #333; margin: 0 0 16px 0;">
-          The treatment plan PDF is attached to this email. You can also access it anytime through the Furrie app.
+        <p style="font-size: 16px; color: #333; line-height: 1.6; margin: 0 0 16px 0;">
+          You can also access this treatment plan anytime from ${params.petName}'s profile in your Furrie dashboard.
         </p>
-        <p style="font-size: 16px; color: #333; margin: 32px 0 0 0;">
-          Best regards,<br>
-          <strong>The Furrie Team</strong>
+        <p style="font-size: 13px; color: #666; line-height: 1.6; margin: 24px 0 0 0; border-top: 1px solid #eee; padding-top: 16px;">
+          This treatment plan was prepared by a licensed veterinarian based on a teleconsultation. If your pet's condition changes or worsens, please seek in-person veterinary care immediately.
+        </p>
+        <p style="font-size: 16px; color: #333; line-height: 1.6; margin: 24px 0 0 0;">
+          <strong>Team Furrie</strong>
         </p>
       </div>
       <div style="background: #f5f5f5; padding: 16px 24px; text-align: center;">
         <p style="margin: 0; font-size: 12px; color: #999;">
-          This is an automated message from Furrie. Please do not reply to this email.
+          This is an automated message from Furrie. Please do not reply unless instructed to in the email above.
+        </p>
+        <p style="margin: 4px 0 0 0; font-size: 12px; color: #999;">
+          Furrie &mdash; Veterinary Teleconsultation &mdash; India
         </p>
       </div>
     </div>
@@ -116,7 +121,7 @@ export async function sendPrescriptionEmail(params: {
 
   return sendEmail({
     to: params.customerEmail,
-    subject: `Treatment Plan for ${params.petName} - ${params.prescriptionNumber}`,
+    subject: `Treatment plan for ${params.petName} — ${params.prescriptionNumber}`,
     html,
     from: FROM_PRESCRIPTIONS,
     attachments: [{

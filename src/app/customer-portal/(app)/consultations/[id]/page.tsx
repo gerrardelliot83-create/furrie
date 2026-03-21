@@ -12,6 +12,7 @@ import { JoinCallButton } from '@/components/consultation/JoinCallButton';
 import { CancelConsultationButton } from '@/components/consultation/CancelConsultationButton';
 import { MediaUpload } from '@/components/consultation/MediaUpload';
 import { getStatusVariant, getStatusDisplayText } from '@/lib/utils/statusHelpers';
+import { FEATURES } from '@/lib/config/features';
 import type { ConsultationStatus, ConsultationOutcome } from '@/types';
 import styles from './ConsultationDetail.module.css';
 
@@ -280,7 +281,7 @@ export default async function ConsultationDetailPage({ params }: ConsultationDet
           <div className={styles.detailRow}>
             <span className={styles.detailLabel}>Payment</span>
             <span className={styles.detailValue}>
-              <Badge variant="success" size="sm">Included in Furrie Plus</Badge>
+              <Badge variant="success" size="sm">{FEATURES.ENABLE_SUBSCRIPTIONS ? 'Included in Furrie Plus' : 'Pack Credit'}</Badge>
             </span>
           </div>
         )}

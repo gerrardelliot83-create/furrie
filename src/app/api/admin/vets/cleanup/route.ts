@@ -38,7 +38,12 @@ export async function POST() {
     const deletionSteps = [
       // Messages before threads (thread_id CASCADE but sender_id not)
       { table: 'follow_up_messages', column: 'sender_id' },
-      // Leaf tables first
+      // Care plan step responses reference auth.users(id) directly
+      { table: 'care_plan_step_responses', column: 'user_id' },
+      // Care plans reference profiles(id) without CASCADE
+      { table: 'care_plans', column: 'vet_id' },
+      { table: 'care_plans', column: 'customer_id' },
+      // Leaf tables
       { table: 'ai_quality_assessments', column: 'vet_id' },
       { table: 'follow_up_threads', column: 'vet_id' },
       { table: 'prescriptions', column: 'vet_id' },

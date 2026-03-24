@@ -23,6 +23,8 @@ export function VetLoginForm() {
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotLoading, setForgotLoading] = useState(false);
 
   // Check for error param (e.g., wrong account type)
   // Delay toast slightly to ensure the Toast portal is mounted after Suspense hydration
@@ -131,6 +133,32 @@ export function VetLoginForm() {
     router.push('/dashboard');
   };
 
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      setEmailError('Enter your email address first');
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setEmailError(t('invalidEmail'));
+      return;
+    }
+
+    setForgotLoading(true);
+    const supabase = createClient();
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/callback?type=recovery`,
+    });
+    setForgotLoading(false);
+
+    if (resetError) {
+      toast('Failed to send reset email. Please try again.', 'error');
+    } else {
+      toast('Password reset email sent. Check your inbox.', 'success');
+      setShowForgotPassword(false);
+    }
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.header}>
@@ -175,6 +203,40 @@ export function VetLoginForm() {
           {t('login')}
         </Button>
       </form>
+
+      <div className={styles.forgotPassword}>
+        {showForgotPassword ? (
+          <div className={styles.forgotPasswordForm}>
+            <p className={styles.forgotPasswordText}>
+              Enter your email above, then click the button below to receive a password reset link.
+            </p>
+            <Button
+              type="button"
+              variant="secondary"
+              loading={forgotLoading}
+              onClick={handleForgotPassword}
+              fullWidth
+            >
+              Send Reset Link
+            </Button>
+            <button
+              type="button"
+              className={styles.forgotPasswordLink}
+              onClick={() => setShowForgotPassword(false)}
+            >
+              Back to login
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className={styles.forgotPasswordLink}
+            onClick={() => setShowForgotPassword(true)}
+          >
+            Forgot your password?
+          </button>
+        )}
+      </div>
 
       <div className={styles.notice}>
         <p className={styles.noticeText}>

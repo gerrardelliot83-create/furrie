@@ -49,16 +49,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'User is not an admin' }, { status: 403 });
     }
 
-    // Update password
+    // Update password and sync app_metadata.role to 'admin'
     const { error: pwError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
       password: body.password,
+      app_metadata: { role: 'admin' },
     });
 
     if (pwError) {
       return NextResponse.json({ error: 'Failed to update password' }, { status: 500 });
     }
 
-    return NextResponse.json({ message: `Password updated for ${body.email}` });
+    return NextResponse.json({ message: `Password and auth metadata updated for ${body.email}` });
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

@@ -1,0 +1,13 @@
+# Furrie - Veterinary Teleconsultation Platform
+# https://furrie.in
+
+User-agent: *
+Allow: /
+
+# Disallow internal portals and API routes
+Disallow: /admin-portal
+Disallow: /vet-portal
+Disallow: /api
+Disallow: /_next
+
+Sitemap: https://furrie.in/sitemap.xml

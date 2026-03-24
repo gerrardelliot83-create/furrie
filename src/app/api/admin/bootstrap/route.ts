@@ -84,9 +84,10 @@ export async function POST(request: Request) {
         const existingUser = existingUsers?.users?.find((u) => u.email === body.email);
 
         if (existingUser) {
-          // Update password for existing user
+          // Update password and sync app_metadata.role for existing user
           const { error: pwError } = await supabaseAdmin.auth.admin.updateUserById(existingUser.id, {
             password: body.password,
+            app_metadata: { role: 'admin' },
           });
 
           if (pwError) {

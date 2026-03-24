@@ -34,19 +34,36 @@ export async function POST() {
     const vetIds = vets.map((v) => v.id);
 
     // Delete related data first (order matters for FK constraints)
-    // 1. Prescriptions (references consultations)
+    // 1. AI quality assessments
+    await supabaseAdmin
+      .from('ai_quality_assessments')
+      .delete()
+      .in('vet_id', vetIds);
+
+    // 2. Follow-up threads
+    await supabaseAdmin
+      .from('follow_up_threads')
+      .delete()
+      .in('vet_id', vetIds);
+
+    // 3. Prescriptions
     await supabaseAdmin
       .from('prescriptions')
       .delete()
       .in('vet_id', vetIds);
 
-    // 2. SOAP notes (references consultations)
+    // 4. SOAP notes
     await supabaseAdmin
       .from('soap_notes')
       .delete()
       .in('vet_id', vetIds);
 
-    // 3. Consultation ratings (references consultations)
+    // 5. Consultation ratings (by vet_id and by consultation_id)
+    await supabaseAdmin
+      .from('consultation_ratings')
+      .delete()
+      .in('vet_id', vetIds);
+
     const { data: consultations } = await supabaseAdmin
       .from('consultations')
       .select('id')
@@ -58,9 +75,31 @@ export async function POST() {
         .from('consultation_ratings')
         .delete()
         .in('consultation_id', consultationIds);
+
+      // 6. Consultation flags
+      await supabaseAdmin
+        .from('consultation_flags')
+        .delete()
+        .in('consultation_id', consultationIds);
     }
 
-    // 4. Consultations
+    // 7. Consultation flags where vet flagged/resolved
+    await supabaseAdmin
+      .from('consultation_flags')
+      .delete()
+      .in('flagged_by', vetIds);
+    await supabaseAdmin
+      .from('consultation_flags')
+      .delete()
+      .in('resolved_by', vetIds);
+
+    // 8. Vaccination schedules
+    await supabaseAdmin
+      .from('vaccination_schedules')
+      .delete()
+      .in('vet_id', vetIds);
+
+    // 9. Consultations
     await supabaseAdmin
       .from('consultations')
       .delete()

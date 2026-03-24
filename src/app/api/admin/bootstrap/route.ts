@@ -84,6 +84,18 @@ export async function POST(request: Request) {
         const existingUser = existingUsers?.users?.find((u) => u.email === body.email);
 
         if (existingUser) {
+          // Update password for existing user
+          const { error: pwError } = await supabaseAdmin.auth.admin.updateUserById(existingUser.id, {
+            password: body.password,
+          });
+
+          if (pwError) {
+            return NextResponse.json(
+              { error: 'Failed to update password for existing user', code: 'PASSWORD_ERROR' },
+              { status: 500 }
+            );
+          }
+
           const { error: upgradeError } = await supabaseAdmin
             .from('profiles')
             .update({ role: 'admin', full_name: body.fullName })

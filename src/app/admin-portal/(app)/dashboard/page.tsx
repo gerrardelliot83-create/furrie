@@ -24,8 +24,12 @@ export default async function AdminDashboard() {
   const fallbackStats: DashboardStats = {
     totalUsers: 0,
     activeVets: 0,
+    totalVets: 0,
     todayConsultations: 0,
     monthRevenue: 0,
+    activeSubscriptions: 0,
+    pendingConsultations: 0,
+    totalConsultations: 0,
     recentActivity: [],
   };
 
@@ -43,7 +47,7 @@ export default async function AdminDashboard() {
         />
         <KPICard
           label="Active Vets"
-          value={stats.activeVets.toLocaleString()}
+          value={`${stats.activeVets} / ${stats.totalVets}`}
           icon="vets"
         />
         <KPICard
@@ -55,6 +59,24 @@ export default async function AdminDashboard() {
           label="Revenue (This Month)"
           value={formatCurrency(stats.monthRevenue)}
           icon="revenue"
+        />
+      </div>
+
+      <div className={styles.kpiGrid}>
+        <KPICard
+          label="Active Subscriptions"
+          value={stats.activeSubscriptions.toLocaleString()}
+          icon="users"
+        />
+        <KPICard
+          label="Pending Consultations"
+          value={stats.pendingConsultations.toLocaleString()}
+          icon="consultations"
+        />
+        <KPICard
+          label="Total Consultations"
+          value={stats.totalConsultations.toLocaleString()}
+          icon="consultations"
         />
       </div>
 
@@ -92,6 +114,12 @@ export default async function AdminDashboard() {
                 </span>
                 <span>View Consultations</span>
               </a>
+              <a href="/subscriptions" className={styles.actionLink}>
+                <span className={styles.actionIcon}>
+                  <SubscriptionsIcon />
+                </span>
+                <span>Manage Subscriptions</span>
+              </a>
             </div>
           </CardContent>
         </Card>
@@ -125,6 +153,16 @@ function ConsultationsIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+    </svg>
+  );
+}
+
+function SubscriptionsIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+      <path d="M16 3l2 2 4-4" />
     </svg>
   );
 }

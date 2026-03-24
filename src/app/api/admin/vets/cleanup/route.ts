@@ -43,6 +43,10 @@ export async function POST() {
       // Care plans reference profiles(id) without CASCADE
       { table: 'care_plans', column: 'vet_id' },
       { table: 'care_plans', column: 'customer_id' },
+      // Migration 008 tables
+      { table: 'medication_submissions', column: 'submitted_by' },
+      { table: 'medication_submissions', column: 'reviewed_by' },
+      { table: 'consultation_treatment_records', column: 'vet_id' },
       // Leaf tables
       { table: 'ai_quality_assessments', column: 'vet_id' },
       { table: 'follow_up_threads', column: 'vet_id' },

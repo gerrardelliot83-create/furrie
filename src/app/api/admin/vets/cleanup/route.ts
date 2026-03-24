@@ -34,31 +34,37 @@ export async function POST() {
     const vetIds = vets.map((v) => v.id);
 
     // Delete related data first (order matters for FK constraints)
-    // 1. AI quality assessments
+    // 1. Follow-up messages (sender_id references profiles, no CASCADE)
+    await supabaseAdmin
+      .from('follow_up_messages')
+      .delete()
+      .in('sender_id', vetIds);
+
+    // 2. AI quality assessments
     await supabaseAdmin
       .from('ai_quality_assessments')
       .delete()
       .in('vet_id', vetIds);
 
-    // 2. Follow-up threads
+    // 3. Follow-up threads
     await supabaseAdmin
       .from('follow_up_threads')
       .delete()
       .in('vet_id', vetIds);
 
-    // 3. Prescriptions
+    // 4. Prescriptions
     await supabaseAdmin
       .from('prescriptions')
       .delete()
       .in('vet_id', vetIds);
 
-    // 4. SOAP notes
+    // 5. SOAP notes
     await supabaseAdmin
       .from('soap_notes')
       .delete()
       .in('vet_id', vetIds);
 
-    // 5. Consultation ratings (by vet_id and by consultation_id)
+    // 6. Consultation ratings (by vet_id and by consultation_id)
     await supabaseAdmin
       .from('consultation_ratings')
       .delete()
@@ -76,14 +82,14 @@ export async function POST() {
         .delete()
         .in('consultation_id', consultationIds);
 
-      // 6. Consultation flags
+      // 7. Consultation flags by consultation
       await supabaseAdmin
         .from('consultation_flags')
         .delete()
         .in('consultation_id', consultationIds);
     }
 
-    // 7. Consultation flags where vet flagged/resolved
+    // 8. Consultation flags where vet flagged/resolved
     await supabaseAdmin
       .from('consultation_flags')
       .delete()
@@ -93,13 +99,27 @@ export async function POST() {
       .delete()
       .in('resolved_by', vetIds);
 
-    // 8. Vaccination schedules
+    // 9. Vaccination schedules
     await supabaseAdmin
       .from('vaccination_schedules')
       .delete()
       .in('vet_id', vetIds);
+    await supabaseAdmin
+      .from('vaccination_schedules')
+      .delete()
+      .in('approved_by', vetIds);
 
-    // 9. Consultations
+    // 10. Incidents where vet is referenced
+    await supabaseAdmin
+      .from('incidents')
+      .delete()
+      .in('reported_by', vetIds);
+    await supabaseAdmin
+      .from('incidents')
+      .delete()
+      .in('resolved_by', vetIds);
+
+    // 11. Consultations
     await supabaseAdmin
       .from('consultations')
       .delete()

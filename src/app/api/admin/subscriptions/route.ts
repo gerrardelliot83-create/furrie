@@ -1,45 +1,7 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { sendPlusActivatedEmail } from '@/lib/email';
-
-/**
- * Verify the requesting user is an admin.
- * Returns the user if admin, or a NextResponse error to return early.
- */
-async function verifyAdmin() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return {
-      error: NextResponse.json(
-        { error: 'Unauthorized', code: 'AUTH_REQUIRED' },
-        { status: 401 }
-      ),
-    };
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  if (!profile || profile.role !== 'admin') {
-    return {
-      error: NextResponse.json(
-        { error: 'Forbidden: admin access required', code: 'FORBIDDEN' },
-        { status: 403 }
-      ),
-    };
-  }
-
-  return { user };
-}
+import { verifyAdmin, logAdminAction } from '@/lib/admin/auth';
 
 /**
  * GET /api/admin/subscriptions
@@ -255,6 +217,19 @@ export async function POST(request: Request) {
       }
     }
 
+    await logAdminAction({
+      adminId: result.user.id,
+      action: 'create_subscription',
+      targetType: 'subscription',
+      targetId: subscription.id,
+      details: {
+        customerId: body.customerId,
+        petId: body.petId,
+        durationDays,
+        customerEmail: customerProfile.email,
+      },
+    });
+
     return NextResponse.json(
       {
         subscription,
@@ -294,7 +269,7 @@ export async function DELETE(request: Request) {
     // Verify subscription exists
     const { data: existing, error: fetchError } = await supabaseAdmin
       .from('subscriptions')
-      .select('id, status')
+      .select('id, status, customer_id')
       .eq('id', body.subscriptionId)
       .single();
 
@@ -327,6 +302,14 @@ export async function DELETE(request: Request) {
         { status: 500 }
       );
     }
+
+    await logAdminAction({
+      adminId: result.user.id,
+      action: 'cancel_subscription',
+      targetType: 'subscription',
+      targetId: body.subscriptionId,
+      details: { customerId: existing.customer_id },
+    });
 
     return NextResponse.json({
       subscription: updated,

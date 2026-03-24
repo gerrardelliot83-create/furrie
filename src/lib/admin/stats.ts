@@ -6,8 +6,12 @@ import { createClient } from '@/lib/supabase/server';
 export interface DashboardStats {
   totalUsers: number;
   activeVets: number;
+  totalVets: number;
   todayConsultations: number;
   monthRevenue: number;
+  activeSubscriptions: number;
+  pendingConsultations: number;
+  totalConsultations: number;
   recentActivity: ActivityItem[];
 }
 
@@ -33,9 +37,13 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   // Fetch all stats in parallel
   const [
     usersResult,
-    vetsResult,
+    activeVetsResult,
+    totalVetsResult,
     todayConsultationsResult,
     monthRevenueResult,
+    activeSubsResult,
+    pendingConsultationsResult,
+    totalConsultationsResult,
   ] = await Promise.all([
     // Total users (customers only)
     supabase
@@ -50,6 +58,12 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       .eq('is_verified', true)
       .eq('is_available', true),
 
+    // Total vets
+    supabase
+      .from('profiles')
+      .select('id', { count: 'exact', head: true })
+      .eq('role', 'vet'),
+
     // Today's consultations
     supabase
       .from('consultations')
@@ -62,6 +76,23 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       .select('amount')
       .eq('status', 'completed')
       .gte('created_at', firstOfMonthIso),
+
+    // Active subscriptions
+    supabase
+      .from('subscriptions')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'active'),
+
+    // Pending/matching consultations (need attention)
+    supabase
+      .from('consultations')
+      .select('id', { count: 'exact', head: true })
+      .in('status', ['pending', 'matching']),
+
+    // Total consultations (all time)
+    supabase
+      .from('consultations')
+      .select('id', { count: 'exact', head: true }),
   ]);
 
   // Calculate month revenue
@@ -75,9 +106,13 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 
   return {
     totalUsers: usersResult.count || 0,
-    activeVets: vetsResult.count || 0,
+    activeVets: activeVetsResult.count || 0,
+    totalVets: totalVetsResult.count || 0,
     todayConsultations: todayConsultationsResult.count || 0,
     monthRevenue,
+    activeSubscriptions: activeSubsResult.count || 0,
+    pendingConsultations: pendingConsultationsResult.count || 0,
+    totalConsultations: totalConsultationsResult.count || 0,
     recentActivity,
   };
 }

@@ -65,6 +65,71 @@
   color: var(--color-primary);
 }
 
+/* ─── Health Indicator ─────────────────────────────────────────── */
+
+.healthCard {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}
+
+.healthHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.healthDot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.healthLabel {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.healthChecks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.healthCheckRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+}
+
+.healthCheckDot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.healthCheckName {
+  color: var(--color-text-secondary);
+  text-transform: capitalize;
+}
+
+.healthCheckLatency {
+  color: var(--color-text-tertiary);
+  margin-left: auto;
+}
+
+.healthCheckDetails {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-xs);
+  grid-column: 1 / -1;
+}
+
 /* Responsive layout */
 @media (max-width: 1024px) {
   .panels {

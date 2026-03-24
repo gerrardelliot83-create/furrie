@@ -7,6 +7,7 @@ import { ActivityFeed } from '@/components/admin/ActivityFeed';
 import { getDashboardStats, formatCurrency } from '@/lib/admin/stats';
 import type { DashboardStats } from '@/lib/admin/stats';
 import { withTimeout } from '@/lib/utils/queryTimeout';
+import { HealthIndicator } from './HealthIndicator';
 import styles from './page.module.css';
 
 export const maxDuration = 30;
@@ -124,6 +125,8 @@ export default async function AdminDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <HealthIndicator />
     </div>
   );
 }

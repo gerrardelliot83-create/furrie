@@ -87,12 +87,50 @@ export async function POST() {
       });
     }
 
-    // Now delete the vet_profiles rows explicitly (in case CASCADE doesn't fire)
-    await supabaseAdmin.from('vet_profiles').delete().in('id', vetIds);
+    // Now delete the vet_profiles rows explicitly
+    const { error: vetProfileDelErr } = await supabaseAdmin.from('vet_profiles').delete().in('id', vetIds);
 
     // Delete profiles rows explicitly before auth deletion
-    // This removes the FK target so no other table can reference it
-    await supabaseAdmin.from('profiles').delete().in('id', vetIds);
+    const { error: profileDelErr } = await supabaseAdmin.from('profiles').delete().in('id', vetIds);
+
+    // Diagnostic: check if profile row still exists after deletion attempt
+    const { data: remainingProfiles } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .in('id', vetIds);
+
+    // Diagnostic: use raw SQL to find ALL tables referencing this user
+    const diagnostics: Record<string, unknown> = {
+      vetProfileDelErr: vetProfileDelErr?.message,
+      profileDelErr: profileDelErr?.message,
+      profilesStillExist: remainingProfiles?.map((p) => p.id),
+    };
+
+    // Check every known table for remaining references
+    const checkTables = [
+      { table: 'care_plans', column: 'vet_id' },
+      { table: 'care_plans', column: 'customer_id' },
+      { table: 'consultations', column: 'vet_id' },
+      { table: 'follow_up_threads', column: 'vet_id' },
+      { table: 'prescriptions', column: 'vet_id' },
+      { table: 'soap_notes', column: 'vet_id' },
+      { table: 'consultation_ratings', column: 'vet_id' },
+      { table: 'ai_quality_assessments', column: 'vet_id' },
+      { table: 'follow_up_messages', column: 'sender_id' },
+      { table: 'vaccination_schedules', column: 'vet_id' },
+      { table: 'consultation_flags', column: 'flagged_by' },
+      { table: 'incidents', column: 'reported_by' },
+      { table: 'payments', column: 'refunded_by' },
+    ];
+    for (const check of checkTables) {
+      const { count } = await supabaseAdmin
+        .from(check.table)
+        .select('id', { count: 'exact', head: true })
+        .in(check.column, vetIds);
+      if (count && count > 0) {
+        diagnostics[`${check.table}.${check.column}`] = count;
+      }
+    }
 
     // Finally delete auth users
     const deleteResults = [];
@@ -123,6 +161,7 @@ export async function POST() {
       removed: successCount,
       details: deleteResults,
       ...(failedSteps.length > 0 && { failedSteps }),
+      diagnostics,
     });
   } catch (error) {
     console.error('Unexpected error in POST /api/admin/vets/cleanup:', error);

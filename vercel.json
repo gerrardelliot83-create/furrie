@@ -40,6 +40,10 @@
     {
       "path": "/api/cron/close-stale-active",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/expire-packs",
+      "schedule": "0 * * * *"
     }
   ]
 }

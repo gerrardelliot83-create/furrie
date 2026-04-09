@@ -70,7 +70,93 @@ export async function sendEmail(options: SendEmailOptions) {
 }
 
 // =============================================================================
-// Prescription Email (existing — uses prescriptions@ address)
+// Treatment Plan Email
+// =============================================================================
+/**
+ * Sends the finalized Treatment Plan PDF to the pet parent.
+ * Uses the prescriptions@ address (retained during cosmetic rename).
+ *
+ * The old `sendPrescriptionEmail` is kept as a thin alias below for
+ * back-compat with the legacy /api/prescriptions/generate-pdf route.
+ */
+export async function sendTreatmentPlanEmail(params: {
+  customerEmail: string;
+  customerName: string;
+  petName: string;
+  vetName: string;
+  planNumber: string;
+  pdfBuffer: Buffer;
+}) {
+  const html = `
+    <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 0 auto; padding: 0; background: #FAFBFD;">
+      <div style="background: #1E5081; padding: 28px 24px 20px 24px; text-align: center;">
+        <img src="https://app.furrie.in/assets/logo/furrie-logo-dark-blue.png" alt="Furrie" style="height: 42px; width: auto;" />
+        <p style="color: rgba(255,255,255,0.85); margin: 10px 0 0 0; font-size: 12px; letter-spacing: 1px; text-transform: uppercase;">Veterinary Document</p>
+        <h1 style="color: #ffffff; margin: 4px 0 0 0; font-size: 22px; font-weight: 700; letter-spacing: 0.2px;">Treatment Plan</h1>
+      </div>
+      <div style="height: 4px; background: #c8d69b;"></div>
+
+      <div style="padding: 32px 24px; background: #ffffff;">
+        <p style="font-size: 16px; color: #0E1A2B; line-height: 1.6; margin: 0 0 16px 0;">Dear ${params.customerName},</p>
+        <p style="font-size: 15px; color: #0E1A2B; line-height: 1.65; margin: 0 0 20px 0;">
+          Dr. ${params.vetName} has prepared a detailed treatment plan for <strong>${params.petName}</strong>. The complete plan — including observations, diagnosis, recommended lab tests, medications, diet and home care — is attached to this email as a PDF.
+        </p>
+
+        <div style="background: #E8EFF7; border-left: 4px solid #3971B8; padding: 14px 16px; margin: 20px 0; border-radius: 4px;">
+          <p style="margin: 0 0 4px 0; color: #1E5081; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; font-weight: 700;">Plan Reference</p>
+          <p style="margin: 0; color: #0E1A2B; font-size: 18px; font-weight: 700; font-family: monospace;">${params.planNumber}</p>
+        </div>
+
+        <h3 style="font-size: 14px; color: #1E5081; margin: 24px 0 8px 0; letter-spacing: 0.3px;">What to do next</h3>
+        <ul style="font-size: 14px; color: #0E1A2B; line-height: 1.7; margin: 0 0 20px 0; padding-left: 20px;">
+          <li>Open the attached PDF and read each section carefully.</li>
+          <li>Follow the medication schedule exactly — dose, frequency and duration matter.</li>
+          <li>Get any recommended lab tests done within the timeframe indicated.</li>
+          <li>Watch for the warning signs listed in the plan. If you see any, contact us immediately.</li>
+        </ul>
+
+        <p style="font-size: 14px; color: #55637A; line-height: 1.6; margin: 20px 0;">
+          You can also access this treatment plan any time from ${params.petName}&apos;s profile in the Furrie app. If anything is unclear, reach out to Dr. ${params.vetName} through your follow-up thread.
+        </p>
+
+        <div style="border-top: 1px solid #E2E6EE; margin-top: 24px; padding-top: 16px;">
+          <p style="font-size: 12px; color: #8892A5; line-height: 1.55; margin: 0 0 8px 0;">
+            <strong style="color: #55637A;">Important:</strong> This treatment plan was prepared based on a teleconsultation. Teleconsultation has inherent limitations. If ${params.petName}&apos;s condition changes, worsens, or does not improve as expected, please seek in-person veterinary care immediately.
+          </p>
+        </div>
+
+        <p style="font-size: 15px; color: #0E1A2B; line-height: 1.6; margin: 24px 0 0 0;">
+          <strong>Team Furrie</strong>
+        </p>
+      </div>
+
+      <div style="background: #F1F3F8; padding: 16px 24px; text-align: center;">
+        <p style="margin: 0; font-size: 12px; color: #8892A5;">
+          This is an automated message from Furrie. Please do not reply unless instructed to in the email above.
+        </p>
+        <p style="margin: 4px 0 0 0; font-size: 12px; color: #8892A5;">
+          Furrie &mdash; Veterinary Teleconsultation &mdash; India
+        </p>
+      </div>
+    </div>
+  `;
+
+  return sendEmail({
+    to: params.customerEmail,
+    subject: `Treatment plan for ${params.petName} — ${params.planNumber}`,
+    html,
+    from: FROM_PRESCRIPTIONS,
+    attachments: [
+      {
+        filename: `treatment-plan-${params.planNumber}.pdf`,
+        content: params.pdfBuffer,
+      },
+    ],
+  });
+}
+
+// =============================================================================
+// Prescription Email (legacy — kept for /api/prescriptions/generate-pdf)
 // =============================================================================
 export async function sendPrescriptionEmail(params: {
   customerEmail: string;

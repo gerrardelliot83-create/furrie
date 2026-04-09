@@ -1234,57 +1234,84 @@ export type Database = {
         Row: {
           consultation_id: string
           created_at: string | null
+          custom_sections: Json
           customer_id: string
+          diet_nutrition: string | null
           dietary_recommendations: string | null
+          finalized_at: string | null
+          follow_up: Json
           follow_up_recommendation: string | null
+          home_care: string | null
           id: string
           in_person_advisory: string | null
+          lab_tests: Json
           lifestyle_recommendations: string | null
           medications: Json
+          observations: string | null
           pdf_url: string | null
           pet_id: string
           prescription_number: string
+          previous_pdf_urls: Json
           soap_note_id: string
           status: string | null
           updated_at: string | null
+          version: number
           vet_id: string
           warning_signs: string | null
         }
         Insert: {
           consultation_id: string
           created_at?: string | null
+          custom_sections?: Json
           customer_id: string
+          diet_nutrition?: string | null
           dietary_recommendations?: string | null
+          finalized_at?: string | null
+          follow_up?: Json
           follow_up_recommendation?: string | null
+          home_care?: string | null
           id?: string
           in_person_advisory?: string | null
+          lab_tests?: Json
           lifestyle_recommendations?: string | null
           medications?: Json
+          observations?: string | null
           pdf_url?: string | null
           pet_id: string
           prescription_number?: string
+          previous_pdf_urls?: Json
           soap_note_id: string
           status?: string | null
           updated_at?: string | null
+          version?: number
           vet_id: string
           warning_signs?: string | null
         }
         Update: {
           consultation_id?: string
           created_at?: string | null
+          custom_sections?: Json
           customer_id?: string
+          diet_nutrition?: string | null
           dietary_recommendations?: string | null
+          finalized_at?: string | null
+          follow_up?: Json
           follow_up_recommendation?: string | null
+          home_care?: string | null
           id?: string
           in_person_advisory?: string | null
+          lab_tests?: Json
           lifestyle_recommendations?: string | null
           medications?: Json
+          observations?: string | null
           pdf_url?: string | null
           pet_id?: string
           prescription_number?: string
+          previous_pdf_urls?: Json
           soap_note_id?: string
           status?: string | null
           updated_at?: string | null
+          version?: number
           vet_id?: string
           warning_signs?: string | null
         }

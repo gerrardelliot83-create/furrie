@@ -387,6 +387,126 @@ export async function sendCreditRequestInternalEmail(params: {
 /**
  * Sent to the customer when admin grants credits.
  */
+// =============================================================================
+// Invite Emails
+// =============================================================================
+
+/**
+ * Sent to the invitee when they redeem an invite code.
+ */
+export async function sendInviteRedeemedEmail(params: {
+  inviteeEmail: string;
+  inviteeName: string;
+}) {
+  const html = `
+    <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: #1E5081; padding: 24px; text-align: center;">
+        <img src="https://app.furrie.in/assets/logo/furrie-logo-dark-blue.png" alt="Furrie" style="height: 40px; width: auto;" />
+      </div>
+      <div style="height: 4px; background: #c8d69b;"></div>
+      <div style="padding: 32px 24px; background: #ffffff;">
+        <p style="font-size: 16px; color: #0E1A2B; margin: 0 0 16px;">Welcome to Furrie, ${params.inviteeName}!</p>
+        <p style="font-size: 15px; color: #0E1A2B; line-height: 1.65; margin: 0 0 20px;">
+          You have been gifted <strong>1 free vet consultation</strong>. Your credit is ready — book any time within the next 60 days.
+        </p>
+        <div style="text-align: center; margin: 24px 0;">
+          <a href="https://app.furrie.in/connect" style="display: inline-block; padding: 12px 28px; background: #1E5081; color: #fff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;">
+            Book Your Free Consultation
+          </a>
+        </div>
+        <p style="font-size: 15px; color: #0E1A2B; margin: 24px 0 0;"><strong>Team Furrie</strong></p>
+      </div>
+      <div style="background: #F1F3F8; padding: 16px 24px; text-align: center;">
+        <p style="margin: 0; font-size: 12px; color: #8892A5;">Furrie — Veterinary Teleconsultation — India</p>
+      </div>
+    </div>
+  `;
+
+  return sendEmail({
+    to: params.inviteeEmail,
+    subject: 'Welcome! Your free consultation is ready',
+    html,
+  });
+}
+
+/**
+ * Sent to the referrer when their invite is used.
+ */
+export async function sendInviteUsedReferrerEmail(params: {
+  referrerEmail: string;
+  referrerName: string;
+  inviteeFirstName: string;
+}) {
+  const html = `
+    <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: #1E5081; padding: 24px; text-align: center;">
+        <img src="https://app.furrie.in/assets/logo/furrie-logo-dark-blue.png" alt="Furrie" style="height: 40px; width: auto;" />
+      </div>
+      <div style="height: 4px; background: #c8d69b;"></div>
+      <div style="padding: 32px 24px; background: #ffffff;">
+        <p style="font-size: 16px; color: #0E1A2B; margin: 0 0 16px;">Hi ${params.referrerName},</p>
+        <p style="font-size: 15px; color: #0E1A2B; line-height: 1.65; margin: 0 0 20px;">
+          <strong>${params.inviteeFirstName}</strong> signed up using your invite!
+          They have received their free consultation.
+        </p>
+        <p style="font-size: 14px; color: #55637A; line-height: 1.55; margin: 0 0 20px;">
+          When ${params.inviteeFirstName} completes their first consultation,
+          you will receive a free consultation too as a thank-you.
+        </p>
+        <p style="font-size: 15px; color: #0E1A2B; margin: 24px 0 0;"><strong>Team Furrie</strong></p>
+      </div>
+      <div style="background: #F1F3F8; padding: 16px 24px; text-align: center;">
+        <p style="margin: 0; font-size: 12px; color: #8892A5;">Furrie — Veterinary Teleconsultation — India</p>
+      </div>
+    </div>
+  `;
+
+  return sendEmail({
+    to: params.referrerEmail,
+    subject: `${params.inviteeFirstName} signed up with your invite!`,
+    html,
+  });
+}
+
+/**
+ * Sent to the referrer when they receive their reward.
+ */
+export async function sendInviteRewardEmail(params: {
+  referrerEmail: string;
+  referrerName: string;
+}) {
+  const html = `
+    <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: #1E5081; padding: 24px; text-align: center;">
+        <img src="https://app.furrie.in/assets/logo/furrie-logo-dark-blue.png" alt="Furrie" style="height: 40px; width: auto;" />
+      </div>
+      <div style="height: 4px; background: #c8d69b;"></div>
+      <div style="padding: 32px 24px; background: #ffffff;">
+        <p style="font-size: 16px; color: #0E1A2B; margin: 0 0 16px;">Hi ${params.referrerName},</p>
+        <p style="font-size: 15px; color: #0E1A2B; line-height: 1.65; margin: 0 0 20px;">
+          Your friend completed their first vet consultation. As a thank-you,
+          <strong>1 free consultation</strong> has been added to your account!
+        </p>
+        <div style="text-align: center; margin: 24px 0;">
+          <a href="https://app.furrie.in/dashboard" style="display: inline-block; padding: 12px 28px; background: #1E5081; color: #fff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;">
+            View Your Credits
+          </a>
+        </div>
+        <p style="font-size: 15px; color: #0E1A2B; margin: 24px 0 0;"><strong>Team Furrie</strong></p>
+      </div>
+      <div style="background: #F1F3F8; padding: 16px 24px; text-align: center;">
+        <p style="margin: 0; font-size: 12px; color: #8892A5;">Furrie — Veterinary Teleconsultation — India</p>
+      </div>
+    </div>
+  `;
+
+  return sendEmail({
+    to: params.referrerEmail,
+    subject: 'You earned a free consultation!',
+    html,
+  });
+}
+
 export async function sendCreditsAddedEmail(params: {
   customerEmail: string;
   customerName: string;

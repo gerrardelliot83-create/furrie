@@ -34,53 +34,30 @@ export async function findActivePackWithCredits(
 }
 
 /**
- * Deduct one credit from a pack and record the usage.
- * Updates used_count and auto-exhausts the pack if all credits used.
+ * Atomically deduct one credit from the customer's oldest active pack
+ * and record which consultation used it.
  *
- * @returns true if successful, false on error
+ * Uses the database RPC `consume_pack_credit` which runs
+ * SELECT ... FOR UPDATE SKIP LOCKED to prevent race conditions when
+ * two bookings happen concurrently.
+ *
+ * @returns The pack_id that was debited, or null if no credits available.
  */
 export async function deductPackCredit(
   supabase: SupabaseClient,
-  packId: string,
-  consultationId: string,
-  currentUsedCount: number,
-  totalConsultations: number
-): Promise<boolean> {
-  const newUsedCount = currentUsedCount + 1;
-  const isExhausted = newUsedCount >= totalConsultations;
+  customerId: string,
+  consultationId: string
+): Promise<string | null> {
+  const { data, error } = await supabase.rpc('consume_pack_credit', {
+    p_customer_id: customerId,
+    p_consultation_id: consultationId,
+  });
 
-  // Update pack: increment used_count, set exhausted if done
-  const updateData: Record<string, unknown> = {
-    used_count: newUsedCount,
-  };
-  if (isExhausted) {
-    updateData.status = 'exhausted';
+  if (error) {
+    console.error('consume_pack_credit RPC error:', error);
+    return null;
   }
 
-  const { error: updateError } = await supabase
-    .from('consultation_packs')
-    .update(updateData)
-    .eq('id', packId)
-    .eq('status', 'active'); // Optimistic lock
-
-  if (updateError) {
-    console.error('Failed to deduct pack credit:', updateError);
-    return false;
-  }
-
-  // Record the usage
-  const { error: useError } = await supabase
-    .from('consultation_pack_uses')
-    .insert({
-      pack_id: packId,
-      consultation_id: consultationId,
-    });
-
-  if (useError) {
-    console.error('Failed to record pack use:', useError);
-    // Don't rollback the pack update - the credit was consumed
-    return false;
-  }
-
-  return true;
+  // The RPC returns the pack_id (UUID) on success, NULL when no credits.
+  return (data as string | null) ?? null;
 }

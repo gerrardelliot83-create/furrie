@@ -242,19 +242,28 @@ export async function POST(request: Request) {
       );
     }
 
-    // Deduct pack credit if booking with pack
+    // Deduct pack credit if booking with pack — uses the atomic RPC
+    // `consume_pack_credit` which SELECT...FOR UPDATE SKIP LOCKED to
+    // prevent concurrent bookings from over-drawing a pack.
     if (hasPackCredit && activePack) {
-      const deducted = await deductPackCredit(
+      const usedPackId = await deductPackCredit(
         supabaseAdmin,
-        activePack.id,
-        consultation.id,
-        activePack.used_count,
-        activePack.total_consultations
+        user.id,
+        consultation.id
       );
-      if (!deducted) {
-        console.error('Failed to deduct pack credit for consultation:', consultation.id);
-        // Consultation was already created as scheduled - don't fail the booking
-        // The pack credit will be out of sync but admin can fix
+      if (!usedPackId) {
+        // Credit deduction failed — delete the just-created consultation
+        // and return an error. This is safe because no notifications or
+        // side-effects have been triggered yet.
+        console.error('Pack credit deduction failed for consultation:', consultation.id);
+        await supabaseAdmin
+          .from('consultations')
+          .delete()
+          .eq('id', consultation.id);
+        return NextResponse.json(
+          { error: 'No consultation credits available', code: 'NO_CREDITS' },
+          { status: 403 }
+        );
       }
     }
 

@@ -13,6 +13,8 @@ import { ConsultationCard } from '@/components/consultation';
 import { PackSection } from '@/components/customer/PackSection';
 import { FEATURES } from '@/lib/config/features';
 import { PackCtaCard } from '@/components/customer';
+import { ConsultationBalanceCard } from '@/components/customer/ConsultationBalanceCard';
+import { getActiveCreditBalance } from '@/lib/credits/getActiveCreditBalance';
 import styles from './Dashboard.module.css';
 
 export const maxDuration = 30;
@@ -133,6 +135,18 @@ export default async function CustomerDashboard() {
 
   const userName = profile?.full_name || 'there';
 
+  // Credit balance — fetched separately (lightweight, not part of the
+  // timeout-protected batch) so it can't break the rest of the dashboard.
+  const creditBalance = await getActiveCreditBalance(supabase, user.id).catch(
+    () => ({
+      totalCredits: 0,
+      activePacks: 0,
+      hasPendingRequest: false,
+      pendingRequestId: null,
+      pendingRequestQuantity: null,
+    })
+  );
+
   const pets = (petsData || []).map(mapPetFromDB);
 
   const upcomingConsultations = (upcomingData || []).map((row) =>
@@ -194,6 +208,9 @@ export default async function CustomerDashboard() {
           Here&apos;s what&apos;s happening with your pets today.
         </p>
       </header>
+
+      {/* Consultation balance — always visible */}
+      <ConsultationBalanceCard balance={creditBalance} />
 
       {/* CTA Grid: Connect + Packs */}
       <section className={styles.ctaGrid}>

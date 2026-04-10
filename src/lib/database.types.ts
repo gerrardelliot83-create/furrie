@@ -1025,6 +1025,64 @@ export type Database = {
           },
         ]
       }
+      invite_codes: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          redeemed_at: string | null
+          redeemed_by_id: string | null
+          referrer_id: string
+          referrer_reward_pack_id: string | null
+          referrer_rewarded_at: string | null
+          status: string
+        }
+        Insert: {
+          code?: string
+          created_at?: string
+          id?: string
+          redeemed_at?: string | null
+          redeemed_by_id?: string | null
+          referrer_id: string
+          referrer_reward_pack_id?: string | null
+          referrer_rewarded_at?: string | null
+          status?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          redeemed_at?: string | null
+          redeemed_by_id?: string | null
+          referrer_id?: string
+          referrer_reward_pack_id?: string | null
+          referrer_rewarded_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invite_codes_redeemed_by_id_fkey"
+            columns: ["redeemed_by_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invite_codes_referrer_id_fkey"
+            columns: ["referrer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invite_codes_referrer_reward_pack_id_fkey"
+            columns: ["referrer_reward_pack_id"]
+            isOneToOne: false
+            referencedRelation: "consultation_packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       medication_submissions: {
         Row: {
           additional_data: Json | null
@@ -2027,11 +2085,13 @@ export type Database = {
         Returns: string
       }
       generate_consultation_number: { Args: never; Returns: string }
+      generate_invite_code: { Args: never; Returns: string }
       generate_prescription_number: { Args: never; Returns: string }
       is_admin: { Args: never; Returns: boolean }
       is_vet: { Args: never; Returns: boolean }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      validate_invite_code: { Args: { p_code: string }; Returns: Json }
     }
     Enums: {
       [_ in never]: never

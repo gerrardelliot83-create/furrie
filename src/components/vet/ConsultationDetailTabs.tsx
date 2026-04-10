@@ -90,6 +90,14 @@ export function ConsultationDetailTabs({
         body: JSON.stringify({ consultationId }),
       }).catch(() => {});
 
+      // Check if this consultation's customer was an invitee completing
+      // their first consultation — if so, grant the referrer a reward.
+      fetch('/api/invites/check-referrer-reward', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ consultationId }),
+      }).catch(() => {});
+
       setIsCompleted(true);
       toast('Consultation completed successfully', 'success');
       router.push('/consultations');

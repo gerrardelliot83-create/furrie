@@ -51,3 +51,6 @@ CLAUDE.md
 
 # Temporary UI review files (for Claude Desktop)
 temp-ui-review/
+
+# Supabase CLI local cache
+supabase/.temp/

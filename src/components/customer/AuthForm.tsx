@@ -18,6 +18,8 @@ const RESEND_COOLDOWN = 60; // seconds
 const RATE_LIMIT_COOLDOWN = 300; // 5 minutes when rate limited
 const COOLDOWN_STORAGE_KEY = 'furrie_otp_cooldown_until';
 
+const INVITE_STORAGE_KEY = 'furrie_invite_code';
+
 export function AuthForm() {
   const t = useTranslations('auth');
   const router = useRouter();
@@ -30,6 +32,42 @@ export function AuthForm() {
   const [otp, setOtp] = useState('');
   const [emailError, setEmailError] = useState('');
   const [otpError, setOtpError] = useState('');
+
+  // ── Invite code handling ──────────────────────────────────────────
+  const [inviteCode, setInviteCode] = useState<string>('');
+  const [inviteValid, setInviteValid] = useState<boolean | null>(null);
+  const [inviteReferrer, setInviteReferrer] = useState<string>('');
+  const [showInviteField, setShowInviteField] = useState(false);
+
+  // Detect ?invite= param on mount (or restore from sessionStorage)
+  useEffect(() => {
+    const urlCode = searchParams.get('invite')?.trim().toUpperCase();
+    const storedCode =
+      typeof window !== 'undefined'
+        ? sessionStorage.getItem(INVITE_STORAGE_KEY)
+        : null;
+    const code = urlCode || storedCode || '';
+    if (code) {
+      setInviteCode(code);
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem(INVITE_STORAGE_KEY, code);
+      }
+      // Validate
+      fetch('/api/invites/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          setInviteValid(data.valid === true);
+          if (data.valid && data.referrerFirstName) {
+            setInviteReferrer(data.referrerFirstName);
+          }
+        })
+        .catch(() => setInviteValid(false));
+    }
+  }, [searchParams]);
   // Initialize cooldown from localStorage (persists across refresh)
   const [resendTimer, setResendTimer] = useState(() => {
     if (typeof window === 'undefined') return 0;
@@ -157,6 +195,27 @@ export function AuthForm() {
       fetch('/api/email/welcome', { method: 'POST' }).catch(() => {});
     }, 200);
 
+    // Redeem invite code if present (non-blocking — the user gets their
+    // credit asynchronously; failure doesn't block login)
+    const savedInvite =
+      typeof window !== 'undefined'
+        ? sessionStorage.getItem(INVITE_STORAGE_KEY)
+        : null;
+    if (savedInvite) {
+      fetch('/api/invites/redeem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: savedInvite }),
+      })
+        .then((r) => {
+          if (r.ok) {
+            sessionStorage.removeItem(INVITE_STORAGE_KEY);
+            toast('1 free consultation unlocked from your invite!', 'success');
+          }
+        })
+        .catch(() => {});
+    }
+
     router.push('/dashboard');
   }, [email, verifyOtp, router, toast, t]);
 
@@ -262,6 +321,13 @@ export function AuthForm() {
         </p>
       </div>
 
+      {/* Invite banner */}
+      {inviteValid && inviteReferrer && (
+        <div className={styles.inviteBanner}>
+          <strong>{inviteReferrer}</strong> invited you! Sign up to get 1 free consultation.
+        </div>
+      )}
+
       <form onSubmit={handleSendOtp} className={styles.form}>
         <Input
           name="email"
@@ -275,6 +341,48 @@ export function AuthForm() {
           autoFocus
           disabled={isSubmitting || loading}
         />
+
+        {/* Manual invite code entry (collapsed by default) */}
+        {!inviteCode && !showInviteField && (
+          <button
+            type="button"
+            className={styles.inviteToggle}
+            onClick={() => setShowInviteField(true)}
+          >
+            Have an invite code?
+          </button>
+        )}
+        {!inviteCode && showInviteField && (
+          <Input
+            name="inviteCode"
+            label="Invite code"
+            placeholder="e.g. ABCD-1234"
+            value=""
+            onChange={(e) => {
+              const v = e.target.value.trim().toUpperCase();
+              if (v.length >= 9) {
+                setInviteCode(v);
+                sessionStorage.setItem(INVITE_STORAGE_KEY, v);
+                fetch('/api/invites/validate', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ code: v }),
+                })
+                  .then((r) => r.json())
+                  .then((data) => {
+                    setInviteValid(data.valid === true);
+                    if (data.referrerFirstName) setInviteReferrer(data.referrerFirstName);
+                  })
+                  .catch(() => {});
+              }
+            }}
+          />
+        )}
+        {inviteCode && inviteValid === false && (
+          <p className={styles.errorText} style={{ marginBottom: '0.5rem' }}>
+            Invalid or already-used invite code.
+          </p>
+        )}
 
         <Button
           type="submit"

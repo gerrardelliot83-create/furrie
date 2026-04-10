@@ -1,0 +1,118 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(14, 26, 43, 0.5);
+  padding: var(--space-4);
+}
+
+.modal {
+  background: #FFFFFF;
+  border-radius: var(--radius-lg, 12px);
+  width: 100%;
+  max-width: 420px;
+  padding: var(--space-6);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+}
+
+.title {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: 0 0 var(--space-1) 0;
+}
+
+.subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-4) 0;
+  line-height: 1.5;
+}
+
+.quantityChips {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+
+.chip {
+  padding: 8px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  background: #FFFFFF;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.chip:hover { border-color: #3971B8; color: #1E5081; }
+.chipActive {
+  background: #E8EFF7;
+  border-color: #1E5081;
+  color: #1E5081;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+}
+
+.label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.input, .select, .textarea {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: var(--font-size-base);
+  font-family: inherit;
+  color: var(--color-text-primary);
+  background: #FFFFFF;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.textarea { resize: vertical; min-height: 60px; }
+.input:focus, .select:focus, .textarea:focus {
+  outline: none;
+  border-color: #3971B8;
+  box-shadow: 0 0 0 3px rgba(57, 113, 184, 0.15);
+}
+
+.error {
+  color: var(--color-error, #a7261d);
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--space-2);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+  margin-top: var(--space-4);
+}
+
+.successState {
+  text-align: center;
+  padding: var(--space-4) 0;
+}
+.successTitle {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: #2D6A31;
+  margin: 0 0 var(--space-2) 0;
+}
+.successText {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin: 0 0 var(--space-4) 0;
+}

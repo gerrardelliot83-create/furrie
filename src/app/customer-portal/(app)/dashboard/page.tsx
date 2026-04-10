@@ -14,6 +14,7 @@ import { PackSection } from '@/components/customer/PackSection';
 import { FEATURES } from '@/lib/config/features';
 import { PackCtaCard } from '@/components/customer';
 import { ConsultationBalanceCard } from '@/components/customer/ConsultationBalanceCard';
+import { InviteCard } from '@/components/customer/InviteCard';
 import { getActiveCreditBalance } from '@/lib/credits/getActiveCreditBalance';
 import styles from './Dashboard.module.css';
 
@@ -232,6 +233,9 @@ export default async function CustomerDashboard() {
         </div>
         {FEATURES.ENABLE_PAYMENTS && <PackCtaCard packs={packsData || []} />}
       </section>
+
+      {/* Invite a friend card */}
+      <InviteCard />
 
       {/* Consultation Packs — hidden when payments are disabled */}
       {FEATURES.ENABLE_PAYMENTS && (packsData && packsData.length > 0) && (

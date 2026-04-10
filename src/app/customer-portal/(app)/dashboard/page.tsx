@@ -13,6 +13,9 @@ import { ConsultationCard } from '@/components/consultation';
 import { PackSection } from '@/components/customer/PackSection';
 import { FEATURES } from '@/lib/config/features';
 import { PackCtaCard } from '@/components/customer';
+import { ConsultationBalanceCard } from '@/components/customer/ConsultationBalanceCard';
+import { InviteCard } from '@/components/customer/InviteCard';
+import { getActiveCreditBalance } from '@/lib/credits/getActiveCreditBalance';
 import styles from './Dashboard.module.css';
 
 export const maxDuration = 30;
@@ -133,6 +136,18 @@ export default async function CustomerDashboard() {
 
   const userName = profile?.full_name || 'there';
 
+  // Credit balance — fetched separately (lightweight, not part of the
+  // timeout-protected batch) so it can't break the rest of the dashboard.
+  const creditBalance = await getActiveCreditBalance(supabase, user.id).catch(
+    () => ({
+      totalCredits: 0,
+      activePacks: 0,
+      hasPendingRequest: false,
+      pendingRequestId: null,
+      pendingRequestQuantity: null,
+    })
+  );
+
   const pets = (petsData || []).map(mapPetFromDB);
 
   const upcomingConsultations = (upcomingData || []).map((row) =>
@@ -195,6 +210,9 @@ export default async function CustomerDashboard() {
         </p>
       </header>
 
+      {/* Consultation balance — always visible */}
+      <ConsultationBalanceCard balance={creditBalance} />
+
       {/* CTA Grid: Connect + Packs */}
       <section className={styles.ctaGrid}>
         <div className={styles.ctaCard}>
@@ -215,6 +233,9 @@ export default async function CustomerDashboard() {
         </div>
         {FEATURES.ENABLE_PAYMENTS && <PackCtaCard packs={packsData || []} />}
       </section>
+
+      {/* Invite a friend card */}
+      <InviteCard />
 
       {/* Consultation Packs — hidden when payments are disabled */}
       {FEATURES.ENABLE_PAYMENTS && (packsData && packsData.length > 0) && (

@@ -229,6 +229,73 @@ export type Database = {
           },
         ]
       }
+      consultation_credit_requests: {
+        Row: {
+          contact_phone: string | null
+          created_at: string
+          customer_id: string
+          fulfilled_at: string | null
+          fulfilled_by_admin_id: string | null
+          fulfilled_pack_id: string | null
+          id: string
+          note: string | null
+          preferred_contact: string | null
+          requested_quantity: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          contact_phone?: string | null
+          created_at?: string
+          customer_id: string
+          fulfilled_at?: string | null
+          fulfilled_by_admin_id?: string | null
+          fulfilled_pack_id?: string | null
+          id?: string
+          note?: string | null
+          preferred_contact?: string | null
+          requested_quantity: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          contact_phone?: string | null
+          created_at?: string
+          customer_id?: string
+          fulfilled_at?: string | null
+          fulfilled_by_admin_id?: string | null
+          fulfilled_pack_id?: string | null
+          id?: string
+          note?: string | null
+          preferred_contact?: string | null
+          requested_quantity?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consultation_credit_requests_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultation_credit_requests_fulfilled_by_admin_id_fkey"
+            columns: ["fulfilled_by_admin_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultation_credit_requests_fulfilled_pack_id_fkey"
+            columns: ["fulfilled_pack_id"]
+            isOneToOne: false
+            referencedRelation: "consultation_packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       consultation_flags: {
         Row: {
           admin_notes: string | null
@@ -372,15 +439,18 @@ export type Database = {
       }
       consultation_packs: {
         Row: {
+          admin_note: string | null
           created_at: string | null
           customer_id: string
           discount_percent: number
           expires_at: string | null
+          granted_by_admin_id: string | null
           id: string
           pack_size: number
           payment_id: string | null
           purchased_at: string | null
           remaining_count: number | null
+          source: string
           status: string
           total_consultations: number
           total_price: number
@@ -389,15 +459,18 @@ export type Database = {
           used_count: number
         }
         Insert: {
+          admin_note?: string | null
           created_at?: string | null
           customer_id: string
           discount_percent: number
           expires_at?: string | null
+          granted_by_admin_id?: string | null
           id?: string
           pack_size: number
           payment_id?: string | null
           purchased_at?: string | null
           remaining_count?: number | null
+          source?: string
           status?: string
           total_consultations: number
           total_price: number
@@ -406,15 +479,18 @@ export type Database = {
           used_count?: number
         }
         Update: {
+          admin_note?: string | null
           created_at?: string | null
           customer_id?: string
           discount_percent?: number
           expires_at?: string | null
+          granted_by_admin_id?: string | null
           id?: string
           pack_size?: number
           payment_id?: string | null
           purchased_at?: string | null
           remaining_count?: number | null
+          source?: string
           status?: string
           total_consultations?: number
           total_price?: number
@@ -426,6 +502,13 @@ export type Database = {
           {
             foreignKeyName: "consultation_packs_customer_id_fkey"
             columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultation_packs_granted_by_admin_id_fkey"
+            columns: ["granted_by_admin_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -938,6 +1021,64 @@ export type Database = {
             columns: ["resolved_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invite_codes: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          redeemed_at: string | null
+          redeemed_by_id: string | null
+          referrer_id: string
+          referrer_reward_pack_id: string | null
+          referrer_rewarded_at: string | null
+          status: string
+        }
+        Insert: {
+          code?: string
+          created_at?: string
+          id?: string
+          redeemed_at?: string | null
+          redeemed_by_id?: string | null
+          referrer_id: string
+          referrer_reward_pack_id?: string | null
+          referrer_rewarded_at?: string | null
+          status?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          redeemed_at?: string | null
+          redeemed_by_id?: string | null
+          referrer_id?: string
+          referrer_reward_pack_id?: string | null
+          referrer_rewarded_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invite_codes_redeemed_by_id_fkey"
+            columns: ["redeemed_by_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invite_codes_referrer_id_fkey"
+            columns: ["referrer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invite_codes_referrer_reward_pack_id_fkey"
+            columns: ["referrer_reward_pack_id"]
+            isOneToOne: false
+            referencedRelation: "consultation_packs"
             referencedColumns: ["id"]
           },
         ]
@@ -1939,12 +2080,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      consume_pack_credit: {
+        Args: { p_consultation_id: string; p_customer_id: string }
+        Returns: string
+      }
       generate_consultation_number: { Args: never; Returns: string }
+      generate_invite_code: { Args: never; Returns: string }
       generate_prescription_number: { Args: never; Returns: string }
       is_admin: { Args: never; Returns: boolean }
       is_vet: { Args: never; Returns: boolean }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      validate_invite_code: { Args: { p_code: string }; Returns: Json }
     }
     Enums: {
       [_ in never]: never

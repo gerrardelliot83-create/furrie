@@ -295,3 +295,251 @@ export async function sendCarePlanCreatedEmail(to: string, params: Parameters<ty
   const { subject, html } = templates.carePlanCreatedEmail(params);
   return sendEmail({ to, subject, html });
 }
+
+// =============================================================================
+// Consultation Credit Request Emails
+// =============================================================================
+
+/**
+ * Sent to the customer when their credit request is submitted.
+ */
+export async function sendCreditRequestReceivedEmail(params: {
+  customerEmail: string;
+  customerName: string;
+  quantity: number;
+}) {
+  const html = `
+    <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: #1E5081; padding: 24px; text-align: center;">
+        <img src="https://app.furrie.in/assets/logo/furrie-logo-dark-blue.png" alt="Furrie" style="height: 40px; width: auto;" />
+      </div>
+      <div style="height: 4px; background: #c8d69b;"></div>
+      <div style="padding: 32px 24px; background: #ffffff;">
+        <p style="font-size: 16px; color: #0E1A2B; margin: 0 0 16px;">Dear ${params.customerName},</p>
+        <p style="font-size: 15px; color: #0E1A2B; line-height: 1.65; margin: 0 0 20px;">
+          We received your request for <strong>${params.quantity} consultation${params.quantity === 1 ? '' : 's'}</strong>.
+          Our team will reach out to you shortly to coordinate the details.
+        </p>
+        <p style="font-size: 14px; color: #55637A; line-height: 1.5; margin: 0 0 24px;">
+          Once your consultations are activated, you will receive a confirmation email and
+          the credits will appear on your dashboard immediately.
+        </p>
+        <p style="font-size: 15px; color: #0E1A2B; margin: 24px 0 0;"><strong>Team Furrie</strong></p>
+      </div>
+      <div style="background: #F1F3F8; padding: 16px 24px; text-align: center;">
+        <p style="margin: 0; font-size: 12px; color: #8892A5;">Furrie — Veterinary Teleconsultation — India</p>
+      </div>
+    </div>
+  `;
+
+  return sendEmail({
+    to: params.customerEmail,
+    subject: `We received your consultation request`,
+    html,
+  });
+}
+
+/**
+ * Sent to the ops team when a new credit request comes in.
+ */
+export async function sendCreditRequestInternalEmail(params: {
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string | null;
+  quantity: number;
+  preferredContact: string | null;
+  note: string | null;
+}) {
+  const opsEmail = process.env.OPS_NOTIFICATION_EMAIL;
+  if (!opsEmail) {
+    console.warn('[EMAIL] OPS_NOTIFICATION_EMAIL not set — skipping internal notification');
+    return { success: false, error: 'OPS_NOTIFICATION_EMAIL not configured' };
+  }
+
+  const html = `
+    <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: #1E5081; padding: 16px 24px;">
+        <h2 style="color: #fff; margin: 0; font-size: 16px;">New Consultation Request</h2>
+      </div>
+      <div style="padding: 24px; background: #fff; border: 1px solid #E2E6EE;">
+        <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
+          <tr><td style="padding: 6px 0; color: #55637A; width: 130px;">Customer</td><td style="padding: 6px 0; color: #0E1A2B;">${params.customerName}</td></tr>
+          <tr><td style="padding: 6px 0; color: #55637A;">Email</td><td style="padding: 6px 0;">${params.customerEmail}</td></tr>
+          <tr><td style="padding: 6px 0; color: #55637A;">Phone</td><td style="padding: 6px 0;">${params.customerPhone || '—'}</td></tr>
+          <tr><td style="padding: 6px 0; color: #55637A;">Quantity</td><td style="padding: 6px 0; font-weight: 700;">${params.quantity} consultations</td></tr>
+          <tr><td style="padding: 6px 0; color: #55637A;">Contact via</td><td style="padding: 6px 0;">${params.preferredContact || '—'}</td></tr>
+          ${params.note ? `<tr><td style="padding: 6px 0; color: #55637A; vertical-align: top;">Note</td><td style="padding: 6px 0;">${params.note}</td></tr>` : ''}
+        </table>
+        <p style="margin: 20px 0 0; font-size: 13px; color: #55637A;">
+          Go to Admin Portal → Credit Requests to process this request.
+        </p>
+      </div>
+    </div>
+  `;
+
+  return sendEmail({
+    to: opsEmail,
+    subject: `[Action Required] ${params.customerName} requested ${params.quantity} consultations`,
+    html,
+  });
+}
+
+/**
+ * Sent to the customer when admin grants credits.
+ */
+// =============================================================================
+// Invite Emails
+// =============================================================================
+
+/**
+ * Sent to the invitee when they redeem an invite code.
+ */
+export async function sendInviteRedeemedEmail(params: {
+  inviteeEmail: string;
+  inviteeName: string;
+}) {
+  const html = `
+    <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: #1E5081; padding: 24px; text-align: center;">
+        <img src="https://app.furrie.in/assets/logo/furrie-logo-dark-blue.png" alt="Furrie" style="height: 40px; width: auto;" />
+      </div>
+      <div style="height: 4px; background: #c8d69b;"></div>
+      <div style="padding: 32px 24px; background: #ffffff;">
+        <p style="font-size: 16px; color: #0E1A2B; margin: 0 0 16px;">Welcome to Furrie, ${params.inviteeName}!</p>
+        <p style="font-size: 15px; color: #0E1A2B; line-height: 1.65; margin: 0 0 20px;">
+          You have been gifted <strong>1 free vet consultation</strong>. Your credit is ready — book any time within the next 60 days.
+        </p>
+        <div style="text-align: center; margin: 24px 0;">
+          <a href="https://app.furrie.in/connect" style="display: inline-block; padding: 12px 28px; background: #1E5081; color: #fff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;">
+            Book Your Free Consultation
+          </a>
+        </div>
+        <p style="font-size: 15px; color: #0E1A2B; margin: 24px 0 0;"><strong>Team Furrie</strong></p>
+      </div>
+      <div style="background: #F1F3F8; padding: 16px 24px; text-align: center;">
+        <p style="margin: 0; font-size: 12px; color: #8892A5;">Furrie — Veterinary Teleconsultation — India</p>
+      </div>
+    </div>
+  `;
+
+  return sendEmail({
+    to: params.inviteeEmail,
+    subject: 'Welcome! Your free consultation is ready',
+    html,
+  });
+}
+
+/**
+ * Sent to the referrer when their invite is used.
+ */
+export async function sendInviteUsedReferrerEmail(params: {
+  referrerEmail: string;
+  referrerName: string;
+  inviteeFirstName: string;
+}) {
+  const html = `
+    <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: #1E5081; padding: 24px; text-align: center;">
+        <img src="https://app.furrie.in/assets/logo/furrie-logo-dark-blue.png" alt="Furrie" style="height: 40px; width: auto;" />
+      </div>
+      <div style="height: 4px; background: #c8d69b;"></div>
+      <div style="padding: 32px 24px; background: #ffffff;">
+        <p style="font-size: 16px; color: #0E1A2B; margin: 0 0 16px;">Hi ${params.referrerName},</p>
+        <p style="font-size: 15px; color: #0E1A2B; line-height: 1.65; margin: 0 0 20px;">
+          <strong>${params.inviteeFirstName}</strong> signed up using your invite!
+          They have received their free consultation.
+        </p>
+        <p style="font-size: 14px; color: #55637A; line-height: 1.55; margin: 0 0 20px;">
+          When ${params.inviteeFirstName} completes their first consultation,
+          you will receive a free consultation too as a thank-you.
+        </p>
+        <p style="font-size: 15px; color: #0E1A2B; margin: 24px 0 0;"><strong>Team Furrie</strong></p>
+      </div>
+      <div style="background: #F1F3F8; padding: 16px 24px; text-align: center;">
+        <p style="margin: 0; font-size: 12px; color: #8892A5;">Furrie — Veterinary Teleconsultation — India</p>
+      </div>
+    </div>
+  `;
+
+  return sendEmail({
+    to: params.referrerEmail,
+    subject: `${params.inviteeFirstName} signed up with your invite!`,
+    html,
+  });
+}
+
+/**
+ * Sent to the referrer when they receive their reward.
+ */
+export async function sendInviteRewardEmail(params: {
+  referrerEmail: string;
+  referrerName: string;
+}) {
+  const html = `
+    <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: #1E5081; padding: 24px; text-align: center;">
+        <img src="https://app.furrie.in/assets/logo/furrie-logo-dark-blue.png" alt="Furrie" style="height: 40px; width: auto;" />
+      </div>
+      <div style="height: 4px; background: #c8d69b;"></div>
+      <div style="padding: 32px 24px; background: #ffffff;">
+        <p style="font-size: 16px; color: #0E1A2B; margin: 0 0 16px;">Hi ${params.referrerName},</p>
+        <p style="font-size: 15px; color: #0E1A2B; line-height: 1.65; margin: 0 0 20px;">
+          Your friend completed their first vet consultation. As a thank-you,
+          <strong>1 free consultation</strong> has been added to your account!
+        </p>
+        <div style="text-align: center; margin: 24px 0;">
+          <a href="https://app.furrie.in/dashboard" style="display: inline-block; padding: 12px 28px; background: #1E5081; color: #fff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;">
+            View Your Credits
+          </a>
+        </div>
+        <p style="font-size: 15px; color: #0E1A2B; margin: 24px 0 0;"><strong>Team Furrie</strong></p>
+      </div>
+      <div style="background: #F1F3F8; padding: 16px 24px; text-align: center;">
+        <p style="margin: 0; font-size: 12px; color: #8892A5;">Furrie — Veterinary Teleconsultation — India</p>
+      </div>
+    </div>
+  `;
+
+  return sendEmail({
+    to: params.referrerEmail,
+    subject: 'You earned a free consultation!',
+    html,
+  });
+}
+
+export async function sendCreditsAddedEmail(params: {
+  customerEmail: string;
+  customerName: string;
+  quantity: number;
+}) {
+  const html = `
+    <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: #1E5081; padding: 24px; text-align: center;">
+        <img src="https://app.furrie.in/assets/logo/furrie-logo-dark-blue.png" alt="Furrie" style="height: 40px; width: auto;" />
+      </div>
+      <div style="height: 4px; background: #c8d69b;"></div>
+      <div style="padding: 32px 24px; background: #ffffff;">
+        <p style="font-size: 16px; color: #0E1A2B; margin: 0 0 16px;">Dear ${params.customerName},</p>
+        <p style="font-size: 15px; color: #0E1A2B; line-height: 1.65; margin: 0 0 20px;">
+          <strong>${params.quantity} consultation${params.quantity === 1 ? '' : 's'}</strong>
+          ${params.quantity === 1 ? 'has' : 'have'} been added to your account. You can start booking right away!
+        </p>
+        <div style="text-align: center; margin: 24px 0;">
+          <a href="https://app.furrie.in/connect" style="display: inline-block; padding: 12px 28px; background: #1E5081; color: #fff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;">
+            Book a Consultation
+          </a>
+        </div>
+        <p style="font-size: 15px; color: #0E1A2B; margin: 24px 0 0;"><strong>Team Furrie</strong></p>
+      </div>
+      <div style="background: #F1F3F8; padding: 16px 24px; text-align: center;">
+        <p style="margin: 0; font-size: 12px; color: #8892A5;">Furrie — Veterinary Teleconsultation — India</p>
+      </div>
+    </div>
+  `;
+
+  return sendEmail({
+    to: params.customerEmail,
+    subject: `${params.quantity} consultation${params.quantity === 1 ? '' : 's'} added to your account`,
+    html,
+  });
+}

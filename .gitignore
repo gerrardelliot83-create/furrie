@@ -54,3 +54,6 @@ temp-ui-review/
 
 # Supabase CLI local cache
 supabase/.temp/
+
+# Test reports
+test-reports/

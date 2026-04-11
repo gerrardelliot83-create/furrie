@@ -45,6 +45,16 @@ export function ConsultationRequestModal({ prefillPhone, onClose, onSubmitted }:
       return;
     }
 
+    // Basic phone validation: if provided, must be 10+ digits (Indian numbers)
+    const trimmedPhone = contactPhone.trim();
+    if (trimmedPhone) {
+      const digitsOnly = trimmedPhone.replace(/[\s\-+()]/g, '');
+      if (digitsOnly.length < 10 || !/^\d+$/.test(digitsOnly)) {
+        setError('Please enter a valid phone number (at least 10 digits).');
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       const res = await fetch('/api/consultation-requests', {

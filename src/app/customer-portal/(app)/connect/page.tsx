@@ -18,9 +18,9 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function ConnectPage({
   searchParams,
 }: {
-  searchParams: Promise<{ petId?: string }>;
+  searchParams: Promise<{ petId?: string; requestCredits?: string }>;
 }) {
-  const { petId: preselectedPetId } = await searchParams;
+  const { petId: preselectedPetId, requestCredits } = await searchParams;
   const t = await getTranslations('consultation');
   const supabase = await createClient();
 
@@ -104,6 +104,7 @@ export default async function ConnectPage({
         hasPackCredit={hasPackCredit}
         packCreditsRemaining={packCreditsRemaining}
         preselectedPetId={preselectedPetId || null}
+        openCreditRequestModal={requestCredits === 'true'}
         pendingConsultation={pendingConsultation ? {
           id: pendingConsultation.id,
           consultationNumber: pendingConsultation.consultation_number,

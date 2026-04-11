@@ -22,6 +22,7 @@ const INVITE_STORAGE_KEY = 'furrie_invite_code';
 
 export function AuthForm() {
   const t = useTranslations('auth');
+  const tInvite = useTranslations('invite');
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -210,14 +211,18 @@ export function AuthForm() {
         .then((r) => {
           if (r.ok) {
             sessionStorage.removeItem(INVITE_STORAGE_KEY);
-            toast('1 free consultation unlocked from your invite!', 'success');
+            toast(tInvite('freeConsultation'), 'success');
+          } else {
+            console.error('[INVITE] Redeem failed with status:', r.status);
           }
         })
-        .catch(() => {});
+        .catch((err) => {
+          console.error('[INVITE] Failed to redeem invite code:', err);
+        });
     }
 
     router.push('/dashboard');
-  }, [email, verifyOtp, router, toast, t]);
+  }, [email, verifyOtp, router, toast, t, tInvite]);
 
   const handleResendOtp = async () => {
     if (resendTimer > 0) return;

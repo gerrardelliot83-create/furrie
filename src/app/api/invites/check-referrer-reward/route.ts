@@ -13,9 +13,13 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { grantReferrerRewardIfEligible } from '@/lib/invites/grantReferrerReward';
+import { FEATURES } from '@/lib/config/features';
 
 export async function POST(request: Request) {
   try {
+    if (!FEATURES.ENABLE_INVITES) {
+      return NextResponse.json({ checked: true, rewarded: false });
+    }
     const supabase = await createClient();
     const {
       data: { user },

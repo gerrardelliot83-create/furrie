@@ -14,9 +14,16 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { FEATURES } from '@/lib/config/features';
 
 export async function POST(request: Request) {
   try {
+    if (!FEATURES.ENABLE_INVITES) {
+      return NextResponse.json(
+        { error: 'Invites feature is not enabled', code: 'FEATURE_DISABLED' },
+        { status: 404 }
+      );
+    }
     const supabase = await createClient();
     const {
       data: { user },
@@ -84,7 +91,29 @@ export async function POST(request: Request) {
       );
     }
 
-    // Create a 1-credit pack for the invitee (source='invite', 60-day expiry)
+    // STEP 1: Mark the invite as redeemed FIRST (optimistic lock on status='available')
+    // This prevents a race condition where two concurrent requests both create packs
+    const { data: redeemed, error: redeemErr } = await supabaseAdmin
+      .from('invite_codes')
+      .update({
+        status: 'redeemed',
+        redeemed_by_id: user.id,
+        redeemed_at: new Date().toISOString(),
+      })
+      .eq('id', invite.id)
+      .eq('status', 'available') // optimistic lock — only succeeds if still 'available'
+      .select('id')
+      .maybeSingle();
+
+    if (redeemErr || !redeemed) {
+      // Another request already redeemed this invite concurrently
+      return NextResponse.json(
+        { error: 'This invite has already been used', code: 'ALREADY_REDEEMED' },
+        { status: 409 }
+      );
+    }
+
+    // STEP 2: Create a 1-credit pack for the invitee (source='invite', 60-day expiry)
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 60);
 
@@ -106,27 +135,20 @@ export async function POST(request: Request) {
 
     if (packErr || !pack) {
       console.error('Failed to create invite pack:', packErr);
+      // Invite was marked redeemed but pack creation failed — revert invite status
+      try {
+        await supabaseAdmin
+          .from('invite_codes')
+          .update({ status: 'available', redeemed_by_id: null, redeemed_at: null })
+          .eq('id', invite.id);
+      } catch (revertErr: unknown) {
+        console.error('Failed to revert invite status after pack creation failure:', revertErr);
+      }
+
       return NextResponse.json(
         { error: 'Failed to grant invite credits', code: 'PACK_ERROR' },
         { status: 500 }
       );
-    }
-
-    // Mark the invite as redeemed
-    const { error: redeemErr } = await supabaseAdmin
-      .from('invite_codes')
-      .update({
-        status: 'redeemed',
-        redeemed_by_id: user.id,
-        redeemed_at: new Date().toISOString(),
-      })
-      .eq('id', invite.id)
-      .eq('status', 'available'); // optimistic lock
-
-    if (redeemErr) {
-      console.error('Failed to mark invite as redeemed:', redeemErr);
-      // Pack was already created — the invite status is slightly out of sync
-      // but the user still got their credit. Log and continue.
     }
 
     return NextResponse.json({

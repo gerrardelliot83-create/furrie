@@ -1,0 +1,207 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.count {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+  font-weight: var(--font-weight-normal);
+}
+
+.filters {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.filterButton {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-light);
+  background: var(--color-bg-primary);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.filterButton:hover {
+  background: var(--color-bg-secondary);
+}
+
+.filterButtonActive {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-light);
+  overflow: hidden;
+}
+
+.table th {
+  text-align: left;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.table td {
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.table tr:hover td {
+  background: var(--color-bg-secondary);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.badgePending {
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+}
+
+.badgeContacted {
+  background: var(--color-info-light);
+  color: var(--color-info);
+}
+
+.badgeFulfilled {
+  background: var(--color-success-light);
+  color: var(--color-success);
+}
+
+.badgeCancelled {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-tertiary);
+}
+
+.customerName {
+  font-weight: var(--font-weight-medium);
+}
+
+.customerEmail {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.customerPhone {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.notes {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.actionButton {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-light);
+  background: var(--color-bg-primary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.actionButton:hover {
+  background: var(--color-bg-secondary);
+}
+
+.actionButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.contactButton {
+  color: var(--color-info);
+  border-color: var(--color-info);
+}
+
+.contactButton:hover {
+  background: var(--color-info-light);
+}
+
+.fulfillButton {
+  color: var(--color-success);
+  border-color: var(--color-success);
+}
+
+.fulfillButton:hover {
+  background: var(--color-success-light);
+}
+
+.cancelButton {
+  color: var(--color-error);
+  border-color: var(--color-error);
+}
+
+.cancelButton:hover {
+  background: var(--color-error-light);
+}
+
+.emptyState {
+  text-align: center;
+  padding: var(--space-12);
+  color: var(--color-text-secondary);
+}
+
+.emptyState p {
+  margin: 0;
+}
+
+.preference {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  text-transform: capitalize;
+}

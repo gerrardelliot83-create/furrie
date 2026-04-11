@@ -190,9 +190,11 @@ export async function POST(request: Request) {
 
     // Create consultation
     // Plus users: status='scheduled' directly (no payment needed), is_free=true, is_priority=true
-    // Pack users: status='scheduled' directly (pack credit deducted), is_free=true
+    // Pack users: initially 'pending', promoted to 'scheduled' after credit deduction succeeds
     // Free users: status='pending' (will change to 'scheduled' after payment)
     const isFreeBooking = isPlusUser || hasPackCredit;
+    // For pack users, start as 'pending' until credit deduction is confirmed
+    const initialStatus = isPlusUser ? 'scheduled' : 'pending';
     const { data: consultation, error: createError } = await supabaseAdmin
       .from('consultations')
       .insert({
@@ -200,7 +202,7 @@ export async function POST(request: Request) {
         vet_id: vetId,
         pet_id: body.petId,
         type: 'scheduled',
-        status: isFreeBooking ? 'scheduled' : 'pending',
+        status: initialStatus,
         scheduled_at: body.scheduledAt,
         concern_text: body.concernText || null,
         symptom_categories: body.symptomCategories || [],
@@ -264,6 +266,19 @@ export async function POST(request: Request) {
           { error: 'No consultation credits available', code: 'NO_CREDITS' },
           { status: 403 }
         );
+      }
+
+      // Credit deduction succeeded — promote consultation to 'scheduled'
+      const { error: promoteErr } = await supabaseAdmin
+        .from('consultations')
+        .update({ status: 'scheduled' })
+        .eq('id', consultation.id);
+
+      if (promoteErr) {
+        console.error('Failed to promote consultation to scheduled:', promoteErr);
+      } else {
+        // Update local reference for response
+        consultation.status = 'scheduled';
       }
     }
 

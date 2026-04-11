@@ -8,6 +8,7 @@
  */
 
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { sendInviteRewardEmail } from '@/lib/email';
 
 export async function grantReferrerRewardIfEligible(
   inviteeUserId: string
@@ -75,11 +76,11 @@ export async function grantReferrerRewardIfEligible(
       .eq('id', invite.id)
       .is('referrer_rewarded_at', null); // idempotent guard
 
-    // Notify the referrer
+    // Notify the referrer (in-app + email)
     try {
       const { data: referrerProfile } = await supabaseAdmin
         .from('profiles')
-        .select('full_name')
+        .select('full_name, email')
         .eq('id', invite.referrer_id)
         .single();
 
@@ -92,7 +93,15 @@ export async function grantReferrerRewardIfEligible(
         data: { packId: pack.id, source: 'invite_reward' },
       });
 
-      void referrerProfile; // consumed by notification above implicitly
+      // Send reward email
+      if (referrerProfile?.email) {
+        sendInviteRewardEmail({
+          referrerEmail: referrerProfile.email,
+          referrerName: referrerProfile.full_name || 'there',
+        }).catch((emailErr) => {
+          console.error('[EMAIL] Failed to send referrer reward email:', emailErr);
+        });
+      }
     } catch (notifyErr) {
       console.error('Referrer reward notification failed:', notifyErr);
     }

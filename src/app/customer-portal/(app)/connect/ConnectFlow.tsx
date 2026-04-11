@@ -476,7 +476,6 @@ export function ConnectFlow({ initialPets, plusPetIds = [], hasPackCredit = fals
       {showCreditRequestModal && (
         <ConsultationRequestModal
           onClose={() => setShowCreditRequestModal(false)}
-          onSubmitted={() => setShowCreditRequestModal(false)}
         />
       )}
 

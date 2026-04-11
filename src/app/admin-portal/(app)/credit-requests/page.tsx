@@ -10,10 +10,10 @@ type RequestStatus = 'all' | 'pending' | 'contacted' | 'fulfilled' | 'cancelled'
 interface CreditRequest {
   id: string;
   customer_id: string;
-  quantity_requested: number;
-  contact_preference: string | null;
-  phone: string | null;
-  notes: string | null;
+  requested_quantity: number;
+  preferred_contact: string | null;
+  contact_phone: string | null;
+  note: string | null;
   status: string;
   created_at: string;
   fulfilled_at: string | null;
@@ -103,7 +103,7 @@ export default function CreditRequestsPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             customerId: req.customer_id,
-            totalCount: req.quantity_requested,
+            totalCount: req.requested_quantity,
             source: 'admin_grant',
           }),
         });
@@ -202,21 +202,21 @@ export default function CreditRequestsPage() {
                   <div className={styles.customerEmail}>
                     {req.profiles?.email || '-'}
                   </div>
-                  {(req.phone || req.profiles?.phone) && (
+                  {(req.contact_phone || req.profiles?.phone) && (
                     <div className={styles.customerPhone}>
-                      {req.phone || req.profiles?.phone}
+                      {req.contact_phone || req.profiles?.phone}
                     </div>
                   )}
                 </td>
-                <td>{req.quantity_requested}</td>
+                <td>{req.requested_quantity}</td>
                 <td>
                   <span className={styles.preference}>
-                    {req.contact_preference || '-'}
+                    {req.preferred_contact || '-'}
                   </span>
                 </td>
                 <td>
-                  <span className={styles.notes} title={req.notes || undefined}>
-                    {req.notes || '-'}
+                  <span className={styles.notes} title={req.note || undefined}>
+                    {req.note || '-'}
                   </span>
                 </td>
                 <td>

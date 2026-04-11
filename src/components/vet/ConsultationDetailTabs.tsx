@@ -47,8 +47,16 @@ export function ConsultationDetailTabs({
   const [isFinishing, setIsFinishing] = useState(false);
   const [isCompleted, setIsCompleted] = useState(initialIsCompleted);
 
+  // Lazy-mount: only render TreatmentPlanBuilder once the rx tab has been
+  // activated. This prevents it from firing its load useEffect at page mount
+  // time (when SOAP notes may not yet exist), which would cause a stale
+  // "Please complete SOAP notes" error. Once mounted, it stays mounted so
+  // in-progress edits survive tab switches.
+  const [rxMounted, setRxMounted] = useState(activeTab === 'rx');
+
   const handleTabChange = useCallback((tab: TabKey) => {
     setActiveTab(tab);
+    if (tab === 'rx') setRxMounted(true);
     // Update URL without full navigation
     const url = new URL(window.location.href);
     url.searchParams.set('tab', tab);
@@ -167,8 +175,9 @@ export function ConsultationDetailTabs({
         role="tabpanel"
       >
         <div className={styles.rxContent}>
-          {/* Treatment Plan Builder (F1.4) — owns its own load/save/finalize */}
-          <TreatmentPlanBuilder consultationId={consultationId} />
+          {/* Treatment Plan Builder (F1.4) — owns its own load/save/finalize.
+              Lazy-mounted: only rendered once the rx tab has been opened. */}
+          {rxMounted && <TreatmentPlanBuilder consultationId={consultationId} />}
 
           {/* Finish Consultation */}
           <div className={styles.rxFooter}>

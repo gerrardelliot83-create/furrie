@@ -10,9 +10,16 @@
 
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { FEATURES } from '@/lib/config/features';
 
 export async function POST(request: Request) {
   try {
+    if (!FEATURES.ENABLE_INVITES) {
+      return NextResponse.json(
+        { valid: false, reason: 'Invites are not currently available' },
+        { status: 200 }
+      );
+    }
     const body = await request.json().catch(() => ({}));
     const code = (body.code as string)?.trim()?.toUpperCase();
 

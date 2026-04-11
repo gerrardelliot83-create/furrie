@@ -10,6 +10,8 @@
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { sendCreditRequestReceivedEmail, sendCreditRequestInternalEmail } from '@/lib/email';
+import { FEATURES } from '@/lib/config/features';
 
 interface RequestBody {
   quantity?: number;
@@ -20,6 +22,12 @@ interface RequestBody {
 
 export async function POST(request: Request) {
   try {
+    if (!FEATURES.ENABLE_PACK_REQUESTS) {
+      return NextResponse.json(
+        { error: 'Credit requests are not currently available', code: 'FEATURE_DISABLED' },
+        { status: 404 }
+      );
+    }
     const supabase = await createClient();
     const {
       data: { user },
@@ -79,6 +87,37 @@ export async function POST(request: Request) {
         { error: 'Failed to submit request', code: 'DB_ERROR' },
         { status: 500 }
       );
+    }
+
+    // Send notification emails (non-blocking — don't let email failures block the response)
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('full_name, email, phone')
+      .eq('id', user.id)
+      .single();
+
+    const customerName = profile?.full_name || 'Customer';
+    const customerEmail = profile?.email || user.email || '';
+
+    if (customerEmail) {
+      sendCreditRequestReceivedEmail({
+        customerEmail,
+        customerName,
+        quantity,
+      }).catch((emailErr) => {
+        console.error('[EMAIL] Failed to send credit request received email:', emailErr);
+      });
+
+      sendCreditRequestInternalEmail({
+        customerName,
+        customerEmail,
+        customerPhone: body.contactPhone?.trim() || profile?.phone || null,
+        quantity,
+        preferredContact,
+        note: body.note?.trim()?.slice(0, 500) || null,
+      }).catch((emailErr) => {
+        console.error('[EMAIL] Failed to send internal credit request email:', emailErr);
+      });
     }
 
     return NextResponse.json({ request: inserted }, { status: 201 });

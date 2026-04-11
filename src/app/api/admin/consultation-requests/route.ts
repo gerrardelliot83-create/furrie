@@ -16,6 +16,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { sendCreditsAddedEmail } from '@/lib/email';
 
 async function verifyAdmin() {
   const supabase = await createClient();
@@ -116,10 +117,10 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const validActions = ['contact', 'fulfill', 'cancel'];
+    const validActions = ['contact', 'fulfill', 'cancel', 'revert'];
     if (!body.action || !validActions.includes(body.action)) {
       return NextResponse.json(
-        { error: 'action must be one of: contact, fulfill, cancel', code: 'VALIDATION_ERROR' },
+        { error: 'action must be one of: contact, fulfill, cancel, revert', code: 'VALIDATION_ERROR' },
         { status: 400 }
       );
     }
@@ -185,6 +186,18 @@ export async function PATCH(request: Request) {
 
       case 'cancel':
         updates.status = 'cancelled';
+        updates.cancelled_by_admin_id = user.id;
+        updates.cancelled_at = new Date().toISOString();
+        break;
+
+      case 'revert':
+        if (req.status !== 'contacted') {
+          return NextResponse.json(
+            { error: 'Can only revert contacted requests back to pending', code: 'INVALID_TRANSITION' },
+            { status: 400 }
+          );
+        }
+        updates.status = 'pending';
         break;
     }
 
@@ -199,6 +212,25 @@ export async function PATCH(request: Request) {
         { error: 'Failed to update request', code: 'DB_ERROR' },
         { status: 500 }
       );
+    }
+
+    // Send email notification when credits are fulfilled
+    if (body.action === 'fulfill') {
+      const { data: customerProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('full_name, email')
+        .eq('id', req.customer_id)
+        .single();
+
+      if (customerProfile?.email) {
+        sendCreditsAddedEmail({
+          customerEmail: customerProfile.email,
+          customerName: customerProfile.full_name || 'Customer',
+          quantity: req.quantity_requested ?? req.requested_quantity ?? 0,
+        }).catch((emailErr) => {
+          console.error('[EMAIL] Failed to send credits added email:', emailErr);
+        });
+      }
     }
 
     return NextResponse.json({

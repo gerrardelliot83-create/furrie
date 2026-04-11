@@ -134,7 +134,9 @@ export default async function CustomerDashboard() {
     { data: packsData },
   ] = await withTimeout(allQueries, QUERY_TIMEOUT, fallback);
 
-  const userName = profile?.full_name || 'there';
+  // Fall back to 'there' if name is missing or is the default placeholder 'User'
+  const rawName = profile?.full_name;
+  const userName = (rawName && rawName !== 'User') ? rawName : 'there';
 
   // Credit balance — fetched separately (lightweight, not part of the
   // timeout-protected batch) so it can't break the rest of the dashboard.
@@ -210,8 +212,8 @@ export default async function CustomerDashboard() {
         </p>
       </header>
 
-      {/* Consultation balance — always visible */}
-      <ConsultationBalanceCard balance={creditBalance} />
+      {/* Consultation balance — visible when pack requests feature is enabled */}
+      {FEATURES.ENABLE_PACK_REQUESTS && <ConsultationBalanceCard balance={creditBalance} />}
 
       {/* CTA Grid: Connect + Packs */}
       <section className={styles.ctaGrid}>
@@ -234,8 +236,8 @@ export default async function CustomerDashboard() {
         {FEATURES.ENABLE_PAYMENTS && <PackCtaCard packs={packsData || []} />}
       </section>
 
-      {/* Invite a friend card */}
-      <InviteCard />
+      {/* Invite a friend card — only shown when invites feature is enabled */}
+      {FEATURES.ENABLE_INVITES && <InviteCard />}
 
       {/* Consultation Packs — hidden when payments are disabled */}
       {FEATURES.ENABLE_PAYMENTS && (packsData && packsData.length > 0) && (

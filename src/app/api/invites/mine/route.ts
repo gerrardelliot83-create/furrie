@@ -6,9 +6,16 @@
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { FEATURES } from '@/lib/config/features';
 
 export async function GET() {
   try {
+    if (!FEATURES.ENABLE_INVITES) {
+      return NextResponse.json(
+        { error: 'Invites feature is not enabled', code: 'FEATURE_DISABLED' },
+        { status: 404 }
+      );
+    }
     const supabase = await createClient();
     const {
       data: { user },
@@ -24,7 +31,7 @@ export async function GET() {
 
     const { data: invites, error } = await supabase
       .from('invite_codes')
-      .select('id, code, status, redeemed_at, referrer_rewarded_at, created_at')
+      .select('id, code, status, redeemed_by_id, redeemed_at, referrer_rewarded_at, created_at')
       .eq('referrer_id', user.id)
       .order('created_at', { ascending: true });
 

@@ -308,5 +308,20 @@
     "priorityAccess": "Priority access to vets",
     "unlimitedFollowUp": "Unlimited follow-up",
     "vaccinationReminders": "Vaccination reminders"
+  },
+  "invite": {
+    "title": "Invite a Friend",
+    "subtitle": "Share your invite code and both of you get a free consultation",
+    "yourCode": "Your invite code",
+    "copyLink": "Copy Link",
+    "shareWhatsApp": "WhatsApp",
+    "shareEmail": "Email",
+    "linkCopied": "Link copied!",
+    "statusAvailable": "Available",
+    "statusRedeemed": "Redeemed",
+    "statusRewarded": "Rewarded",
+    "loading": "Loading invite...",
+    "inviteBanner": "{name} invited you to Furrie!",
+    "freeConsultation": "1 free consultation unlocked from your invite!"
   }
 }

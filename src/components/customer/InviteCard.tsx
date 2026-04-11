@@ -11,6 +11,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
+import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
 import styles from './InviteCard.module.css';
 
@@ -24,6 +26,7 @@ interface InviteData {
 
 export function InviteCard() {
   const { toast } = useToast();
+  const t = useTranslations('invite');
   const [invite, setInvite] = useState<InviteData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -53,11 +56,11 @@ export function InviteCard() {
   const handleCopy = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(shareUrl);
-      toast('Invite link copied!', 'success');
+      toast(t('linkCopied'), 'success');
     } catch {
       toast('Could not copy — please copy the link manually', 'error');
     }
-  }, [shareUrl, toast]);
+  }, [shareUrl, toast, t]);
 
   const handleWhatsApp = useCallback(() => {
     const text = encodeURIComponent(
@@ -81,42 +84,41 @@ export function InviteCard() {
 
   return (
     <div className={styles.card}>
-      <h3 className={styles.title}>Invite a Fellow Pet Parent</h3>
+      <h3 className={styles.title}>{t('title')}</h3>
 
       {invite.status === 'available' && (
         <>
           <p className={styles.subtitle}>
-            Share your invite and give a fellow pet parent 1 free vet consultation.
-            When they complete their first appointment, you get a free one too!
+            {t('subtitle')}
           </p>
 
           <div className={styles.codeRow}>
             <span className={styles.codeBox}>{invite.code}</span>
             <button type="button" className={styles.copyBtn} onClick={handleCopy}>
-              Copy link
+              {t('copyLink')}
             </button>
           </div>
 
           <div className={styles.shareRow}>
             <button type="button" className={styles.shareBtn} onClick={handleWhatsApp}>
-              Share via WhatsApp
+              {t('shareWhatsApp')}
             </button>
             <button type="button" className={styles.shareBtn} onClick={handleEmail}>
-              Share via Email
+              {t('shareEmail')}
             </button>
           </div>
         </>
       )}
 
       {invite.status === 'redeemed' && !invite.referrer_rewarded_at && (
-        <div className={styles.statusBadge + ' ' + styles.statusRedeemed}>
+        <div className={cn(styles.statusBadge, styles.statusRedeemed)}>
           Your invite was used! You will receive a free consultation when your
           friend completes their first appointment.
         </div>
       )}
 
       {invite.status === 'redeemed' && invite.referrer_rewarded_at && (
-        <div className={styles.statusBadge + ' ' + styles.statusRewarded}>
+        <div className={cn(styles.statusBadge, styles.statusRewarded)}>
           Your bonus consultation has been added to your account!
         </div>
       )}

@@ -19,6 +19,7 @@ import {
   TimeSlotSelector,
   BookingConfirmation,
 } from '@/components/consultation';
+import { ConsultationRequestModal } from '@/components/customer/ConsultationRequestModal';
 import styles from './ConnectFlow.module.css';
 
 type FlowStep = 'select-pet' | 'describe-concern' | 'select-time' | 'review' | 'confirmation';
@@ -51,9 +52,10 @@ interface ConnectFlowProps {
   packCreditsRemaining?: number;
   pendingConsultation?: PendingConsultation;
   preselectedPetId?: string | null;
+  openCreditRequestModal?: boolean;
 }
 
-export function ConnectFlow({ initialPets, plusPetIds = [], hasPackCredit = false, packCreditsRemaining = 0, pendingConsultation, preselectedPetId }: ConnectFlowProps) {
+export function ConnectFlow({ initialPets, plusPetIds = [], hasPackCredit = false, packCreditsRemaining = 0, pendingConsultation, preselectedPetId, openCreditRequestModal = false }: ConnectFlowProps) {
   const tCommon = useTranslations('common');
   const router = useRouter();
 
@@ -431,6 +433,7 @@ export function ConnectFlow({ initialPets, plusPetIds = [], hasPackCredit = fals
   };
 
   const [showPendingBanner, setShowPendingBanner] = useState(!!pendingConsultation);
+  const [showCreditRequestModal, setShowCreditRequestModal] = useState(openCreditRequestModal);
 
   const handleRetryPayment = async () => {
     if (!pendingConsultation) return;
@@ -470,6 +473,13 @@ export function ConnectFlow({ initialPets, plusPetIds = [], hasPackCredit = fals
 
   return (
     <div className={styles.container}>
+      {showCreditRequestModal && (
+        <ConsultationRequestModal
+          onClose={() => setShowCreditRequestModal(false)}
+          onSubmitted={() => setShowCreditRequestModal(false)}
+        />
+      )}
+
       {FEATURES.ENABLE_PAYMENTS && showPendingBanner && pendingConsultation && (
         <div className={styles.pendingBanner}>
           <div className={styles.pendingBannerContent}>

@@ -224,7 +224,7 @@ export async function PATCH(request: Request) {
         sendCreditsAddedEmail({
           customerEmail: customerProfile.email,
           customerName: customerProfile.full_name || 'Customer',
-          quantity: req.quantity_requested ?? req.requested_quantity ?? 0,
+          quantity: req.requested_quantity ?? 0,
         }).catch((emailErr) => {
           console.error('[EMAIL] Failed to send credits added email:', emailErr);
         });

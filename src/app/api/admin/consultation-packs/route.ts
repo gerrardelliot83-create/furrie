@@ -86,16 +86,12 @@ export async function POST(request: Request) {
         customer_id: body.customerId,
         pack_size: body.totalCount,
         total_consultations: body.totalCount,
-        remaining_count: body.totalCount,
         unit_price: 0,
         discount_percent: 100,
         total_price: 0,
         status: 'active',
         source,
-        metadata: {
-          granted_by_admin_id: user.id,
-          granted_at: new Date().toISOString(),
-        },
+        granted_by_admin_id: user.id,
       })
       .select('id, pack_size, total_consultations, remaining_count, status, purchased_at')
       .single();

@@ -103,12 +103,24 @@
 @media (min-width: 1024px) {
   .grid {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
   }
 }
 
 .editorCol,
 .previewCol {
   min-width: 0;
+}
+
+/* Keep the preview pane in view while the editor sections scroll */
+@media (min-width: 1024px) {
+  .previewCol,
+  .previewColCollapsed {
+    position: sticky;
+    top: var(--space-4, 16px);
+    max-height: calc(100vh - var(--space-8, 32px));
+    overflow-y: auto;
+  }
 }
 
 /* Preview accordion on mobile */

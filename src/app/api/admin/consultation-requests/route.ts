@@ -186,8 +186,6 @@ export async function PATCH(request: Request) {
 
       case 'cancel':
         updates.status = 'cancelled';
-        updates.cancelled_by_admin_id = user.id;
-        updates.cancelled_at = new Date().toISOString();
         break;
 
       case 'revert':

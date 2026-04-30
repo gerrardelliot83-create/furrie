@@ -150,32 +150,49 @@ export function useFollowUpChat(consultationId: string): UseFollowUpChatReturn {
     };
   }, [threadNotFound, fetchChat]);
 
-  // Subscribe to real-time messages using Broadcast (no database replication setup required)
+  // Subscribe to real-time messages using Broadcast (no database replication setup required).
+  // Wrapped in try/catch so WebSocket failures (CSP, blocked networks) degrade gracefully:
+  // the chat falls back to optimistic-only updates and DB-backed message history on reload.
   useEffect(() => {
     if (!threadId) return;
 
     const supabase = supabaseRef.current;
+    type Channel = ReturnType<typeof supabase.channel>;
+    let channel: Channel | null = null;
 
-    // Create and store channel reference for both subscribing and sending
-    const channel = supabase.channel(`follow_up:${threadId}`);
-    channelRef.current = channel;
+    try {
+      // Create and store channel reference for both subscribing and sending
+      channel = supabase.channel(`follow_up:${threadId}`);
+      channelRef.current = channel;
 
-    channel
-      .on('broadcast', { event: 'new_message' }, (payload) => {
-        const newMessage = payload.payload as ChatMessage;
+      channel
+        .on('broadcast', { event: 'new_message' }, (payload) => {
+          const newMessage = payload.payload as ChatMessage;
 
-        setMessages((prev) => {
-          // Avoid duplicates (message might already be there from optimistic update)
-          if (prev.some((m) => m.id === newMessage.id)) {
-            return prev;
+          setMessages((prev) => {
+            // Avoid duplicates (message might already be there from optimistic update)
+            if (prev.some((m) => m.id === newMessage.id)) {
+              return prev;
+            }
+            return [...prev, newMessage];
+          });
+        })
+        .subscribe((status, err) => {
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            console.warn(`[follow-up-chat] channel ${status}`, err);
           }
-          return [...prev, newMessage];
         });
-      })
-      .subscribe();
+    } catch (err) {
+      console.warn('[follow-up-chat] failed to subscribe to broadcast channel', err);
+      channelRef.current = null;
+    }
 
     return () => {
-      supabase.removeChannel(channel);
+      try {
+        if (channel) supabase.removeChannel(channel);
+      } catch (err) {
+        console.warn('[follow-up-chat] error during cleanup', err);
+      }
       channelRef.current = null;
     };
   }, [threadId]);
@@ -265,13 +282,19 @@ export function useFollowUpChat(consultationId: string): UseFollowUpChatReturn {
           prev.map((m) => (m.id === optimisticId ? realMessage : m))
         );
 
-        // Broadcast to other clients (e.g., when customer sends, vet receives)
+        // Broadcast to other clients (e.g., when customer sends, vet receives).
+        // Wrapped in try/catch — if the channel never connected (e.g. CSP block),
+        // the message is still saved to the DB and will appear for the recipient on next fetch.
         if (channelRef.current) {
-          await channelRef.current.send({
-            type: 'broadcast',
-            event: 'new_message',
-            payload: realMessage,
-          });
+          try {
+            await channelRef.current.send({
+              type: 'broadcast',
+              event: 'new_message',
+              payload: realMessage,
+            });
+          } catch (err) {
+            console.warn('[follow-up-chat] failed to broadcast new_message', err);
+          }
         }
       }
     },

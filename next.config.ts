@@ -65,7 +65,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https://*.supabase.co https://api.furrie.in https://utfs.io https://*.ufs.sh https://*.daily.co",
               "font-src 'self' data:",
-              "connect-src 'self' https://*.supabase.co https://api.furrie.in https://*.daily.co wss://*.daily.co https://utfs.io https://*.ufs.sh https://*.uploadthing.com https://*.ingest.sentry.io",
+              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.furrie.in wss://api.furrie.in https://*.daily.co wss://*.daily.co https://utfs.io https://*.ufs.sh https://*.uploadthing.com https://*.ingest.sentry.io",
               "frame-src 'self' https://*.daily.co",
               "media-src 'self' blob: https://*.daily.co https://*.supabase.co",
               "worker-src 'self' blob:",

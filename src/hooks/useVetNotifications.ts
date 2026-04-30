@@ -121,51 +121,66 @@ export function useVetNotifications(vetId: string | null): UseVetNotificationsRe
   }, [vetId]);
 
   // Subscribe to broadcast channel for real-time notifications
-  // This uses Supabase Broadcast which doesn't require Realtime publication setup
+  // This uses Supabase Broadcast which doesn't require Realtime publication setup.
+  // Wrapped in try/catch so WebSocket failures (CSP, blocked networks) degrade
+  // gracefully instead of bubbling up to the error boundary.
   useEffect(() => {
     if (!vetId) return;
 
     const supabase = supabaseRef.current;
+    type Channel = ReturnType<typeof supabase.channel>;
+    let channel: Channel | null = null;
 
-    // Subscribe to the vet's incoming consultation broadcast channel
-    const channel = supabase
-      .channel(`vet:${vetId}:incoming`)
-      .on(
-        'broadcast',
-        { event: 'incoming_consultation' },
-        (payload) => {
-          console.log('Received broadcast notification:', payload);
+    try {
+      // Subscribe to the vet's incoming consultation broadcast channel
+      channel = supabase
+        .channel(`vet:${vetId}:incoming`)
+        .on(
+          'broadcast',
+          { event: 'incoming_consultation' },
+          (payload) => {
+            console.log('Received broadcast notification:', payload);
 
-          const notificationData = payload.payload as {
-            id: string;
-            type: string;
-            title: string;
-            body: string;
-            data: IncomingConsultationNotification['data'];
-            createdAt: string;
-          };
+            const notificationData = payload.payload as {
+              id: string;
+              type: string;
+              title: string;
+              body: string;
+              data: IncomingConsultationNotification['data'];
+              createdAt: string;
+            };
 
-          const notification: IncomingConsultationNotification = {
-            id: notificationData.id,
-            userId: vetId,
-            type: notificationData.type,
-            title: notificationData.title,
-            body: notificationData.body,
-            channel: 'in_app',
-            isRead: false,
-            createdAt: notificationData.createdAt,
-            data: notificationData.data,
-          };
+            const notification: IncomingConsultationNotification = {
+              id: notificationData.id,
+              userId: vetId,
+              type: notificationData.type,
+              title: notificationData.title,
+              body: notificationData.body,
+              channel: 'in_app',
+              isRead: false,
+              createdAt: notificationData.createdAt,
+              data: notificationData.data,
+            };
 
-          setIncomingNotification(notification);
-        }
-      )
-      .subscribe((status) => {
-        console.log(`Vet broadcast subscription status: ${status}`);
-      });
+            setIncomingNotification(notification);
+          }
+        )
+        .subscribe((status, err) => {
+          console.log(`Vet broadcast subscription status: ${status}`);
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            console.warn(`[vet-notifications] channel ${status}`, err);
+          }
+        });
+    } catch (err) {
+      console.warn('[vet-notifications] failed to subscribe to broadcast channel', err);
+    }
 
     return () => {
-      supabase.removeChannel(channel);
+      try {
+        if (channel) supabase.removeChannel(channel);
+      } catch (err) {
+        console.warn('[vet-notifications] error during cleanup', err);
+      }
     };
   }, [vetId]);
 

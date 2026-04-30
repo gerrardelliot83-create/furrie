@@ -13,6 +13,8 @@ export default function VetPortalError({
     console.error('Vet portal error:', error);
   }, [error]);
 
+  const isDev = process.env.NODE_ENV !== 'production';
+
   return (
     <div
       style={{
@@ -45,6 +47,38 @@ export default function VetPortalError({
       >
         We couldn&apos;t load this page. Please try again.
       </p>
+      {error.digest && (
+        <p
+          style={{
+            color: '#999',
+            fontSize: '0.8125rem',
+            fontFamily: 'monospace',
+            marginBottom: '1.5rem',
+          }}
+        >
+          Reference: {error.digest}
+        </p>
+      )}
+      {isDev && error.message && (
+        <pre
+          style={{
+            color: '#770002',
+            fontSize: '0.8125rem',
+            fontFamily: 'monospace',
+            background: '#fff5f5',
+            border: '1px solid #f5d7d7',
+            padding: '0.75rem 1rem',
+            borderRadius: '8px',
+            maxWidth: '600px',
+            textAlign: 'left',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            marginBottom: '1.5rem',
+          }}
+        >
+          {error.message}
+        </pre>
+      )}
       <div style={{ display: 'flex', gap: '1rem' }}>
         <button
           onClick={reset}

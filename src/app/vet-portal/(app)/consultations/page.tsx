@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 
-import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/supabase/getCurrentUser';
 import { Badge } from '@/components/ui/Badge';
 import styles from './page.module.css';
 
@@ -38,13 +38,7 @@ export default async function VetConsultationsPage({ searchParams }: PageProps) 
   const t = await getTranslations('consultation');
   const tEmpty = await getTranslations('empty');
 
-  const supabase = await createClient();
-
-  // Get authenticated user
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const { user, error: authError, supabase } = await getCurrentUser();
 
   if (authError || !user) {
     redirect('/login');

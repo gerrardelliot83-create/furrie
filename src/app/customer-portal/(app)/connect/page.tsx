@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
-import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/supabase/getCurrentUser';
 import { FEATURES } from '@/lib/config/features';
 import { mapPetFromDB } from '@/lib/utils/petMapper';
 import { ConnectFlow } from './ConnectFlow';
@@ -22,13 +22,7 @@ export default async function ConnectPage({
 }) {
   const { petId: preselectedPetId, requestCredits } = await searchParams;
   const t = await getTranslations('consultation');
-  const supabase = await createClient();
-
-  // Get authenticated user
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const { user, error: authError, supabase } = await getCurrentUser();
 
   if (authError || !user) {
     redirect('/login?redirectTo=/connect');

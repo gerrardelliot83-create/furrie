@@ -1,6 +1,6 @@
 import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/supabase/getCurrentUser';
 import { EditConcernForm } from '@/components/customer/EditConcernForm';
 import styles from '../ConsultationDetail.module.css';
 
@@ -10,9 +10,7 @@ interface EditConcernPageProps {
 
 export default async function EditConcernPage({ params }: EditConcernPageProps) {
   const { id } = await params;
-  const supabase = await createClient();
-
-  const { data: { user } } = await supabase.auth.getUser();
+  const { user, supabase } = await getCurrentUser();
   if (!user) redirect('/login');
 
   const { data, error } = await supabase

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 
-import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/supabase/getCurrentUser';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import styles from './page.module.css';
 
@@ -20,12 +20,7 @@ export default async function VetPatientsPage({ searchParams }: PageProps) {
   const { search: searchQuery, page: pageParam } = await searchParams;
   const currentPage = Math.max(1, parseInt(pageParam || '1', 10));
 
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const { user, error: authError, supabase } = await getCurrentUser();
 
   if (authError || !user) {
     redirect('/login');

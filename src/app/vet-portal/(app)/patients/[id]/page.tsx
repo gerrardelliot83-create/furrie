@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
 
-import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/supabase/getCurrentUser';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { mapPetFromDB } from '@/lib/utils/petMapper';
 import { Badge } from '@/components/ui/Badge';
@@ -54,12 +54,7 @@ function calculateAge(dateOfBirth: string | null, approximateAgeMonths: number |
 
 export default async function VetPatientDetailPage({ params }: PageProps) {
   const { id: petId } = await params;
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const { user, error: authError, supabase } = await getCurrentUser();
 
   if (authError || !user) {
     redirect('/login');

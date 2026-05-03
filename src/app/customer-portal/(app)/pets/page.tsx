@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 
-import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/supabase/getCurrentUser';
 import { mapPetFromDB } from '@/lib/utils/petMapper';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -18,10 +18,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function PetsPage() {
   const t = await getTranslations('pets');
   const tEmpty = await getTranslations('empty');
-  const supabase = await createClient();
-
-  // Get authenticated user
-  const { data: { user } } = await supabase.auth.getUser();
+  const { user, supabase } = await getCurrentUser();
 
   // Fetch pets
   let pets: Awaited<ReturnType<typeof mapPetFromDB>>[] = [];

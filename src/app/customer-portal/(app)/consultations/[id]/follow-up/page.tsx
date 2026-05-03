@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
 
-import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/supabase/getCurrentUser';
 import { Card, CardContent } from '@/components/ui/Card';
 import { ChatInterface } from '@/components/consultation/ChatInterface';
 
@@ -16,13 +16,7 @@ interface PageProps {
 
 export default async function CustomerFollowUpPage({ params }: PageProps) {
   const { id: consultationId } = await params;
-  const supabase = await createClient();
-
-  // Get authenticated user
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const { user, error: authError, supabase } = await getCurrentUser();
 
   if (authError || !user) {
     redirect('/login');

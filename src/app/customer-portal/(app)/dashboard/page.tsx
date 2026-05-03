@@ -3,7 +3,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { redirect } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
-import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/supabase/getCurrentUser';
 import { mapPetFromDB } from '@/lib/utils/petMapper';
 import { mapConsultationWithRelationsFromDB } from '@/lib/utils/consultationMapper';
 import { withTimeout } from '@/lib/utils/queryTimeout';
@@ -40,13 +40,7 @@ export default async function CustomerDashboard() {
   const tPets = await getTranslations('pets');
   const tEmpty = await getTranslations('empty');
 
-  const supabase = await createClient();
-
-  // Get authenticated user
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const { user, error: authError, supabase } = await getCurrentUser();
 
   if (authError || !user) {
     redirect('/login');

@@ -5,8 +5,8 @@ Sentry.init({
 
   sendDefaultPii: true,
 
-  // Sample 100% in dev, 10% in production
-  tracesSampleRate: process.env.NODE_ENV === "development" ? 1.0 : 0.1,
+  // Sample 100% in dev, 25% in production. Per audit F-05.
+  tracesSampleRate: process.env.NODE_ENV === "development" ? 1.0 : 0.25,
 
   // Session Replay
   replaysSessionSampleRate: 0.1,

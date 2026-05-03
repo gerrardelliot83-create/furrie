@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -313,10 +314,11 @@ export function TodaySchedulePanel({ vetId }: TodaySchedulePanelProps) {
                   <div className={styles.detailsColumn}>
                     <div className={styles.petRow}>
                       <span className={styles.speciesIndicator}>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
+                        <Image
                           src={consultation.pet?.species === 'dog' ? '/assets/dog-avatar.png' : '/assets/cat-avatar.png'}
                           alt={consultation.pet?.species === 'dog' ? 'Dog' : 'Cat'}
+                          width={32}
+                          height={32}
                           className={styles.speciesIndicatorImg}
                         />
                       </span>

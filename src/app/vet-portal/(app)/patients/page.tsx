@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 
 import { getCurrentUser } from '@/lib/supabase/getCurrentUser';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { PetImage } from '@/components/ui/PetImage';
 import styles from './page.module.css';
 
 export const metadata: Metadata = {
@@ -136,17 +138,19 @@ export default async function VetPatientsPage({ searchParams }: PageProps) {
             >
               <div className={`${styles.patientAvatar} ${pet.photo_urls && pet.photo_urls.length > 0 ? (pet.species === 'dog' ? styles.patientAvatarDog : styles.patientAvatarCat) : ''}`}>
                 {pet.photo_urls && pet.photo_urls.length > 0 ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <PetImage
                     src={pet.photo_urls[0]}
                     alt={pet.name}
+                    width={64}
+                    height={64}
                     className={styles.patientImage}
                   />
                 ) : (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <Image
                     src={pet.species === 'dog' ? '/assets/dog-avatar.png' : '/assets/cat-avatar.png'}
                     alt={pet.species === 'dog' ? 'Dog' : 'Cat'}
+                    width={64}
+                    height={64}
                     className={styles.patientImage}
                   />
                 )}

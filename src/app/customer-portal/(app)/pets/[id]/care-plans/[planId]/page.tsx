@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { useToast } from '@/components/ui/Toast';
 import { Spinner } from '@/components/ui/Spinner';
+import { PetImage } from '@/components/ui/PetImage';
 import { StepResponseForm } from '@/components/customer/StepResponseForm';
 import styles from './page.module.css';
 
@@ -268,8 +269,7 @@ export default function CustomerCarePlanDetailPage({ params }: PageProps) {
                                   if (mediaType === 'photo') {
                                     return (
                                       <a key={`${url}-${idx}`} href={url} target="_blank" rel="noopener noreferrer" className={styles.responseMediaItem}>
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                        <img src={url} alt={`Attachment ${idx + 1}`} className={styles.responseMediaImage} />
+                                        <PetImage src={url} alt={`Attachment ${idx + 1}`} width={200} height={200} className={styles.responseMediaImage} />
                                       </a>
                                     );
                                   }

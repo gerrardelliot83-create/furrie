@@ -9,6 +9,7 @@ import { FEATURES } from '@/lib/config/features';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { Textarea } from '@/components/ui/Textarea';
+import { PetImage } from '@/components/ui/PetImage';
 import { FileUpload } from '@/components/customer/FileUpload';
 import {
   StepIndicator,
@@ -292,8 +293,7 @@ export function ConnectFlow({ initialPets, plusPetIds = [], hasPackCredit = fals
                   {uploadedMedia.map((m, i) => (
                     <div key={`${m.url}-${i}`} className={styles.mediaPreviewItem}>
                       {m.mediaType === 'photo' ? (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img src={m.url} alt={`Upload ${i + 1}`} className={styles.mediaThumb} />
+                        <PetImage src={m.url} alt={`Upload ${i + 1}`} width={120} height={120} className={styles.mediaThumb} />
                       ) : m.mediaType === 'document' ? (
                         <div className={styles.mediaDocTag}>PDF</div>
                       ) : (

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { PetImage } from '@/components/ui/PetImage';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { formatDate, formatTime, formatCurrency } from '@/lib/utils';
@@ -236,12 +237,13 @@ export function ConsultationDetailContent({ consultationId, onCancelSuccess, onO
           <div className={styles.petRow}>
             <div className={styles.petAvatar}>
               {petPhoto ? (
-                <Image src={petPhoto} alt={pet.name} width={48} height={48} className={styles.petImage} />
+                <PetImage src={petPhoto} alt={pet.name} width={48} height={48} className={styles.petImage} />
               ) : (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <Image
                   src={pet.species === 'dog' ? '/assets/dog-avatar.png' : '/assets/cat-avatar.png'}
                   alt={pet.species === 'dog' ? 'Dog' : 'Cat'}
+                  width={48}
+                  height={48}
                   className={styles.petImage}
                 />
               )}
@@ -341,8 +343,7 @@ export function ConsultationDetailContent({ consultationId, onCancelSuccess, onO
           <div className={styles.mediaGrid}>
             {media.filter((m) => m.media_type === 'photo').map((m) => (
               <a key={m.id} href={m.url} target="_blank" rel="noopener noreferrer" className={styles.mediaThumb}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={m.url} alt={m.file_name || 'Photo'} className={styles.mediaImage} />
+                <PetImage src={m.url} alt={m.file_name || 'Photo'} width={120} height={120} className={styles.mediaImage} />
               </a>
             ))}
           </div>

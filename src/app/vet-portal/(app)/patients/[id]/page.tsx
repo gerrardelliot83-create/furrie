@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { getCurrentUser } from '@/lib/supabase/getCurrentUser';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { mapPetFromDB } from '@/lib/utils/petMapper';
+import { PetImage } from '@/components/ui/PetImage';
+import Image from 'next/image';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
@@ -150,13 +152,19 @@ export default async function VetPatientDetailPage({ params }: PageProps) {
       <div className={styles.petHeader}>
         <div className={`${styles.petAvatar} ${pet.photoUrls?.[0] ? (pet.species === 'dog' ? styles.petAvatarDog : styles.petAvatarCat) : ''}`}>
           {pet.photoUrls?.[0] ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={pet.photoUrls[0]} alt={pet.name} className={styles.petImage} />
+            <PetImage
+              src={pet.photoUrls[0]}
+              alt={pet.name}
+              width={200}
+              height={200}
+              className={styles.petImage}
+            />
           ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <Image
               src={pet.species === 'dog' ? '/assets/dog-avatar.png' : '/assets/cat-avatar.png'}
               alt={pet.species === 'dog' ? 'Dog' : 'Cat'}
+              width={200}
+              height={200}
               className={styles.petImage}
             />
           )}

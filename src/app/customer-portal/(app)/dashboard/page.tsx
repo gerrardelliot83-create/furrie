@@ -271,10 +271,11 @@ export default async function CustomerDashboard() {
                       className={styles.petImage}
                     />
                   ) : (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <Image
                       src={pet.species === 'dog' ? '/assets/dog-avatar.png' : '/assets/cat-avatar.png'}
                       alt={pet.species === 'dog' ? 'Dog' : 'Cat'}
+                      width={48}
+                      height={48}
                       className={styles.petEmoji}
                     />
                   )}

@@ -8,6 +8,7 @@
  */
 
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { createNotification } from '@/lib/notifications/createNotification';
 import { sendInviteRewardEmail } from '@/lib/email';
 
 export async function grantReferrerRewardIfEligible(
@@ -84,7 +85,7 @@ export async function grantReferrerRewardIfEligible(
         .eq('id', invite.referrer_id)
         .single();
 
-      await supabaseAdmin.from('notifications').insert({
+      await createNotification({
         user_id: invite.referrer_id,
         type: 'invite_reward',
         title: 'You earned a free consultation!',

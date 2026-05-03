@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { createNotification } from '@/lib/notifications/createNotification';
 import { findAvailableVetForSlot, SCHEDULING_CONSTANTS } from '@/lib/scheduling';
 import { checkPlusSubscriptionWithClient } from '@/lib/utils/followUpHelpers';
 import { findActivePackWithCredits, deductPackCredit } from '@/lib/utils/packHelpers';
@@ -349,7 +350,7 @@ export async function POST(request: Request) {
 
     // Create in-app notification for booking confirmation
     try {
-      await supabaseAdmin.from('notifications').insert({
+      await createNotification({
         user_id: user.id,
         type: 'booking_confirmation',
         title: 'Booking Confirmed',

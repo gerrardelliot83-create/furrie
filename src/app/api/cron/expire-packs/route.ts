@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { createNotification } from '@/lib/notifications/createNotification';
 
 /**
  * GET /api/cron/expire-packs
@@ -28,18 +29,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Query failed' }, { status: 500 });
   }
 
-  // Create notifications for expired packs
+  // Create notifications for expired packs (per-user; broadcast updates the bell)
   if (expiredPacks && expiredPacks.length > 0) {
-    const notifications = expiredPacks.map((pack) => ({
+    await Promise.all(expiredPacks.map((pack) => createNotification({
       user_id: pack.customer_id,
       type: 'pack_expired',
       title: 'Consultation pack expired',
       body: `Your pack of ${pack.pack_size} consultations has expired with ${pack.remaining_count} unused credits.`,
-      channel: 'in_app' as const,
+      channel: 'in_app',
       data: { packId: pack.id, remainingCount: pack.remaining_count },
-    }));
-
-    await supabaseAdmin.from('notifications').insert(notifications);
+    })));
   }
 
   return NextResponse.json({

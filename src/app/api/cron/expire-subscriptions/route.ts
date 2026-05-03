@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { createNotification } from '@/lib/notifications/createNotification';
 import { sendSubscriptionExpiredEmail } from '@/lib/email';
 
 /**
@@ -83,7 +84,7 @@ export async function GET(request: Request) {
     }
 
     // Create in-app notification
-    await supabaseAdmin.from('notifications').insert({
+    await createNotification({
       user_id: sub.customer_id,
       type: 'subscription_expired',
       title: 'Furrie Plus expired',

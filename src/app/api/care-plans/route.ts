@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { createNotification } from '@/lib/notifications/createNotification';
 import { sendCarePlanCreatedEmail } from '@/lib/email';
 import type { CarePlanCategory } from '@/types';
 
@@ -223,7 +224,7 @@ export async function POST(request: Request) {
 
       // In-app notification
       try {
-        await supabaseAdmin.from('notifications').insert({
+        await createNotification({
           user_id: pet.owner_id,
           type: 'care_plan_created',
           title: 'New Care Plan',

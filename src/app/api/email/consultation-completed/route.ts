@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { createNotification } from '@/lib/notifications/createNotification';
 import { sendConsultationCompletedEmail } from '@/lib/email';
 
 /**
@@ -68,7 +69,7 @@ export async function POST(request: Request) {
 
     // Create in-app notification for consultation completion
     try {
-      await supabaseAdmin.from('notifications').insert({
+      await createNotification({
         user_id: consultation.customer_id,
         type: 'consultation_completed',
         title: 'Consultation Completed',

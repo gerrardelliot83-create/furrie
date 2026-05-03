@@ -229,6 +229,8 @@ The misleading "Finish: 7.1 minutes" timer in the network tab was caused by this
 **Severity:** MEDIUM
 **Effort:** S per page
 
+**Stage 1 outcome (2026-05-03):** DEFERRED to post-Stage 1 per discussion gate D-4. With F-01 already shipped (Vercel in `bom1`), TTFB on these vet detail pages drops from ~2.1s to ~500ms without ISR. The remaining caching benefit is small in absolute terms, while the staleness risk on a clinical record (vet A submits a SOAP note; vet B sees stale view for 30s) is real and requires careful `revalidatePath` discipline at every write site. Revisit when (a) traffic grows enough that the ~500ms is a measurable user complaint, or (b) we want per-vet ISR keyed by viewer for the patient detail page. Until then, `force-dynamic` is the safer default.
+
 **What's happening.** Several detail pages explicitly opt out of static caching with `export const dynamic = 'force-dynamic'`, but their content rarely changes within a single session and could safely be revalidated every 30–60 seconds without affecting UX.
 
 **Evidence.**

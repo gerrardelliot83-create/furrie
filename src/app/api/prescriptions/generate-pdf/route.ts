@@ -3,6 +3,7 @@ import { renderToBuffer } from '@react-pdf/renderer';
 import { UTApi } from 'uploadthing/server';
 import { createClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { createNotification } from '@/lib/notifications/createNotification';
 import { PrescriptionPDF } from '@/components/vet/PrescriptionPDF';
 import { sendPrescriptionEmail } from '@/lib/email';
 import {
@@ -263,7 +264,7 @@ export async function POST(request: Request) {
 
     // Create in-app notification for prescription ready
     try {
-      await supabaseAdmin.from('notifications').insert({
+      await createNotification({
         user_id: consultation.customer_id,
         type: 'prescription_ready',
         title: 'Treatment Plan Ready',

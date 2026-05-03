@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { Badge } from '@/components/ui/Badge';
+import { PetImage } from '@/components/ui/PetImage';
 import { DetailPanel } from '@/components/ui/DetailPanel/DetailPanel';
 import { CarePlanDetailContent } from '@/components/customer/CarePlanDetailContent';
 import { useDetailPanel } from '@/hooks/useDetailPanel';
@@ -145,10 +146,11 @@ export function CarePlanList({ initialPlans, pets }: CarePlanListProps) {
                   <div className={styles.cardPet}>
                     {plan.pets?.photo_urls?.[0] ? (
                       <div className={styles.cardPetAvatar}>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
+                        <PetImage
                           src={plan.pets.photo_urls[0]}
                           alt={plan.pets.name}
+                          width={64}
+                          height={64}
                           className={styles.cardPetAvatarImg}
                         />
                       </div>

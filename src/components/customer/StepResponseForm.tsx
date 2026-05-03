@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/Button';
+import { PetImage } from '@/components/ui/PetImage';
 import { FileUpload } from '@/components/customer/FileUpload';
 import styles from './StepResponseForm.module.css';
 
@@ -71,8 +72,7 @@ export function StepResponseForm({ onSubmit, onCancel, isSubmitting }: StepRespo
           {uploadedMedia.map((m, i) => (
             <div key={`${m.url}-${i}`} className={styles.mediaPreviewItem}>
               {m.mediaType === 'photo' ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={m.url} alt={`Upload ${i + 1}`} className={styles.mediaThumb} />
+                <PetImage src={m.url} alt={`Upload ${i + 1}`} width={120} height={120} className={styles.mediaThumb} />
               ) : m.mediaType === 'document' ? (
                 <div className={styles.mediaDocBadge}>PDF</div>
               ) : (

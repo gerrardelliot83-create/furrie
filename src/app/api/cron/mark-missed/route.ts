@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { createNotification } from '@/lib/notifications/createNotification';
 import { sendMissedAppointmentEmail } from '@/lib/email';
 
 /**
@@ -130,7 +131,7 @@ export async function GET(request: Request) {
       : `Your consultation for ${petName} has been automatically closed due to inactivity.`;
 
     // Notify customer (in-app)
-    await supabaseAdmin.from('notifications').insert({
+    await createNotification({
       user_id: consultation.customer_id,
       type: isMissed ? 'consultation_missed' : 'consultation_closed',
       title: notifTitle,
@@ -166,7 +167,7 @@ export async function GET(request: Request) {
 
     // Notify vet if assigned
     if (consultation.vet_id) {
-      await supabaseAdmin.from('notifications').insert({
+      await createNotification({
         user_id: consultation.vet_id,
         type: isMissed ? 'consultation_missed' : 'consultation_closed',
         title: notifTitle,

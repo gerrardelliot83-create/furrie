@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { createNotification } from '@/lib/notifications/createNotification';
 
 // POST /api/care-plans/[id]/steps/[stepId]/complete — Mark step as completed
 export async function POST(
@@ -111,7 +112,7 @@ export async function POST(
 
       // Notify vet that all steps are completed
       try {
-        await supabaseAdmin.from('notifications').insert({
+        await createNotification({
           user_id: plan.vet_id,
           type: 'care_plan_completed',
           title: 'Care Plan Completed',
@@ -127,7 +128,7 @@ export async function POST(
     // Notify vet about step completion with response
     if (step.requires_response && plan.vet_id !== user.id) {
       try {
-        await supabaseAdmin.from('notifications').insert({
+        await createNotification({
           user_id: plan.vet_id,
           type: 'care_plan_step_response',
           title: 'Care Plan Step Response',

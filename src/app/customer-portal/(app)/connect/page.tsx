@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
-import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/supabase/getCurrentUser';
 import { FEATURES } from '@/lib/config/features';
 import { mapPetFromDB } from '@/lib/utils/petMapper';
 import { ConnectFlow } from './ConnectFlow';
@@ -22,72 +22,65 @@ export default async function ConnectPage({
 }) {
   const { petId: preselectedPetId, requestCredits } = await searchParams;
   const t = await getTranslations('consultation');
-  const supabase = await createClient();
-
-  // Get authenticated user
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const { user, error: authError, supabase } = await getCurrentUser();
 
   if (authError || !user) {
     redirect('/login?redirectTo=/connect');
   }
 
-  // Fetch user's pets
-  const { data: petsData, error: petsError } = await supabase
-    .from('pets')
-    .select('*')
-    .order('created_at', { ascending: false });
+  // Fire all independent queries in parallel. Per audit F-14.
+  // Each await previously cost a separate Mumbai round-trip; Promise.all
+  // collapses them into a single round-trip duration.
+  const subscriptionsQuery = FEATURES.ENABLE_SUBSCRIPTIONS
+    ? supabase
+        .from('subscriptions')
+        .select('pet_id, plan_type, status, expires_at')
+        .eq('customer_id', user.id)
+        .eq('status', 'active')
+        .eq('plan_type', 'plus')
+    : Promise.resolve({ data: [] as Array<{ pet_id: string; plan_type: string; status: string; expires_at: string | null }> });
 
-  if (petsError) {
-    console.error('Error fetching pets:', petsError);
-  }
-
-  const pets = (petsData || []).map(mapPetFromDB);
-
-  // Fetch active Plus subscriptions (only when subscriptions feature is enabled)
-  let plusPetIds: string[] = [];
-  if (FEATURES.ENABLE_SUBSCRIPTIONS) {
-    const { data: subscriptions } = await supabase
-      .from('subscriptions')
-      .select('pet_id, plan_type, status, expires_at')
+  const [petsResult, subscriptionsResult, activePackResult, pendingConsultationResult] = await Promise.all([
+    supabase.from('pets').select('*').order('created_at', { ascending: false }),
+    subscriptionsQuery,
+    supabase
+      .from('consultation_packs')
+      .select('id, remaining_count')
       .eq('customer_id', user.id)
       .eq('status', 'active')
-      .eq('plan_type', 'plus');
+      .gt('remaining_count', 0)
+      .order('purchased_at', { ascending: true })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from('consultations')
+      .select('id, consultation_number, pet_id, scheduled_at, status')
+      .eq('customer_id', user.id)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
 
-    const now = new Date();
-    plusPetIds = (subscriptions || [])
-      .filter((sub) => {
-        if (!sub.expires_at) return true; // NULL = indefinite
-        return new Date(sub.expires_at) > now;
-      })
-      .map((sub) => sub.pet_id as string);
+  if (petsResult.error) {
+    console.error('Error fetching pets:', petsResult.error);
   }
 
-  // Check for active pack credits
-  const { data: activePack } = await supabase
-    .from('consultation_packs')
-    .select('id, remaining_count')
-    .eq('customer_id', user.id)
-    .eq('status', 'active')
-    .gt('remaining_count', 0)
-    .order('purchased_at', { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  const pets = (petsResult.data || []).map(mapPetFromDB);
 
+  const now = new Date();
+  const plusPetIds = (subscriptionsResult.data || [])
+    .filter((sub) => {
+      if (!sub.expires_at) return true; // NULL = indefinite
+      return new Date(sub.expires_at) > now;
+    })
+    .map((sub) => sub.pet_id as string);
+
+  const activePack = activePackResult.data;
   const hasPackCredit = !!activePack && activePack.remaining_count > 0;
   const packCreditsRemaining = activePack?.remaining_count ?? 0;
 
-  // Check for pending consultations (payment abandoned)
-  const { data: pendingConsultation } = await supabase
-    .from('consultations')
-    .select('id, consultation_number, pet_id, scheduled_at, status')
-    .eq('customer_id', user.id)
-    .eq('status', 'pending')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const pendingConsultation = pendingConsultationResult.data;
 
   return (
     <div className={styles.pageContainer}>

@@ -1,6 +1,7 @@
 'use client';
 
 import type { ChatMessage } from '@/hooks/useFollowUpChat';
+import { PetImage } from '@/components/ui/PetImage';
 import styles from './MessageBubble.module.css';
 
 interface MessageBubbleProps {
@@ -29,13 +30,20 @@ export function MessageBubble({ message, isOwn }: MessageBubbleProps) {
     return (
       <div className={`${styles.messageRow} ${isOwn ? styles.own : ''}`}>
         <div className={`${styles.bubble} ${isOwn ? styles.ownBubble : ''}`}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={message.attachmentUrl!}
-            alt="Shared image"
-            className={styles.messageImage}
-            onClick={() => window.open(message.attachmentUrl!, '_blank')}
-          />
+          <a
+            href={message.attachmentUrl!}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Open image in new tab"
+          >
+            <PetImage
+              src={message.attachmentUrl!}
+              alt="Shared image"
+              width={240}
+              height={240}
+              className={styles.messageImage}
+            />
+          </a>
           {message.content && message.content !== 'Image' && (
             <p className={styles.messageText}>{message.content}</p>
           )}

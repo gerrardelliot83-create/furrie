@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/supabase/getCurrentUser';
 import { VetProfileContent } from './VetProfileContent';
 
 export const metadata: Metadata = {
@@ -8,12 +8,7 @@ export const metadata: Metadata = {
 };
 
 export default async function VetProfilePage() {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const { user, error: authError, supabase } = await getCurrentUser();
 
   if (authError || !user) {
     redirect('/login');

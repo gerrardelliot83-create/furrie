@@ -3,7 +3,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { redirect, notFound } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
-import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/supabase/getCurrentUser';
 import { mapConsultationWithRelationsFromDB } from '@/lib/utils/consultationMapper';
 import { formatDate, formatTime, formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -32,13 +32,7 @@ export default async function ConsultationDetailPage({ params }: ConsultationDet
   const tSymptoms = await getTranslations('symptoms');
   const { id } = await params;
 
-  const supabase = await createClient();
-
-  // Get authenticated user
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const { user, error: authError, supabase } = await getCurrentUser();
 
   if (authError || !user) {
     redirect('/login');

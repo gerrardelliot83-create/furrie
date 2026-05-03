@@ -77,6 +77,19 @@ function isRoleAllowedOnPortal(role: string, portal: Portal): boolean {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Public legal content — bypass auth entirely. Per audit F-16.
+  // Match both the bare path (e.g. /terms on app.furrie.in) and the
+  // rewritten internal path (/customer-portal/terms).
+  if (
+    pathname === '/terms' ||
+    pathname === '/privacy' ||
+    pathname === '/customer-portal/terms' ||
+    pathname === '/customer-portal/privacy'
+  ) {
+    return NextResponse.next();
+  }
+
   const portal = getPortal(request);
   const prefix = getPortalPrefix(portal);
 

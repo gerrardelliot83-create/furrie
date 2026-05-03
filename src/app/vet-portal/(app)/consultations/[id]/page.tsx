@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
 import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { getTranslations } from 'next-intl/server';
 
-import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/supabase/getCurrentUser';
+import { PetImage } from '@/components/ui/PetImage';
 import { Badge } from '@/components/ui/Badge';
 import { FlagButton } from '@/components/vet/FlagButton';
 import { ConsultationDetailTabs } from '@/components/vet/ConsultationDetailTabs';
@@ -69,13 +71,7 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
   const { id: consultationId } = await params;
   const t = await getTranslations('consultation');
 
-  const supabase = await createClient();
-
-  // Get authenticated user
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const { user, error: authError, supabase } = await getCurrentUser();
 
   if (authError || !user) {
     redirect('/login');
@@ -336,10 +332,11 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
                     rel="noopener noreferrer"
                     className={styles.mediaThumb}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <PetImage
                       src={m.url}
                       alt={m.file_name || 'Consultation photo'}
+                      width={150}
+                      height={150}
                       className={styles.mediaThumbImage}
                     />
                   </a>
@@ -535,17 +532,19 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
             <div className={styles.petHeader}>
               <div className={`${styles.petAvatar} ${pet?.photo_urls && pet.photo_urls.length > 0 ? (pet.species === 'dog' ? styles.petAvatarDog : styles.petAvatarCat) : ''}`}>
                 {pet?.photo_urls && pet.photo_urls.length > 0 ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <PetImage
                     src={pet.photo_urls[0]}
                     alt={pet.name}
+                    width={120}
+                    height={120}
                     className={styles.petAvatarImage}
                   />
                 ) : (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <Image
                     src={pet?.species === 'dog' ? '/assets/dog-avatar.png' : '/assets/cat-avatar.png'}
                     alt={pet?.species === 'dog' ? 'Dog' : 'Cat'}
+                    width={120}
+                    height={120}
                     className={styles.petAvatarImage}
                   />
                 )}

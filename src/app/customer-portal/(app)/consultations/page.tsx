@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
-import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/supabase/getCurrentUser';
 import { mapConsultationWithRelationsFromDB } from '@/lib/utils/consultationMapper';
 import { Button } from '@/components/ui/Button';
 import { ConsultationList } from './ConsultationList';
@@ -27,13 +27,7 @@ export default async function ConsultationsPage({ searchParams }: ConsultationsP
   const t = await getTranslations('consultation');
   const params = await searchParams;
 
-  const supabase = await createClient();
-
-  // Get authenticated user
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const { user, error: authError, supabase } = await getCurrentUser();
 
   if (authError || !user) {
     redirect('/login');

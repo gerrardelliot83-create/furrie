@@ -5,8 +5,17 @@ import createNextIntlPlugin from "next-intl/plugin";
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const nextConfig: NextConfig = {
+  // Tree-shake icon and date libraries to keep bundles small.
+  // Per audit F-18 - these libraries benefit from per-export imports.
+  experimental: {
+    optimizePackageImports: ["lucide-react", "date-fns"],
+  },
+
   // Image optimization for pet photos
   images: {
+    // Serve modern formats to capable browsers.
+    // AVIF first (smallest), then WebP fallback. Per audit F-18.
+    formats: ["image/avif", "image/webp"],
     remotePatterns: [
       {
         protocol: "https",

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { useToast } from '@/components/ui/Toast';
 import { Spinner } from '@/components/ui/Spinner';
+import { PetImage } from '@/components/ui/PetImage';
 import { StepResponseForm } from '@/components/customer/StepResponseForm';
 import styles from './CarePlanDetailContent.module.css';
 
@@ -201,10 +202,11 @@ export function CarePlanDetailContent({ planId }: CarePlanDetailContentProps) {
           <div className={styles.petRow}>
             {plan.pets.photo_urls?.[0] ? (
               <div className={styles.petAvatar}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <PetImage
                   src={plan.pets.photo_urls[0]}
                   alt={plan.pets.name}
+                  width={64}
+                  height={64}
                   className={styles.petImage}
                 />
               </div>
@@ -236,10 +238,11 @@ export function CarePlanDetailContent({ planId }: CarePlanDetailContentProps) {
           <div className={styles.vetRow}>
             {plan.vet.avatar_url ? (
               <div className={styles.vetAvatar}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <PetImage
                   src={plan.vet.avatar_url}
                   alt={plan.vet.full_name}
+                  width={48}
+                  height={48}
                   className={styles.vetImage}
                 />
               </div>
@@ -364,10 +367,11 @@ export function CarePlanDetailContent({ planId }: CarePlanDetailContentProps) {
                                             rel="noopener noreferrer"
                                             className={styles.responseMediaItem}
                                           >
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img
+                                            <PetImage
                                               src={url}
                                               alt={`Attachment ${idx + 1}`}
+                                              width={200}
+                                              height={200}
                                               className={styles.responseMediaImage}
                                             />
                                           </a>

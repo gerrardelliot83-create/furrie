@@ -1,5 +1,6 @@
 'use client';
 
+import { PetImage } from '@/components/ui/PetImage';
 import styles from './StepResponseViewer.module.css';
 
 interface ResponseData {
@@ -48,8 +49,7 @@ export function StepResponseViewer({ response }: StepResponseViewerProps) {
                   rel="noopener noreferrer"
                   className={styles.mediaItem}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={url} alt={`Response media ${index + 1}`} className={styles.mediaImage} />
+                  <PetImage src={url} alt={`Response media ${index + 1}`} width={200} height={120} className={styles.mediaImage} />
                 </a>
               );
             }

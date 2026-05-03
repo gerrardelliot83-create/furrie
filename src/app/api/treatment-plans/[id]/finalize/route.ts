@@ -24,6 +24,7 @@ import { NextResponse } from 'next/server';
 import { UTApi } from 'uploadthing/server';
 import { createClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { createNotification } from '@/lib/notifications/createNotification';
 import {
   parseTreatmentPlanDraft,
   validateTreatmentPlanForFinalize,
@@ -285,7 +286,7 @@ export async function POST(
     }
 
     try {
-      await supabaseAdmin.from('notifications').insert({
+      await createNotification({
         user_id: ctx.owner.id,
         type: 'prescription_ready',
         title: 'Treatment Plan Ready',

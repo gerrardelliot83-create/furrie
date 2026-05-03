@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { createNotification } from '@/lib/notifications/createNotification';
 import {
   sendCustomerOneHourReminderEmail,
   sendVetOneHourReminderEmail,
@@ -76,7 +77,7 @@ export async function GET(request: Request) {
     const customerName = profileData?.full_name || 'Pet parent';
 
     // Send in-app notification to customer
-    await supabaseAdmin.from('notifications').insert({
+    await createNotification({
       user_id: consultation.customer_id,
       type: 'consultation_reminder_1h',
       title: 'Appointment in 1 hour',
@@ -115,7 +116,7 @@ export async function GET(request: Request) {
 
     // Send to vet if assigned
     if (consultation.vet_id) {
-      await supabaseAdmin.from('notifications').insert({
+      await createNotification({
         user_id: consultation.vet_id,
         type: 'consultation_reminder_1h',
         title: 'Appointment in 1 hour',
@@ -198,7 +199,7 @@ export async function GET(request: Request) {
     const customerName15m = profileData15m?.full_name || 'Pet parent';
 
     // Send in-app notification to customer
-    await supabaseAdmin.from('notifications').insert({
+    await createNotification({
       user_id: consultation.customer_id,
       type: 'consultation_reminder_15m',
       title: 'Appointment starting soon',
@@ -237,7 +238,7 @@ export async function GET(request: Request) {
 
     // Send to vet if assigned
     if (consultation.vet_id) {
-      await supabaseAdmin.from('notifications').insert({
+      await createNotification({
         user_id: consultation.vet_id,
         type: 'consultation_reminder_15m',
         title: 'Appointment starting soon',

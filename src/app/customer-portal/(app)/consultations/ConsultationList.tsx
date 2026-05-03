@@ -1,8 +1,10 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { PetImage } from '@/components/ui/PetImage';
 import { useTranslations } from 'next-intl';
 import type { ConsultationWithRelations } from '@/lib/utils/consultationMapper';
 import type { ConsultationStatus, ConsultationOutcome } from '@/types';
@@ -185,10 +187,11 @@ export function ConsultationList({
                 <div className={styles.followUpCardLeft}>
                   <div className={styles.followUpAvatar}>
                     {consultation.vet?.avatarUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      <PetImage
                         src={consultation.vet.avatarUrl}
                         alt={consultation.vet.fullName}
+                        width={40}
+                        height={40}
                         className={styles.followUpAvatarImg}
                       />
                     ) : (
@@ -321,10 +324,11 @@ export function ConsultationList({
                     >
                       <div className={styles.petCell}>
                         <div className={styles.petAvatar}>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
+                          <Image
                             src={consultation.pet?.species === 'dog' ? '/assets/dog-avatar.png' : '/assets/cat-avatar.png'}
                             alt={consultation.pet?.species === 'dog' ? 'Dog' : 'Cat'}
+                            width={32}
+                            height={32}
                             className={styles.petAvatarImg}
                           />
                         </div>
@@ -399,10 +403,11 @@ export function ConsultationList({
               <div className={styles.mobileCardTop}>
                 <div className={styles.mobilePetCell}>
                   <div className={styles.petAvatar}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <Image
                       src={consultation.pet?.species === 'dog' ? '/assets/dog-avatar.png' : '/assets/cat-avatar.png'}
                       alt={consultation.pet?.species === 'dog' ? 'Dog' : 'Cat'}
+                      width={32}
+                      height={32}
                       className={styles.petAvatarImg}
                     />
                   </div>

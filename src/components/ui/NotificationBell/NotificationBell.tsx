@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 import styles from './NotificationBell.module.css';
 
 interface Notification {
@@ -14,7 +15,10 @@ interface Notification {
   created_at: string | null;
 }
 
-const POLL_INTERVAL = 30_000; // 30 seconds
+// Long-interval safety-net poll. Real-time delivery happens via the
+// per-user Supabase broadcast channel; this catch-up only fires if the
+// websocket dropped events while disconnected.
+const SAFETY_NET_POLL_INTERVAL = 5 * 60_000; // 5 minutes
 
 function formatRelativeTime(dateStr: string | null): string {
   if (!dateStr) return '';
@@ -47,7 +51,8 @@ export function NotificationBell() {
   const [isLoading, setIsLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Poll for unread count
+  // Fetch the unread count from the API. Used on mount, on visibility
+  // change, on websocket reconnect, and on the long-interval safety-net poll.
   const fetchUnreadCount = useCallback(async () => {
     try {
       const res = await fetch('/api/notifications?count_only=true');
@@ -56,14 +61,56 @@ export function NotificationBell() {
         setUnreadCount(data.unreadCount ?? 0);
       }
     } catch {
-      // Silent — polling failure is non-critical
+      // Silent — non-critical
     }
   }, []);
 
+  // Subscribe to a per-user Realtime broadcast channel. When the server
+  // creates a notification (via createNotification helper), it broadcasts
+  // notification_created and the bell increments instantly. Per audit F-07.
   useEffect(() => {
     fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, POLL_INTERVAL);
-    return () => clearInterval(interval);
+
+    const supabase = createClient();
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let userId: string | null = null;
+
+    (async () => {
+      const { data } = await supabase.auth.getUser();
+      if (!data.user) return;
+      userId = data.user.id;
+
+      try {
+        channel = supabase
+          .channel(`user:${userId}:notifications`)
+          .on('broadcast', { event: 'notification_created' }, () => {
+            setUnreadCount((prev) => prev + 1);
+          })
+          .subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+              // Refetch on (re)connect to recover any events missed while offline.
+              fetchUnreadCount();
+            }
+          });
+      } catch (err) {
+        console.warn('[NotificationBell] failed to subscribe', err);
+      }
+    })();
+
+    // Safety-net poll at a long interval covers any case where the
+    // websocket silently drops without a CHANNEL_ERROR.
+    const interval = setInterval(fetchUnreadCount, SAFETY_NET_POLL_INTERVAL);
+
+    return () => {
+      clearInterval(interval);
+      if (channel) {
+        try {
+          supabase.removeChannel(channel);
+        } catch {
+          // Silent
+        }
+      }
+    };
   }, [fetchUnreadCount]);
 
   // Fetch full notifications when dropdown opens

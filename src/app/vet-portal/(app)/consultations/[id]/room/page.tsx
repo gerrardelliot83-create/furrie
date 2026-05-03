@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/Button';
@@ -225,10 +226,11 @@ export default function VetVideoRoomPage() {
           <div className={styles.patientCard}>
             <div className={styles.patientHeader}>
               <div className={styles.petAvatar}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <Image
                   src={consultationInfo.petSpecies === 'dog' ? '/assets/dog-avatar.png' : '/assets/cat-avatar.png'}
                   alt={consultationInfo.petSpecies === 'dog' ? 'Dog' : 'Cat'}
+                  width={48}
+                  height={48}
                   className={styles.petAvatarImg}
                 />
               </div>

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
 import { redirect } from 'next/navigation';
 
-import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/supabase/getCurrentUser';
 import { Card, CardContent } from '@/components/ui/Card';
 import { WeeklyScheduleEditor } from '@/components/vet/WeeklyScheduleEditor';
 import type { AvailabilitySchedule } from '@/types';
@@ -15,13 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function VetSchedulePage() {
-  const supabase = await createClient();
-
-  // Get authenticated user
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const { user, error: authError, supabase } = await getCurrentUser();
 
   if (authError || !user) {
     redirect('/login');

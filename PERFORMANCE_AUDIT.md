@@ -432,6 +432,18 @@ images: {
 **Severity:** LOW
 **Effort:** S (investigate why role isn't being cached as expected)
 
+**Stage 1 investigation outcome (2026-05-03):**
+
+Root cause: the fire-and-forget `adminClient.auth.admin.updateUserById(...)` at `src/middleware.ts:150` writes `app_metadata.role` to the user record server-side correctly. However, the user's existing access token (the JWT in the auth cookie) still contains the OLD `app_metadata` until that token refreshes. `@supabase/ssr`'s middleware `getUser()` only refreshes the token when it's near expiry — so until then, the JWT continues to lack `app_metadata.role` and the middleware fallback path fires again.
+
+Two clean fixes (both LOW effort, neither shipped in Stage 1 to keep the auth path stable):
+
+1. **Set role at signup time.** In the customer self-registration handler (`src/app/api/auth/...` / signup flow), call `adminClient.auth.admin.updateUserById(newUser.id, { app_metadata: { role: 'customer' } })` immediately after account creation. Vet/Admin accounts already get role at provisioning time. This means the JWT carries `role` from the very first session, no fallback needed. Backfill script: one-time `UPDATE auth.users SET raw_app_meta_data = jsonb_set(raw_app_meta_data, '{role}', to_jsonb(p.role)) FROM profiles p WHERE p.id = auth.users.id` covers existing users.
+
+2. **Force a session refresh after the metadata update.** After `updateUserById`, call `supabase.auth.refreshSession()` to mint a new JWT that includes the updated metadata. Cost: one extra round-trip on the request that triggers the fallback. After the refresh, no further fallbacks for that user.
+
+Recommendation: ship #1 as part of Stage 2 alongside the testing-environment work — it's the cleanest fix and removes the fallback path entirely. Until then, the fallback path is correct and only mildly inefficient (10k queries/week at 0.58ms mean = ~6 seconds of DB time per week). Not user-visible.
+
 **What's happening.** Middleware has a fallback: if `app_metadata.role` is missing from the JWT, query the profiles table for the user's role and update `app_metadata` for next time. This DB query ran 10,428 times in 7 days. If the optimization were working as designed, that number should be roughly equal to the number of new sessions, not the number of requests.
 
 **Evidence.** `src/middleware.ts:121-143`. The fire-and-forget update at line 137–142 may be failing silently due to permissions on the admin client, or the JWT may not be refreshing with the new metadata until the user re-logs in.
@@ -450,6 +462,12 @@ images: {
 
 **Severity:** LOW
 **Effort:** S
+
+**Stage 1 investigation outcome (2026-05-03):**
+
+Application code review found no direct usage of `pg_timezone_names` — no `at time zone`, `to_char`, or timezone-introspection calls in any RLS policy, function, or query path under `src/`. The 150-calls/week pattern is consistent with PostgREST's connection initialization (it queries `pg_timezone_names` to populate its timezone list) and Supabase Studio's web UI (each session opening loads timezones). The 385ms mean is a known artifact of Postgres scanning the timezone files on disk; it's the same on every Postgres install and doesn't indicate a code problem.
+
+Recommendation: no action. ~57 seconds of DB time per week is negligible. If it ever matters at scale, Postgres has a `timezone_abbreviations` setting that can be tuned, but Furrie won't hit that scale for years.
 
 **What's happening.** A query against `pg_timezone_names` runs 150 times per week with a mean of 385ms — unusually slow. Likely from PostgREST initialization or a date-formatting code path.
 

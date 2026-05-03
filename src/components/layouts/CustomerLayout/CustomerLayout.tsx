@@ -80,6 +80,7 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={false}
                 className={cn(styles.sidebarLink, isActive && styles.sidebarLinkActive)}
               >
                 <Icon />

@@ -377,6 +377,8 @@ Option 2 is faster at runtime (CDN-direct from Supabase) but Option 1 is one-lin
 **Severity:** LOW
 **Effort:** S per occurrence
 
+**Stage 1 outcome (2026-05-03):** DEFERRED. Investigation showed the connect page's pet rows feed into `mapPetFromDB` (`src/lib/utils/petMapper.ts`), which reads every column on the pets table to construct a full `Pet`. Whitelisting columns at the query level would require either (a) restructuring `ConnectFlow` to consume a thinner `PetSummary` type — high regression risk on a critical purchase path — or (b) listing every column explicitly with no functional savings. Same pattern applies to the other `select('*')` sites: most feed into typed mappers that need all fields. Genuine savings require data-flow refactoring, which is out of scope for performance work. Revisit if the schema grows wide enough that specific large columns (e.g., long-text notes) dominate row size.
+
 **What's happening.** `connect/page.tsx:40` does `supabase.from('pets').select('*')` — fetches every column on the pets table including potentially large fields (notes, photo arrays, etc.) when the downstream `<ConnectFlow>` component only needs a subset.
 
 **Evidence.** Grep `select('*')` across `src/app/**/page.tsx`. Several occurrences.

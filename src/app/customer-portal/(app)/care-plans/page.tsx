@@ -57,17 +57,27 @@ export default async function CarePlansPage() {
     redirect('/login');
   }
 
-  // Fetch user's care plans with pet + vet info
-  const { data: plansRaw } = await supabase
-    .from('care_plans')
-    .select(`
-      *,
-      care_plan_steps (id, status),
-      pets!care_plans_pet_id_fkey (id, name, species, breed, photo_urls),
-      vet:profiles!care_plans_vet_id_fkey (id, full_name, avatar_url)
-    `)
-    .eq('customer_id', user.id)
-    .order('created_at', { ascending: false });
+  // Fire both queries in parallel. Per audit F-14.
+  const [plansResult, petsResult] = await Promise.all([
+    supabase
+      .from('care_plans')
+      .select(`
+        *,
+        care_plan_steps (id, status),
+        pets!care_plans_pet_id_fkey (id, name, species, breed, photo_urls),
+        vet:profiles!care_plans_vet_id_fkey (id, full_name, avatar_url)
+      `)
+      .eq('customer_id', user.id)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('pets')
+      .select('id, name, species')
+      .eq('owner_id', user.id)
+      .order('name'),
+  ]);
+
+  const plansRaw = plansResult.data;
+  const petsRaw = petsResult.data;
 
   // Add step progress counts
   const plans: CarePlanFromDB[] = (plansRaw || []).map((plan) => {
@@ -82,13 +92,6 @@ export default async function CarePlansPage() {
       completedSteps,
     } as CarePlanFromDB;
   });
-
-  // Fetch user's pets for filter dropdown
-  const { data: petsRaw } = await supabase
-    .from('pets')
-    .select('id, name, species')
-    .eq('owner_id', user.id)
-    .order('name');
 
   const pets: PetOption[] = (petsRaw || []).map((p) => ({
     id: p.id,

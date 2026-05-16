@@ -1,0 +1,18 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.furrie.customer",
+      "sha256_cert_fingerprints": ["REPLACE_WITH_CUSTOMER_APP_SHA256_FROM_EAS_CREDENTIALS"]
+    }
+  },
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.furrie.vet",
+      "sha256_cert_fingerprints": ["REPLACE_WITH_VET_APP_SHA256_FROM_EAS_CREDENTIALS"]
+    }
+  }
+]

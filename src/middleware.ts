@@ -90,6 +90,15 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Static manifest files + robots.txt — bypass auth entirely.
+  // `.well-known/apple-app-site-association` has no file extension, so
+  // the matcher doesn't exclude it; iOS would otherwise get a 307 → /login.
+  // `/robots.txt` has the same root cause (matcher excludes .json/.svg/etc
+  // but not .txt). Both must be publicly fetchable by external crawlers.
+  if (pathname.startsWith('/.well-known/') || pathname === '/robots.txt') {
+    return NextResponse.next();
+  }
+
   const portal = getPortal(request);
   const prefix = getPortalPrefix(portal);
 

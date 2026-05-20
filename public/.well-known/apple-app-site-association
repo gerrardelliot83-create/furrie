@@ -2,33 +2,17 @@
   "applinks": {
     "details": [
       {
-        "appIDs": [
-          "K3M34BR66T.com.furrie.customer"
-        ],
+        "appIDs": ["K3M34BR66T.com.furrie.customer"],
         "components": [
-          {
-            "/": "/auth/callback*",
-            "comment": "Customer magic-link callback"
-          },
-          {
-            "/": "/customer/*",
-            "comment": "Customer deep links (Phase C+ for sharing pet/consult URLs)"
-          }
+          { "/": "/auth/callback*", "comment": "Customer magic-link callback (served from app.furrie.in)" },
+          { "/": "/customer/*", "comment": "Customer deep links (Phase C+ for sharing pet/consult URLs)" }
         ]
       },
       {
-        "appIDs": [
-          "K3M34BR66T.com.furrie.vet"
-        ],
+        "appIDs": ["K3M34BR66T.com.furrie.vet"],
         "components": [
-          {
-            "/": "/vet/auth/callback*",
-            "comment": "Vet magic-link callback"
-          },
-          {
-            "/": "/vet/*",
-            "comment": "Vet deep links (Phase E+ for consultation/patient URLs)"
-          }
+          { "/": "/auth/callback*", "comment": "Vet magic-link callback (served from vet.furrie.in)" },
+          { "/": "/vet/*", "comment": "Vet deep links (Phase E+ for consultation/patient URLs on vet.furrie.in)" }
         ]
       }
     ]

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getRequestUser } from '@/lib/auth/withAuth';
 import {
   mapConsultationFromDB,
   mapConsultationToDB,
@@ -10,13 +10,7 @@ import { checkPlusSubscriptionWithClient } from '@/lib/utils/followUpHelpers';
 // GET /api/consultations - List user's consultations
 export async function GET(request: Request) {
   try {
-    const supabase = await createClient();
-
-    // Get authenticated user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const { user, error: authError, supabase } = await getRequestUser();
 
     if (authError || !user) {
       return NextResponse.json(
@@ -109,13 +103,7 @@ export async function GET(request: Request) {
 // POST /api/consultations - Create new consultation
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient();
-
-    // Get authenticated user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const { user, error: authError, supabase } = await getRequestUser();
 
     if (authError || !user) {
       return NextResponse.json(

@@ -8,6 +8,7 @@ export interface User {
   email: string | null;
   phone: string | null;
   avatarUrl: string | null;
+  expoPushToken: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

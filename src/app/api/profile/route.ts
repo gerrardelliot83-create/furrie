@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getRequestUser } from '@/lib/auth/withAuth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import type { User } from '@/types';
 
@@ -11,6 +11,7 @@ function mapProfileFromDB(row: {
   email: string | null;
   phone: string | null;
   avatar_url: string | null;
+  expo_push_token: string | null;
   is_active: boolean | null;
   created_at: string | null;
   updated_at: string | null;
@@ -22,6 +23,7 @@ function mapProfileFromDB(row: {
     email: row.email,
     phone: row.phone,
     avatarUrl: row.avatar_url,
+    expoPushToken: row.expo_push_token,
     isActive: row.is_active ?? true,
     createdAt: row.created_at ?? '',
     updatedAt: row.updated_at ?? '',
@@ -31,13 +33,7 @@ function mapProfileFromDB(row: {
 // GET /api/profile - Get current user's profile
 export async function GET() {
   try {
-    const supabase = await createClient();
-
-    // Get authenticated user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const { user, error: authError, supabase } = await getRequestUser();
 
     if (authError || !user) {
       return NextResponse.json(
@@ -83,13 +79,7 @@ export async function GET() {
 // PATCH /api/profile - Update current user's profile
 export async function PATCH(request: Request) {
   try {
-    const supabase = await createClient();
-
-    // Get authenticated user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const { user, error: authError, supabase } = await getRequestUser();
 
     if (authError || !user) {
       return NextResponse.json(
@@ -128,6 +118,12 @@ export async function PATCH(request: Request) {
 
     if (body.avatarUrl !== undefined) {
       updateData.avatar_url = body.avatarUrl || null;
+    }
+
+    if (body.expoPushToken !== undefined) {
+      // Mobile registers / clears its Expo push token via this field. Stored on
+      // profiles.expo_push_token (migration 018). Null means "deregister this device".
+      updateData.expo_push_token = body.expoPushToken || null;
     }
 
     // Check if there's anything to update

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getRequestUser } from '@/lib/auth/withAuth';
 
 // GET /api/care-plans/[id]/steps/[stepId]/responses — List responses for a step
 export async function GET(
@@ -8,8 +8,7 @@ export async function GET(
 ) {
   try {
     const { stepId } = await params;
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { user, error: authError, supabase } = await getRequestUser();
 
     if (authError || !user) {
       return NextResponse.json(
@@ -49,8 +48,7 @@ export async function POST(
 ) {
   try {
     const { stepId } = await params;
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { user, error: authError, supabase } = await getRequestUser();
 
     if (authError || !user) {
       return NextResponse.json(

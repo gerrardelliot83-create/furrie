@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getRequestUser } from '@/lib/auth/withAuth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { createNotification } from '@/lib/notifications/createNotification';
 import { sendCarePlanCreatedEmail } from '@/lib/email';
@@ -16,8 +16,7 @@ const VALID_STEP_TYPES = [
 // GET /api/care-plans?petId=xxx — List care plans for a pet
 export async function GET(request: Request) {
   try {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { user, error: authError, supabase } = await getRequestUser();
 
     if (authError || !user) {
       return NextResponse.json(
@@ -29,8 +28,14 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const petId = searchParams.get('petId');
     const vetId = searchParams.get('vetId');
-    const customerId = searchParams.get('customerId');
+    const customerIdParam = searchParams.get('customerId');
     const status = searchParams.get('status');
+
+    // Default to current user when no customerId param is given. Defence-in-depth
+    // alongside RLS — mobile customers never pass customerId, so this guarantees
+    // they only see their own plans even if a future RLS regression happened.
+    // Vets/admins who explicitly pass customerId continue to work as before.
+    const effectiveCustomerId = customerIdParam ?? user.id;
 
     let query = supabase
       .from('care_plans')
@@ -40,11 +45,11 @@ export async function GET(request: Request) {
         pets!care_plans_pet_id_fkey (id, name, species, breed, photo_urls),
         vet:profiles!care_plans_vet_id_fkey (id, full_name, avatar_url)
       `)
+      .eq('customer_id', effectiveCustomerId)
       .order('created_at', { ascending: false });
 
     if (petId) query = query.eq('pet_id', petId);
     if (vetId) query = query.eq('vet_id', vetId);
-    if (customerId) query = query.eq('customer_id', customerId);
     if (status) query = query.eq('status', status);
 
     const { data, error } = await query;
@@ -82,8 +87,7 @@ export async function GET(request: Request) {
 // POST /api/care-plans — Create a care plan with steps
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { user, error: authError, supabase } = await getRequestUser();
 
     if (authError || !user) {
       return NextResponse.json(

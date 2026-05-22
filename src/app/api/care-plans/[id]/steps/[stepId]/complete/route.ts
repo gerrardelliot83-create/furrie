@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { getRequestUser } from '@/lib/auth/withAuth';
 import { createNotification } from '@/lib/notifications/createNotification';
 
 // POST /api/care-plans/[id]/steps/[stepId]/complete — Mark step as completed
@@ -10,8 +9,7 @@ export async function POST(
 ) {
   try {
     const { id: planId, stepId } = await params;
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { user, error: authError, supabase } = await getRequestUser();
 
     if (authError || !user) {
       return NextResponse.json(

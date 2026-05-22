@@ -1,15 +1,12 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getRequestUser } from '@/lib/auth/withAuth';
 import { mapPetFromDB, mapPetToDB } from '@/lib/utils/petMapper';
 import type { Pet } from '@/types';
 
 // GET /api/pets - List user's pets
 export async function GET() {
   try {
-    const supabase = await createClient();
-
-    // Get authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { user, error: authError, supabase } = await getRequestUser();
 
     if (authError || !user) {
       return NextResponse.json(
@@ -48,10 +45,7 @@ export async function GET() {
 // POST /api/pets - Create new pet
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient();
-
-    // Get authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { user, error: authError, supabase } = await getRequestUser();
 
     if (authError || !user) {
       return NextResponse.json(

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getRequestUser } from '@/lib/auth/withAuth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { createNotification } from '@/lib/notifications/createNotification';
 import { findAvailableVetForSlot, SCHEDULING_CONSTANTS } from '@/lib/scheduling';
@@ -71,13 +71,7 @@ export async function POST(request: Request) {
       return rateLimitResponse(rateCheck.resetAt);
     }
 
-    const supabase = await createClient();
-
-    // Verify authentication
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const { user, error: authError, supabase } = await getRequestUser();
 
     if (authError || !user) {
       return NextResponse.json(

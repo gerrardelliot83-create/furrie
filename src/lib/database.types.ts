@@ -1563,6 +1563,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           phone: string | null
+          pincode: string | null
           role: string
           updated_at: string | null
         }
@@ -1575,6 +1576,7 @@ export type Database = {
           id: string
           is_active?: boolean | null
           phone?: string | null
+          pincode?: string | null
           role?: string
           updated_at?: string | null
         }
@@ -1587,6 +1589,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           phone?: string | null
+          pincode?: string | null
           role?: string
           updated_at?: string | null
         }
@@ -2083,6 +2086,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_vet_see_care_attachment: {
+        Args: { file_path: string }
+        Returns: boolean
+      }
       consume_pack_credit: {
         Args: { p_consultation_id: string; p_customer_id: string }
         Returns: string

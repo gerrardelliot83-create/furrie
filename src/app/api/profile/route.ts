@@ -12,6 +12,7 @@ function mapProfileFromDB(row: {
   phone: string | null;
   avatar_url: string | null;
   expo_push_token: string | null;
+  pincode: string | null;
   is_active: boolean | null;
   created_at: string | null;
   updated_at: string | null;
@@ -24,6 +25,7 @@ function mapProfileFromDB(row: {
     phone: row.phone,
     avatarUrl: row.avatar_url,
     expoPushToken: row.expo_push_token,
+    pincode: row.pincode ?? null,
     isActive: row.is_active ?? true,
     createdAt: row.created_at ?? '',
     updatedAt: row.updated_at ?? '',
@@ -124,6 +126,21 @@ export async function PATCH(request: Request) {
       // Mobile registers / clears its Expo push token via this field. Stored on
       // profiles.expo_push_token (migration 018). Null means "deregister this device".
       updateData.expo_push_token = body.expoPushToken || null;
+    }
+
+    if (body.pincode !== undefined) {
+      // 6-digit Indian PIN code (migration 019). Null clears the value.
+      const pincode = typeof body.pincode === 'string' ? body.pincode.trim() : body.pincode;
+      if (pincode === null || pincode === '') {
+        updateData.pincode = null;
+      } else if (typeof pincode !== 'string' || !/^[1-9]\d{5}$/.test(pincode)) {
+        return NextResponse.json(
+          { error: 'Please enter a valid 6-digit Indian PIN code', code: 'VALIDATION_ERROR' },
+          { status: 400 }
+        );
+      } else {
+        updateData.pincode = pincode;
+      }
     }
 
     // Check if there's anything to update

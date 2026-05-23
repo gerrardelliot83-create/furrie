@@ -24,7 +24,7 @@ export default async function ProfilePage() {
   // Fetch user profile
   const { data: profileData, error: profileError } = await supabase
     .from('profiles')
-    .select('id, role, full_name, email, phone, avatar_url, expo_push_token, is_active, created_at, updated_at')
+    .select('id, role, full_name, email, phone, avatar_url, expo_push_token, pincode, is_active, created_at, updated_at')
     .eq('id', user.id)
     .single();
 
@@ -41,6 +41,7 @@ export default async function ProfilePage() {
     phone: profileData.phone,
     avatarUrl: profileData.avatar_url,
     expoPushToken: profileData.expo_push_token,
+    pincode: profileData.pincode ?? null,
     isActive: profileData.is_active ?? true,
     createdAt: profileData.created_at ?? '',
     updatedAt: profileData.updated_at ?? '',

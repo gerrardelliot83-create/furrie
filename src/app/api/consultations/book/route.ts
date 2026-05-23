@@ -2,11 +2,13 @@ import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { createNotification } from '@/lib/notifications/createNotification';
+import { sendExpoPush } from '@/lib/notifications/sendExpoPush';
 import { findAvailableVetForSlot, SCHEDULING_CONSTANTS } from '@/lib/scheduling';
 import { checkPlusSubscriptionWithClient } from '@/lib/utils/followUpHelpers';
 import { findActivePackWithCredits, deductPackCredit } from '@/lib/utils/packHelpers';
 import { sendBookingConfirmationEmail, sendVetNewBookingEmail } from '@/lib/email';
 import { checkRateLimit, getClientIp, RATE_LIMITS, rateLimitResponse } from '@/lib/utils/rate-limit';
+import { formatScheduledTimeShort } from '@/lib/utils';
 import { PACK_UNIT_PRICE } from '@/types';
 
 interface MediaUploadRef {
@@ -297,15 +299,17 @@ export async function POST(request: Request) {
       console.error('Failed to send vet notification:', notifyError);
     }
 
+    // Fetch customer profile once — used by the email block (free path only)
+    // AND by the vet push block (always). Hoisted out of the email conditional
+    // so it stays in scope for the push body below.
+    const { data: customerProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('email, full_name')
+      .eq('id', user.id)
+      .single();
+
     // Send booking emails (non-blocking for Plus/pack users who are immediately scheduled)
     if (isFreeBooking) {
-      // Get customer email for booking confirmation
-      const { data: customerProfile } = await supabaseAdmin
-        .from('profiles')
-        .select('email, full_name')
-        .eq('id', user.id)
-        .single();
-
       if (customerProfile?.email) {
         const bookingEmailResult = await sendBookingConfirmationEmail(customerProfile.email, {
           customerName: customerProfile.full_name || 'there',
@@ -342,7 +346,56 @@ export async function POST(request: Request) {
       }
     }
 
-    // Create in-app notification for booking confirmation
+    // Mobile push to the assigned vet. Self-heals on stale tokens via the
+    // helper. Non-blocking — booking succeeds whether or not push lands.
+    try {
+      const { data: vetPushProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('expo_push_token')
+        .eq('id', vetId)
+        .single();
+
+      if (vetPushProfile?.expo_push_token) {
+        await sendExpoPush(vetId, {
+          to: vetPushProfile.expo_push_token,
+          title: 'New consultation request',
+          body: `${pet.name} · ${customerProfile?.full_name || 'Customer'} · ${formatScheduledTimeShort(body.scheduledAt)}`,
+          data: {
+            consultationId: consultation.id,
+            deepLink: `/consultation/${consultation.id}`,
+            type: 'new_consultation_request',
+            scheduledAt: consultation.scheduled_at,
+            petName: pet.name,
+          },
+        });
+      }
+    } catch (pushErr) {
+      console.error('[expo-push] Vet push failed:', pushErr);
+    }
+
+    // Persistent in-app notification row for the vet. createNotification also
+    // broadcasts to `user:<vetId>:notifications`, which the web NotificationBell
+    // listens to — single call gives the vet a row + a badge bump.
+    try {
+      await createNotification({
+        user_id: vetId,
+        type: 'new_consultation_request',
+        title: 'New consultation request',
+        body: `${pet.name} · scheduled ${formatScheduledTimeShort(body.scheduledAt)}`,
+        channel: 'in_app',
+        data: {
+          consultationId: consultation.id,
+          deepLink: `/consultation/${consultation.id}`,
+          petId: pet.id,
+          petName: pet.name,
+          scheduledAt: consultation.scheduled_at,
+        },
+      });
+    } catch (notifyErr) {
+      console.error('[notifications] Vet in-app notification failed:', notifyErr);
+    }
+
+    // Create in-app notification for booking confirmation (customer)
     try {
       await createNotification({
         user_id: user.id,

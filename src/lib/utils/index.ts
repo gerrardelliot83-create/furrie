@@ -38,6 +38,33 @@ export function formatTime(date: Date | string): string {
 }
 
 /**
+ * Friendly short time format for push/notification bodies:
+ *   "Today 5:30 PM" / "Tomorrow 11:00 AM" / "Wed 28 May 10:00 AM"
+ * Always renders in IST regardless of the server's wall clock.
+ */
+export function formatScheduledTimeShort(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const dateKey = (date: Date) =>
+    date.toLocaleDateString('en-IN', { timeZone: IST_TIMEZONE });
+
+  const dKey = dateKey(d);
+  if (dKey === dateKey(now)) return `Today ${formatTime(d)}`;
+
+  const tomorrow = new Date(now);
+  tomorrow.setDate(now.getDate() + 1);
+  if (dKey === dateKey(tomorrow)) return `Tomorrow ${formatTime(d)}`;
+
+  const dayMonth = d.toLocaleDateString('en-IN', {
+    timeZone: IST_TIMEZONE,
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  });
+  return `${dayMonth} ${formatTime(d)}`;
+}
+
+/**
  * Generate initials from a name
  */
 export function getInitials(name: string): string {

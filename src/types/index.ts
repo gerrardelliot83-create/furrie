@@ -189,6 +189,21 @@ export interface PrescribedMedication {
   isFromList?: boolean;
 }
 
+// Consultation Media — files attached to a consultation (photos, videos, documents).
+// Web populates `url` via UploadThing; mobile populates via Supabase Storage.
+// Both URL formats coexist in the same column.
+export interface ConsultationMedia {
+  id: string;
+  consultationId: string;
+  uploadedBy: string;
+  mediaType: 'photo' | 'video' | 'document';
+  url: string;
+  thumbnailUrl: string | null;
+  fileName: string | null;
+  fileSizeBytes: number | null;
+  createdAt: string;
+}
+
 // Care Plans
 export type CarePlanCategory = 'preventive' | 'treatment' | 'nutrition' | 'vaccination' | 'medication' | 'supplement' | 'custom';
 export type CarePlanStatus = 'draft' | 'active' | 'completed' | 'archived';

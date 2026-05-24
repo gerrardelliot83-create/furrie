@@ -1,4 +1,11 @@
-import type { Consultation, ConsultationOutcome } from '@/types';
+import type {
+  Consultation,
+  ConsultationMedia,
+  ConsultationOutcome,
+  SoapNote,
+  VitalSigns,
+  PrescribedMedication,
+} from '@/types';
 import type { Database } from '@/lib/database.types';
 
 type ConsultationRow = Database['public']['Tables']['consultations']['Row'];
@@ -123,7 +130,61 @@ export interface ConsultationWithRelations extends Consultation {
     pdfUrl: string | null;
     prescriptionNumber: string;
   };
+  soapNotes?: SoapNote | null;
+  media?: ConsultationMedia[];
 }
+
+// Raw row shapes returned by the Supabase joins. Kept here (not exported) since
+// they are only consumed by mapConsultationWithRelationsFromDB.
+type SoapNoteRow = {
+  id: string;
+  consultation_id: string;
+  vet_id: string;
+  chief_complaint: string | null;
+  history_present_illness: string | null;
+  behavior_changes: string | null;
+  appetite_changes: string | null;
+  activity_level_changes: string | null;
+  diet_info: string | null;
+  previous_treatments: string | null;
+  environmental_factors: string | null;
+  other_pets_household: string | null;
+  general_appearance: string | null;
+  body_condition_score: string | null;
+  visible_physical_findings: string | null;
+  respiratory_pattern: string | null;
+  gait_mobility: string | null;
+  vital_signs: VitalSigns | null;
+  referenced_media_urls: string[] | null;
+  provisional_diagnosis: string | null;
+  differential_diagnoses: string[] | null;
+  confidence_level: 'low' | 'medium' | 'high' | null;
+  teleconsultation_limitations: string | null;
+  medications: PrescribedMedication[] | null;
+  dietary_recommendations: string | null;
+  lifestyle_modifications: string | null;
+  home_care_instructions: string | null;
+  warning_signs: string | null;
+  follow_up_timeframe: string | null;
+  in_person_visit_recommended: boolean | null;
+  in_person_urgency: 'low' | 'medium' | 'high' | 'emergency' | null;
+  referral_specialist: string | null;
+  additional_diagnostics: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+type ConsultationMediaRow = {
+  id: string;
+  consultation_id: string;
+  uploaded_by: string;
+  media_type: 'photo' | 'video' | 'document';
+  url: string;
+  thumbnail_url: string | null;
+  file_name: string | null;
+  file_size_bytes: number | null;
+  created_at: string | null;
+};
 
 /**
  * Map a consultation row with joined relations
@@ -154,9 +215,18 @@ export function mapConsultationWithRelationsFromDB(
       pdf_url: string | null;
       prescription_number: string;
     }[];
+    soap_notes?: SoapNoteRow | SoapNoteRow[] | null;
+    consultation_media?: ConsultationMediaRow[];
   }
 ): ConsultationWithRelations {
   const base = mapConsultationFromDB(row);
+
+  // Supabase returns 1:1 nested embeddings as either a single object or a
+  // 1-element array depending on relationship detection. Both portal pages
+  // handle both shapes — we do the same here.
+  const soapRaw: SoapNoteRow | null = Array.isArray(row.soap_notes)
+    ? row.soap_notes[0] ?? null
+    : row.soap_notes ?? null;
 
   return {
     ...base,
@@ -191,5 +261,55 @@ export function mapConsultationWithRelationsFromDB(
           prescriptionNumber: row.prescriptions[0].prescription_number,
         }
       : undefined,
+    soapNotes: soapRaw
+      ? {
+          id: soapRaw.id,
+          consultationId: soapRaw.consultation_id,
+          vetId: soapRaw.vet_id,
+          chiefComplaint: soapRaw.chief_complaint,
+          historyPresentIllness: soapRaw.history_present_illness,
+          behaviorChanges: soapRaw.behavior_changes,
+          appetiteChanges: soapRaw.appetite_changes,
+          activityLevelChanges: soapRaw.activity_level_changes,
+          dietInfo: soapRaw.diet_info,
+          previousTreatments: soapRaw.previous_treatments,
+          environmentalFactors: soapRaw.environmental_factors,
+          otherPetsHousehold: soapRaw.other_pets_household,
+          generalAppearance: soapRaw.general_appearance,
+          bodyConditionScore: soapRaw.body_condition_score,
+          visiblePhysicalFindings: soapRaw.visible_physical_findings,
+          respiratoryPattern: soapRaw.respiratory_pattern,
+          gaitMobility: soapRaw.gait_mobility,
+          vitalSigns: soapRaw.vital_signs,
+          referencedMediaUrls: soapRaw.referenced_media_urls ?? [],
+          provisionalDiagnosis: soapRaw.provisional_diagnosis,
+          differentialDiagnoses: soapRaw.differential_diagnoses ?? [],
+          confidenceLevel: soapRaw.confidence_level,
+          teleconsultationLimitations: soapRaw.teleconsultation_limitations,
+          medications: soapRaw.medications ?? [],
+          dietaryRecommendations: soapRaw.dietary_recommendations,
+          lifestyleModifications: soapRaw.lifestyle_modifications,
+          homeCareInstructions: soapRaw.home_care_instructions,
+          warningSigns: soapRaw.warning_signs,
+          followUpTimeframe: soapRaw.follow_up_timeframe,
+          inPersonVisitRecommended: soapRaw.in_person_visit_recommended ?? false,
+          inPersonUrgency: soapRaw.in_person_urgency,
+          referralSpecialist: soapRaw.referral_specialist,
+          additionalDiagnostics: soapRaw.additional_diagnostics,
+          createdAt: soapRaw.created_at ?? '',
+          updatedAt: soapRaw.updated_at ?? '',
+        }
+      : null,
+    media: (row.consultation_media ?? []).map((m) => ({
+      id: m.id,
+      consultationId: m.consultation_id,
+      uploadedBy: m.uploaded_by,
+      mediaType: m.media_type,
+      url: m.url,
+      thumbnailUrl: m.thumbnail_url,
+      fileName: m.file_name,
+      fileSizeBytes: m.file_size_bytes,
+      createdAt: m.created_at ?? '',
+    })),
   };
 }

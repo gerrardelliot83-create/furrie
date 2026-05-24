@@ -93,6 +93,43 @@ export async function GET(
             id,
             pdf_url,
             prescription_number
+          ),
+          soap_notes (
+            id,
+            consultation_id,
+            vet_id,
+            chief_complaint,
+            history_present_illness,
+            behavior_changes,
+            appetite_changes,
+            activity_level_changes,
+            diet_info,
+            previous_treatments,
+            environmental_factors,
+            other_pets_household,
+            general_appearance,
+            body_condition_score,
+            visible_physical_findings,
+            respiratory_pattern,
+            gait_mobility,
+            vital_signs,
+            referenced_media_urls,
+            provisional_diagnosis,
+            differential_diagnoses,
+            confidence_level,
+            teleconsultation_limitations,
+            medications,
+            dietary_recommendations,
+            lifestyle_modifications,
+            home_care_instructions,
+            warning_signs,
+            follow_up_timeframe,
+            in_person_visit_recommended,
+            in_person_urgency,
+            referral_specialist,
+            additional_diagnostics,
+            created_at,
+            updated_at
           )
         `
         )
@@ -117,6 +154,16 @@ export async function GET(
         if (vp) {
           (data as Record<string, unknown>).vet_profiles = vp;
         }
+      }
+
+      // Fetch consultation_media separately (admin client to match vet branch RLS bypass)
+      if (data?.id) {
+        const { data: mediaData } = await supabaseAdmin
+          .from('consultation_media')
+          .select('id, consultation_id, uploaded_by, media_type, url, thumbnail_url, file_name, file_size_bytes, created_at')
+          .eq('consultation_id', data.id)
+          .order('created_at', { ascending: true });
+        (data as Record<string, unknown>).consultation_media = mediaData ?? [];
       }
 
       consultation = data;
@@ -148,6 +195,43 @@ export async function GET(
             id,
             pdf_url,
             prescription_number
+          ),
+          soap_notes (
+            id,
+            consultation_id,
+            vet_id,
+            chief_complaint,
+            history_present_illness,
+            behavior_changes,
+            appetite_changes,
+            activity_level_changes,
+            diet_info,
+            previous_treatments,
+            environmental_factors,
+            other_pets_household,
+            general_appearance,
+            body_condition_score,
+            visible_physical_findings,
+            respiratory_pattern,
+            gait_mobility,
+            vital_signs,
+            referenced_media_urls,
+            provisional_diagnosis,
+            differential_diagnoses,
+            confidence_level,
+            teleconsultation_limitations,
+            medications,
+            dietary_recommendations,
+            lifestyle_modifications,
+            home_care_instructions,
+            warning_signs,
+            follow_up_timeframe,
+            in_person_visit_recommended,
+            in_person_urgency,
+            referral_specialist,
+            additional_diagnostics,
+            created_at,
+            updated_at
           )
         `
         )
@@ -165,6 +249,16 @@ export async function GET(
         if (vp) {
           (data as Record<string, unknown>).vet_profiles = vp;
         }
+      }
+
+      // Fetch consultation_media separately (RLS-scoped — participants_view_media policy)
+      if (data?.id) {
+        const { data: mediaData } = await supabase
+          .from('consultation_media')
+          .select('id, consultation_id, uploaded_by, media_type, url, thumbnail_url, file_name, file_size_bytes, created_at')
+          .eq('consultation_id', data.id)
+          .order('created_at', { ascending: true });
+        (data as Record<string, unknown>).consultation_media = mediaData ?? [];
       }
 
       consultation = data;

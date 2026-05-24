@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getRequestUser } from '@/lib/auth/withAuth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { createRoom, generateToken, DAILY_DOMAIN } from '@/lib/daily';
 import { canJoinConsultation } from '@/lib/scheduling';
@@ -33,14 +33,8 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createClient();
+    const { user, error: authError, supabase } = await getRequestUser();
     const { id } = await params;
-
-    // Verify authentication
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
 
     if (authError || !user) {
       return NextResponse.json(

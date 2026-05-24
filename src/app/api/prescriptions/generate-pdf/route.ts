@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { renderToBuffer } from '@react-pdf/renderer';
 import { UTApi } from 'uploadthing/server';
-import { createClient } from '@/lib/supabase/server';
+import { getRequestUser } from '@/lib/auth/withAuth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { createNotification } from '@/lib/notifications/createNotification';
 import { PrescriptionPDF } from '@/components/vet/PrescriptionPDF';
@@ -17,13 +17,7 @@ const utapi = new UTApi();
 // POST /api/prescriptions/generate-pdf - Generate prescription PDF
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient();
-
-    // Get authenticated user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const { user, error: authError, supabase } = await getRequestUser();
 
     if (authError || !user) {
       return NextResponse.json(

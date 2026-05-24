@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getRequestUser } from '@/lib/auth/withAuth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
 // GET /api/vet/pets/[id] - Get pet details for vet (only if vet has consulted this pet)
@@ -8,13 +8,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createClient();
+    const { user, error: authError, supabase } = await getRequestUser();
     const { id: petId } = await params;
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
 
     if (authError || !user) {
       return NextResponse.json(

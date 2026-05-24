@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getRequestUser } from '@/lib/auth/withAuth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { DIAGNOSES } from '@/lib/data/diagnoses';
 import { MEDICATIONS } from '@/lib/data/medications';
@@ -21,13 +21,7 @@ interface CaptureRequest {
  */
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient();
-
-    // Verify authenticated user is a vet
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const { user, error: authError, supabase } = await getRequestUser();
 
     if (authError || !user) {
       return NextResponse.json(

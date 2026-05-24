@@ -48,6 +48,16 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_PUBLISHABLE_KEY =
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
+// Mobile-bearer diagnostic (2026-05-25): mobile real-device testing reports
+// AUTH_REQUIRED on every bearer-token request. Log effective config once per
+// cold-start instance so we can verify the deployed env vars without grepping
+// per-request logs. Remove after the underlying bug is fixed and verified.
+console.info('[withAuth] config:', {
+  urlSuffix: SUPABASE_URL?.slice(-30),
+  keyPrefix: SUPABASE_PUBLISHABLE_KEY?.slice(0, 8),
+  keyFormat: SUPABASE_PUBLISHABLE_KEY?.startsWith('sb_') ? 'sb_publishable_*' : 'legacy_jwt',
+});
+
 export const getRequestUser = cache(async () => {
   const headersList = await headers();
   const authHeader = headersList.get('authorization');
@@ -78,6 +88,28 @@ export const getRequestUser = cache(async () => {
     });
 
     const { data, error } = await supabase.auth.getUser(token);
+    // Mobile-bearer diagnostic (2026-05-25): every mobile API call returns
+    // AUTH_REQUIRED; route handlers swallow the underlying error. Log just
+    // enough to identify the failure mode (JWT expired / invalid signature /
+    // audience mismatch / session-missing). Token prefix only — first 20 chars
+    // of an ES256 JWT are the public base64url header, not credential data.
+    // Remove this block once mobile bearer auth is confirmed working.
+    if (!data.user || error) {
+      console.error('[withAuth] bearer getUser failed:', {
+        hasUser: Boolean(data.user),
+        error: error
+          ? {
+              name: error.name,
+              message: error.message,
+              status: (error as { status?: number }).status,
+            }
+          : null,
+        tokenPrefix: token.slice(0, 20),
+        tokenLength: token.length,
+        urlSuffix: SUPABASE_URL?.slice(-30),
+        keyPrefix: SUPABASE_PUBLISHABLE_KEY?.slice(0, 8),
+      });
+    }
     return { user: data.user, error, supabase };
   }
 

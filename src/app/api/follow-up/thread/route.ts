@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getRequestUser } from '@/lib/auth/withAuth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import {
   checkSoapExists,
-  checkPlusSubscription,
+  checkPlusSubscriptionWithClient,
   calculateThreadExpiry,
 } from '@/lib/utils/followUpHelpers';
 import { sendFollowUpAvailableEmail } from '@/lib/email';
@@ -19,13 +19,7 @@ interface CreateThreadRequest {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
-
-    // Get authenticated user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const { user, error: authError, supabase } = await getRequestUser();
 
     if (authError || !user) {
       return NextResponse.json(
@@ -68,7 +62,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if SOAP notes exist
-    const soapExists = await checkSoapExists(consultationId);
+    const soapExists = await checkSoapExists(supabase, consultationId);
     if (!soapExists) {
       return NextResponse.json(
         { error: 'SOAP notes must be submitted before creating a follow-up thread', code: 'SOAP_NOT_FOUND' },
@@ -92,7 +86,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if customer has Plus subscription for this pet
-    const isPlusUser = await checkPlusSubscription(
+    const isPlusUser = await checkPlusSubscriptionWithClient(
+      supabase,
       consultation.customer_id,
       consultation.pet_id
     );
@@ -179,13 +174,7 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
-
-    // Get authenticated user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const { user, error: authError, supabase } = await getRequestUser();
 
     if (authError || !user) {
       return NextResponse.json(

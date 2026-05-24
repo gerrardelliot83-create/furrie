@@ -15,7 +15,8 @@
  */
 
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getRequestUser } from '@/lib/auth/withAuth';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 import {
   buildDraftFromSoap,
   loadTreatmentPlanContext,
@@ -113,8 +114,10 @@ function parsePreviousPdfUrls(v: unknown): PreviousPdfEntry[] {
 }
 
 async function verifyVet(userId: string) {
-  const supabase = await createClient();
-  const { data: profile } = await supabase
+  // Uses supabaseAdmin so role lookup works under either cookie auth or
+  // bearer auth (bearer-only mobile requests have no cookies for an
+  // RLS-scoped read of the user's own profile to land on).
+  const { data: profile } = await supabaseAdmin
     .from('profiles')
     .select('role')
     .eq('id', userId)
@@ -128,11 +131,7 @@ async function verifyVet(userId: string) {
 
 export async function GET(request: Request) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const { user, error: authError, supabase } = await getRequestUser();
 
     if (authError || !user) {
       return NextResponse.json(
@@ -232,11 +231,7 @@ interface CreateBody {
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const { user, error: authError, supabase } = await getRequestUser();
 
     if (authError || !user) {
       return NextResponse.json(

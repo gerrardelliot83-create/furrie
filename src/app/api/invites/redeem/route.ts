@@ -12,7 +12,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getRequestUser } from '@/lib/auth/withAuth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { FEATURES } from '@/lib/config/features';
 
@@ -24,11 +24,7 @@ export async function POST(request: Request) {
         { status: 404 }
       );
     }
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const { user, error: authError } = await getRequestUser();
 
     if (authError || !user) {
       return NextResponse.json(

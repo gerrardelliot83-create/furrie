@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getRequestUser } from '@/lib/auth/withAuth';
 import { extendRoomExpiry } from '@/lib/daily';
 
 const EXTENSION_MINUTES = 15;
@@ -17,10 +17,7 @@ export async function POST(
 ) {
   try {
     const { id: consultationId } = await params;
-    const supabase = await createClient();
-
-    // Verify user is authenticated
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { user, error: authError, supabase } = await getRequestUser();
     if (authError || !user) {
       return NextResponse.json(
         { error: 'Authentication required', code: 'AUTH_REQUIRED' },

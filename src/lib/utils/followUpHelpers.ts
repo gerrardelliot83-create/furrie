@@ -2,11 +2,16 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 
 /**
- * Check if SOAP notes exist for a consultation
+ * Check if SOAP notes exist for a consultation.
+ *
+ * Accepts the request-scoped supabase client so bearer-auth flows pass
+ * through correctly. The caller (a route handler) is responsible for
+ * verifying access control on the consultation before invoking this.
  */
-export async function checkSoapExists(consultationId: string): Promise<boolean> {
-  const supabase = await createClient();
-
+export async function checkSoapExists(
+  supabase: SupabaseClient,
+  consultationId: string
+): Promise<boolean> {
   const { data, error } = await supabase
     .from('soap_notes')
     .select('id')
@@ -62,6 +67,11 @@ export async function checkPlusSubscriptionWithClient(
 /**
  * Check if a customer has an active Plus subscription for a specific pet.
  * Convenience wrapper that creates its own server Supabase client.
+ *
+ * NOTE: cookie-only — only safe for routes that are confirmed to be
+ * called with a cookie session. Bearer-aware routes should call
+ * `checkPlusSubscriptionWithClient` directly with their authenticated
+ * supabase client.
  */
 export async function checkPlusSubscription(
   customerId: string,

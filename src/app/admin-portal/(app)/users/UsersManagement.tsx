@@ -318,10 +318,10 @@ function AssignPackModal({ user, onClose, onAssigned }: { user: UserRow; onClose
     setError('');
     setLoading(true);
 
-    const res = await fetch('/api/admin/packs/test-activate', {
+    const res = await fetch('/api/admin/consultation-packs', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ customerId: user.id, packSize }),
+      body: JSON.stringify({ customerId: user.id, totalCount: packSize }),
     });
 
     const data = await res.json();

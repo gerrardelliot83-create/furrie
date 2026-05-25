@@ -70,6 +70,7 @@ export async function POST(request: Request) {
         subscription_id: body.subscriptionId || null,
         cashfree_order_id: orderResponse.orderId,
         amount: orderRequest.amount,
+        total_amount: orderRequest.amount,
         currency: orderRequest.currency,
         status: SKIP_PAYMENTS ? 'completed' : 'pending',
         metadata: {

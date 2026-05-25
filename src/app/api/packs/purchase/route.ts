@@ -87,6 +87,7 @@ export async function POST(request: Request) {
         customer_id: user.id,
         cashfree_order_id: orderResponse.orderId,
         amount: pricing.totalPrice,
+        total_amount: pricing.totalPrice,
         currency: 'INR',
         status: SKIP_PAYMENTS ? 'completed' : 'pending',
         metadata: {

@@ -121,6 +121,11 @@ export interface ConsultationWithRelations extends Consultation {
     avatarUrl: string | null;
     qualifications?: string;
   };
+  customer?: {
+    id: string;
+    fullName: string;
+    avatarUrl: string | null;
+  };
   rating?: {
     rating: number;
     feedbackText: string | null;
@@ -203,6 +208,11 @@ export function mapConsultationWithRelationsFromDB(
       full_name: string;
       avatar_url: string | null;
     };
+    customer?: {
+      id: string;
+      full_name: string;
+      avatar_url: string | null;
+    };
     vet_profiles?: {
       qualifications: string;
     };
@@ -248,6 +258,13 @@ export function mapConsultationWithRelationsFromDB(
             qualifications: row.vet_profiles?.qualifications,
           }
         : undefined,
+    customer: row.customer
+      ? {
+          id: row.customer.id,
+          fullName: row.customer.full_name,
+          avatarUrl: row.customer.avatar_url,
+        }
+      : undefined,
     rating: row.consultation_ratings?.[0]
       ? {
           rating: row.consultation_ratings[0].rating,

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
+import { validateAvailabilitySchedule } from '@/lib/scheduling/validateAvailabilitySchedule';
 
 /**
  * GET /api/vet/profile
@@ -60,7 +61,8 @@ export async function GET() {
  * PATCH /api/vet/profile
  *
  * Update the vet's editable profile fields.
- * Vets can update: full_name, phone, avatar_url, specializations, years_of_experience
+ * Vets can update: full_name, phone, avatar_url, specializations,
+ *   years_of_experience, availability_schedule (camelCase: availabilitySchedule)
  * They CANNOT change: qualifications, vci_registration_number (admin-managed)
  */
 export async function PATCH(request: Request) {
@@ -136,6 +138,20 @@ export async function PATCH(request: Request) {
         );
       }
       vetUpdate.years_of_experience = body.yearsOfExperience === null ? null : years;
+    }
+    if (body.availabilitySchedule !== undefined) {
+      // Full replace: the validated object overwrites availability_schedule
+      // wholesale (not a per-day merge), matching the web portal's direct
+      // write in WeeklyScheduleEditor. Clients must send all seven weekday
+      // keys; omitting a day clears it.
+      const validation = validateAvailabilitySchedule(body.availabilitySchedule);
+      if (!validation.valid) {
+        return NextResponse.json(
+          { error: validation.error, code: 'VALIDATION_ERROR' },
+          { status: 400 }
+        );
+      }
+      vetUpdate.availability_schedule = validation.value;
     }
 
     if (Object.keys(profileUpdate).length === 0 && Object.keys(vetUpdate).length === 0) {

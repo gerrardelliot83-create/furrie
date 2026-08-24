@@ -84,10 +84,22 @@ export function useAuth(): UseAuthReturn {
     try {
       setState(prev => ({ ...prev, loading: true, error: null }));
 
+      // Point the magic link that rides along in the same email back at a
+      // URL this app can actually handle. Without this, Supabase falls back
+      // to the project's Site URL, which has no callback handler — the link
+      // lands on `/`, middleware redirects to `/login`, and the `?code=` is
+      // dropped. Each portal sends users back to its own subdomain, both of
+      // which are allow-listed in Supabase → Authentication → URL Configuration.
+      const emailRedirectTo =
+        typeof window !== 'undefined'
+          ? `${window.location.origin}/auth/callback`
+          : undefined;
+
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
           shouldCreateUser: true,
+          emailRedirectTo,
         },
       });
 

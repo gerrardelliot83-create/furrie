@@ -60,7 +60,7 @@
     "verifyOtp": "Verify code",
     "otp": "Verification code",
     "otpSent": "We sent a code to your email",
-    "enterOtp": "Enter the 6-digit code",
+    "enterOtp": "Enter the code from your email",
     "resendOtp": "Resend code",
     "resendIn": "Resend in {seconds}s",
     "continueWithGoogle": "Continue with Google",

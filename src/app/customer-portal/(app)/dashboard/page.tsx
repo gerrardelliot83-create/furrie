@@ -52,6 +52,14 @@ export default async function CustomerDashboard() {
   // Profile, pets, consultations, and care plans all fire together
   const QUERY_TIMEOUT = 8000;
 
+  const emptyCreditBalance = {
+    totalCredits: 0,
+    activePacks: 0,
+    hasPendingRequest: false,
+    pendingRequestId: null,
+    pendingRequestQuantity: null,
+  };
+
   const allQueries = Promise.all([
     // [0] Profile
     supabase
@@ -111,12 +119,19 @@ export default async function CustomerDashboard() {
       .eq('customer_id', user.id)
       .eq('status', 'active')
       .order('purchased_at', { ascending: true }),
+    // [6] Credit balance. Previously awaited on its own AFTER this batch
+    // resolved, which cost a full extra serial round-trip on every dashboard
+    // load. It depends on nothing here, so it belongs in the batch. Its own
+    // catch keeps a credits failure from taking down the rest of the page,
+    // exactly as the separate await did.
+    getActiveCreditBalance(supabase, user.id).catch(() => emptyCreditBalance),
   ]);
 
   type QueryResult = Awaited<typeof allQueries>;
   const emptyResult = { data: null, error: null, count: null, status: 0, statusText: '' };
   const fallback = [
     emptyResult, emptyResult, emptyResult, emptyResult, emptyResult, emptyResult,
+    emptyCreditBalance,
   ] as unknown as QueryResult;
 
   const [
@@ -126,23 +141,12 @@ export default async function CustomerDashboard() {
     { data: recentData },
     { data: carePlansData },
     { data: packsData },
+    creditBalance,
   ] = await withTimeout(allQueries, QUERY_TIMEOUT, fallback);
 
   // Fall back to 'there' if name is missing or is the default placeholder 'User'
   const rawName = profile?.full_name;
   const userName = (rawName && rawName !== 'User') ? rawName : 'there';
-
-  // Credit balance — fetched separately (lightweight, not part of the
-  // timeout-protected batch) so it can't break the rest of the dashboard.
-  const creditBalance = await getActiveCreditBalance(supabase, user.id).catch(
-    () => ({
-      totalCredits: 0,
-      activePacks: 0,
-      hasPendingRequest: false,
-      pendingRequestId: null,
-      pendingRequestQuantity: null,
-    })
-  );
 
   const pets = (petsData || []).map(mapPetFromDB);
 

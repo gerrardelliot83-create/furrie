@@ -187,10 +187,6 @@ export function AuthForm() {
     verifiedRef.current = true;
     toast(t('welcomeBack'), 'success');
 
-    // Refresh server state so middleware sees the freshly-set auth cookies,
-    // then navigate smoothly without a full page reload.
-    router.refresh();
-
     // Send welcome email after a tick to ensure cookies are settled
     // (non-blocking, endpoint is idempotent)
     setTimeout(() => {
@@ -222,7 +218,20 @@ export function AuthForm() {
         });
     }
 
-    router.push('/dashboard');
+    // `replace`, not `push`: navigate straight to the dashboard without a
+    // wasted server round-trip and without leaving /login in history (the
+    // back button would otherwise land on a login page that middleware
+    // immediately bounces back to /dashboard).
+    //
+    // There used to be a `router.refresh()` here, on the theory that
+    // middleware needed a beat to see the new auth cookies. It didn't:
+    // verifyOtp has already persisted them by the time it resolves, and the
+    // refresh re-rendered /login server-side only for middleware to answer
+    // with a redirect to /dashboard — a full cross-region round-trip spent
+    // to learn what we were about to do anyway, ahead of the navigation the
+    // user was waiting on. /dashboard is a dynamic route, so nothing stale
+    // is cached client-side for the refresh to have been guarding against.
+    router.replace('/dashboard');
   }, [email, verifyOtp, router, toast, t, tInvite]);
 
   const handleResendOtp = async () => {

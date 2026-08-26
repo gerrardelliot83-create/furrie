@@ -1,20 +1,39 @@
 /**
  * POST /api/invites/redeem
  *
- * Redeem an invite code after the invitee has authenticated (OTP verified).
- * - Marks the invite as redeemed.
- * - Creates a 1-credit consultation_packs row for the invitee (source='invite',
- *   60-day expiry).
- * - Sends emails to both invitee and referrer.
+ * Redeem an invite code for the authenticated user: marks the invite redeemed
+ * and grants a 1-credit consultation pack (source='invite', 60-day expiry).
+ *
+ * The work itself lives in the `redeem_invite_code` RPC (migration 021) so both
+ * writes share one transaction. This route is the HTTP surface over it; the
+ * request and response shapes are unchanged, because the mobile apps call this
+ * endpoint directly (see furrie-mobile/web-pr-c/CURRENT_API_CONTRACTS.md).
  *
  * Body: { code: string }
- * Auth: Required (the newly signed-up user).
+ * Auth: Required — cookie session (web) or Bearer token (mobile).
  */
 
 import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
-import { supabaseAdmin } from '@/lib/supabase/admin';
 import { FEATURES } from '@/lib/config/features';
+
+/** RPC failure reasons → the HTTP status + message this endpoint has always returned. */
+const FAILURE_RESPONSES: Record<string, { error: string; status: number }> = {
+  VALIDATION_ERROR: { error: 'code is required', status: 400 },
+  INVALID_CODE: { error: 'Invalid invite code', status: 400 },
+  SELF_REFERRAL: { error: 'You cannot use your own invite code', status: 400 },
+  ALREADY_REDEEMED: { error: 'This invite has already been used', status: 409 },
+  ALREADY_USED_INVITE: { error: 'You have already used an invite code', status: 409 },
+  AUTH_REQUIRED: { error: 'Unauthorized', status: 401 },
+};
+
+interface RedeemResult {
+  ok: boolean;
+  reason?: string;
+  credits_granted?: number;
+  expires_at?: string | null;
+  already?: boolean;
+}
 
 export async function POST(request: Request) {
   try {
@@ -24,7 +43,10 @@ export async function POST(request: Request) {
         { status: 404 }
       );
     }
-    const { user, error: authError } = await getRequestUser();
+
+    // A user-scoped client, not the admin client: the RPC credits auth.uid(),
+    // so identity must come from the caller's own session.
+    const { user, error: authError, supabase } = await getRequestUser();
 
     if (authError || !user) {
       return NextResponse.json(
@@ -43,114 +65,36 @@ export async function POST(request: Request) {
       );
     }
 
-    // Load the invite (use admin client to bypass RLS on invite_codes)
-    const { data: invite, error: fetchErr } = await supabaseAdmin
-      .from('invite_codes')
-      .select('*')
-      .eq('code', code)
-      .maybeSingle();
+    const { data, error } = await supabase.rpc('redeem_invite_code', {
+      p_code: code,
+    });
 
-    if (fetchErr || !invite) {
-      return NextResponse.json(
-        { error: 'Invalid invite code', code: 'INVALID_CODE' },
-        { status: 400 }
-      );
-    }
-
-    if (invite.status !== 'available') {
-      return NextResponse.json(
-        { error: 'This invite has already been used', code: 'ALREADY_REDEEMED' },
-        { status: 409 }
-      );
-    }
-
-    // Self-referral check
-    if (invite.referrer_id === user.id) {
-      return NextResponse.json(
-        { error: 'You cannot use your own invite code', code: 'SELF_REFERRAL' },
-        { status: 400 }
-      );
-    }
-
-    // Check if this user already redeemed ANY invite code (prevents multi-invite abuse)
-    const { data: existingRedemption } = await supabaseAdmin
-      .from('invite_codes')
-      .select('id')
-      .eq('redeemed_by_id', user.id)
-      .limit(1)
-      .maybeSingle();
-
-    if (existingRedemption) {
-      return NextResponse.json(
-        { error: 'You have already used an invite code', code: 'ALREADY_USED_INVITE' },
-        { status: 409 }
-      );
-    }
-
-    // STEP 1: Mark the invite as redeemed FIRST (optimistic lock on status='available')
-    // This prevents a race condition where two concurrent requests both create packs
-    const { data: redeemed, error: redeemErr } = await supabaseAdmin
-      .from('invite_codes')
-      .update({
-        status: 'redeemed',
-        redeemed_by_id: user.id,
-        redeemed_at: new Date().toISOString(),
-      })
-      .eq('id', invite.id)
-      .eq('status', 'available') // optimistic lock — only succeeds if still 'available'
-      .select('id')
-      .maybeSingle();
-
-    if (redeemErr || !redeemed) {
-      // Another request already redeemed this invite concurrently
-      return NextResponse.json(
-        { error: 'This invite has already been used', code: 'ALREADY_REDEEMED' },
-        { status: 409 }
-      );
-    }
-
-    // STEP 2: Create a 1-credit pack for the invitee (source='invite', 60-day expiry)
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 60);
-
-    const { data: pack, error: packErr } = await supabaseAdmin
-      .from('consultation_packs')
-      .insert({
-        customer_id: user.id,
-        pack_size: 1,
-        total_consultations: 1,
-        unit_price: 0,
-        discount_percent: 100,
-        total_price: 0,
-        status: 'active',
-        source: 'invite',
-        expires_at: expiresAt.toISOString(),
-      })
-      .select('id')
-      .single();
-
-    if (packErr || !pack) {
-      console.error('Failed to create invite pack:', packErr);
-      // Invite was marked redeemed but pack creation failed — revert invite status
-      try {
-        await supabaseAdmin
-          .from('invite_codes')
-          .update({ status: 'available', redeemed_by_id: null, redeemed_at: null })
-          .eq('id', invite.id);
-      } catch (revertErr: unknown) {
-        console.error('Failed to revert invite status after pack creation failure:', revertErr);
-      }
-
+    if (error) {
+      console.error('redeem_invite_code RPC failed:', error);
       return NextResponse.json(
         { error: 'Failed to grant invite credits', code: 'PACK_ERROR' },
         { status: 500 }
       );
     }
 
+    const result = data as RedeemResult;
+
+    if (!result?.ok) {
+      const reason = result?.reason ?? 'INVALID_CODE';
+      const mapped = FAILURE_RESPONSES[reason] ?? {
+        error: 'Failed to grant invite credits',
+        status: 500,
+      };
+      return NextResponse.json(
+        { error: mapped.error, code: reason },
+        { status: mapped.status }
+      );
+    }
+
     return NextResponse.json({
       redeemed: true,
-      creditsGranted: 1,
-      expiresAt: expiresAt.toISOString(),
+      creditsGranted: result.credits_granted ?? 1,
+      expiresAt: result.expires_at ?? null,
     });
   } catch (err) {
     console.error('POST /api/invites/redeem error:', err);

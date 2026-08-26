@@ -2099,6 +2099,7 @@ export type Database = {
       generate_prescription_number: { Args: never; Returns: string }
       is_admin: { Args: never; Returns: boolean }
       is_vet: { Args: never; Returns: boolean }
+      redeem_invite_code: { Args: { p_code: string }; Returns: Json }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       validate_invite_code: { Args: { p_code: string }; Returns: Json }

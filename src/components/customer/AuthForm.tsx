@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { OTPInput } from './OTPInput';
+import { OTP_LENGTH } from '@/lib/auth/otpConfig';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/components/ui/Toast';
 import styles from './AuthForm.module.css';
@@ -15,6 +16,10 @@ import styles from './AuthForm.module.css';
 type Step = 'email' | 'otp';
 
 const RESEND_COOLDOWN = 60; // seconds
+// How long to wait for the post-verify navigation before handing the form
+// back to the user. Generous: a cold serverless function plus a dynamic
+// dashboard render can legitimately take several seconds.
+const NAV_STALL_TIMEOUT = 8000;
 const RATE_LIMIT_COOLDOWN = 300; // 5 minutes when rate limited
 const COOLDOWN_STORAGE_KEY = 'furrie_otp_cooldown_until';
 
@@ -22,7 +27,6 @@ const INVITE_STORAGE_KEY = 'furrie_invite_code';
 
 export function AuthForm() {
   const t = useTranslations('auth');
-  const tInvite = useTranslations('invite');
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -84,7 +88,21 @@ export function AuthForm() {
     return 0;
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Set when the post-verify navigation didn't land, so the button can offer
+  // to continue rather than mislabelling itself "Verify code" to a user who
+  // is already signed in.
+  const [navStalled, setNavStalled] = useState(false);
   const verifiedRef = useRef(false);
+  // Synchronous submit guard. `isSubmitting` is React state, so it is not
+  // visible to a second call made in the same tick — see handleVerifyOtp.
+  const submittingRef = useRef(false);
+  const navTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // A successful navigation unmounts this form, which clears the stall timer
+  // before it can fire.
+  useEffect(() => () => {
+    if (navTimerRef.current) clearTimeout(navTimerRef.current);
+  }, []);
 
   // Check for error param (e.g., wrong account type)
   // Delay toast slightly to ensure the Toast portal is mounted after Suspense hydration
@@ -147,7 +165,7 @@ export function AuthForm() {
     if (!validateEmail(email)) return;
 
     setIsSubmitting(true);
-    const { error, isRateLimited } = await signInWithOtp(email);
+    const { error, isRateLimited } = await signInWithOtp(email, inviteCode || undefined);
     setIsSubmitting(false);
 
     if (error) {
@@ -166,8 +184,39 @@ export function AuthForm() {
     toast(t('otpSent'), 'success');
   };
 
+  // Navigate to the dashboard, and arm a fallback so a stalled navigation
+  // can't leave the user staring at a spinner with no way out. If the
+  // navigation lands, this component unmounts and the cleanup clears it.
+  const goToDashboard = useCallback(() => {
+    setIsSubmitting(true);
+    setOtpError('');
+    setNavStalled(false);
+    router.replace('/dashboard');
+
+    if (navTimerRef.current) clearTimeout(navTimerRef.current);
+    navTimerRef.current = setTimeout(() => {
+      setIsSubmitting(false);
+      setNavStalled(true);
+      setOtpError(t('signedInNavStalled'));
+    }, NAV_STALL_TIMEOUT);
+  }, [router, t]);
+
   const handleVerifyOtp = useCallback(async (code: string) => {
-    if (code.length !== 8 || verifiedRef.current) return;
+    // Already verified: the code has been spent, so re-verifying would fail.
+    // A second call here means the navigation stalled and the user pressed
+    // the button again — retry the navigation, don't re-verify.
+    if (verifiedRef.current) {
+      goToDashboard();
+      return;
+    }
+
+    // Guard on a ref, not on `isSubmitting`. State updates are async, so two
+    // calls in the same tick both clear a state-based check and both spend the
+    // single-use OTP. The second one then fails and runs the error branch,
+    // flashing "invalid code" and wiping the digits of a user who is by that
+    // point already signed in.
+    if (code.length !== OTP_LENGTH || submittingRef.current) return;
+    submittingRef.current = true;
 
     setIsSubmitting(true);
     setOtpError('');
@@ -175,60 +224,31 @@ export function AuthForm() {
     const { error } = await verifyOtp(email, code);
 
     if (error) {
+      submittingRef.current = false;
       setIsSubmitting(false);
       setOtpError(t('invalidOtp'));
       setOtp(''); // Clear OTP on error
       return;
     }
 
-    // Mark as verified to prevent double submission.
-    // Keep isSubmitting=true so the button stays disabled until navigation completes.
     verifiedRef.current = true;
     toast(t('welcomeBack'), 'success');
 
-    // Refresh server state so middleware sees the freshly-set auth cookies,
-    // then navigate smoothly without a full page reload.
-    router.refresh();
+    // Welcome email and invite redemption used to fire from here as two
+    // fire-and-forget requests, competing with the navigation the user is
+    // actually waiting on. They now run server-side via `after()` on the first
+    // authenticated render — see lib/auth/postSignInTasks.ts. Verifying and
+    // navigating is all this handler does.
+    sessionStorage.removeItem(INVITE_STORAGE_KEY);
 
-    // Send welcome email after a tick to ensure cookies are settled
-    // (non-blocking, endpoint is idempotent)
-    setTimeout(() => {
-      fetch('/api/email/welcome', { method: 'POST' }).catch(() => {});
-    }, 200);
-
-    // Redeem invite code if present (non-blocking — the user gets their
-    // credit asynchronously; failure doesn't block login)
-    const savedInvite =
-      typeof window !== 'undefined'
-        ? sessionStorage.getItem(INVITE_STORAGE_KEY)
-        : null;
-    if (savedInvite) {
-      fetch('/api/invites/redeem', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: savedInvite }),
-      })
-        .then((r) => {
-          if (r.ok) {
-            sessionStorage.removeItem(INVITE_STORAGE_KEY);
-            toast(tInvite('freeConsultation'), 'success');
-          } else {
-            console.error('[INVITE] Redeem failed with status:', r.status);
-          }
-        })
-        .catch((err) => {
-          console.error('[INVITE] Failed to redeem invite code:', err);
-        });
-    }
-
-    router.push('/dashboard');
-  }, [email, verifyOtp, router, toast, t, tInvite]);
+    goToDashboard();
+  }, [email, verifyOtp, goToDashboard, toast, t]);
 
   const handleResendOtp = async () => {
     if (resendTimer > 0) return;
 
     setIsSubmitting(true);
-    const { error, isRateLimited } = await signInWithOtp(email);
+    const { error, isRateLimited } = await signInWithOtp(email, inviteCode || undefined);
     setIsSubmitting(false);
 
     if (error) {
@@ -268,7 +288,7 @@ export function AuthForm() {
 
         <div className={styles.otpContainer}>
           <OTPInput
-            length={8}
+            length={OTP_LENGTH}
             value={otp}
             onChange={setOtp}
             onComplete={handleVerifyOtp}
@@ -283,10 +303,10 @@ export function AuthForm() {
           variant="primary"
           onClick={() => handleVerifyOtp(otp)}
           loading={isSubmitting || loading}
-          disabled={otp.length !== 8}
+          disabled={!navStalled && otp.length !== OTP_LENGTH}
           fullWidth
         >
-          {t('verifyOtp')}
+          {navStalled ? t('continueToDashboard') : t('verifyOtp')}
         </Button>
 
         <div className={styles.resendContainer}>

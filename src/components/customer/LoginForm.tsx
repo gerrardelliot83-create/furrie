@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { OTPInput } from './OTPInput';
+import { OTP_LENGTH } from '@/lib/auth/otpConfig';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/components/ui/Toast';
 import styles from './LoginForm.module.css';
@@ -90,7 +91,7 @@ export function LoginForm() {
   };
 
   const handleVerifyOtp = useCallback(async (code: string) => {
-    if (code.length !== 8) return;
+    if (code.length !== OTP_LENGTH) return;
 
     setIsSubmitting(true);
     setOtpError('');
@@ -147,7 +148,7 @@ export function LoginForm() {
 
         <div className={styles.otpContainer}>
           <OTPInput
-            length={8}
+            length={OTP_LENGTH}
             value={otp}
             onChange={setOtp}
             onComplete={handleVerifyOtp}
@@ -162,7 +163,7 @@ export function LoginForm() {
           variant="primary"
           onClick={() => handleVerifyOtp(otp)}
           loading={isSubmitting || loading}
-          disabled={otp.length !== 8}
+          disabled={otp.length !== OTP_LENGTH}
           fullWidth
         >
           {t('verifyOtp')}

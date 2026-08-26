@@ -13,7 +13,10 @@ interface AuthState {
 }
 
 interface UseAuthReturn extends AuthState {
-  signInWithOtp: (email: string) => Promise<{ error: string | null; isRateLimited?: boolean }>;
+  signInWithOtp: (
+    email: string,
+    inviteCode?: string
+  ) => Promise<{ error: string | null; isRateLimited?: boolean }>;
   verifyOtp: (email: string, token: string) => Promise<{ error: string | null }>;
   signInWithPassword: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
@@ -80,14 +83,35 @@ export function useAuth(): UseAuthReturn {
   }, [supabase.auth, router]);
 
   // Send OTP to email
-  const signInWithOtp = useCallback(async (email: string): Promise<{ error: string | null; isRateLimited?: boolean }> => {
+  const signInWithOtp = useCallback(async (
+    email: string,
+    inviteCode?: string
+  ): Promise<{ error: string | null; isRateLimited?: boolean }> => {
     try {
       setState(prev => ({ ...prev, loading: true, error: null }));
 
+      // Point the magic link that rides along in the same email back at a
+      // URL this app can actually handle. Without this, Supabase falls back
+      // to the project's Site URL, which has no callback handler — the link
+      // lands on `/`, middleware redirects to `/login`, and the `?code=` is
+      // dropped. Each portal sends users back to its own subdomain, both of
+      // which are allow-listed in Supabase → Authentication → URL Configuration.
+      const emailRedirectTo =
+        typeof window !== 'undefined'
+          ? `${window.location.origin}/auth/callback`
+          : undefined;
+
+      // Carry the invite code on the user record itself. Supabase applies
+      // `options.data` to user_metadata when the account is created, so the
+      // server can redeem it on first render. The previous hand-off went
+      // through sessionStorage, which the magic-link path and the mobile apps
+      // never saw — both silently dropped the customer's free consultation.
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
           shouldCreateUser: true,
+          emailRedirectTo,
+          ...(inviteCode ? { data: { invite_code: inviteCode } } : {}),
         },
       });
 

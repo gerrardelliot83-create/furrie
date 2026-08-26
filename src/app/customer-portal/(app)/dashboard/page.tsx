@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
 import { getTranslations } from 'next-intl/server';
 import { getCurrentUser } from '@/lib/supabase/getCurrentUser';
 import { mapPetFromDB } from '@/lib/utils/petMapper';
@@ -16,6 +17,7 @@ import { PackCtaCard } from '@/components/customer';
 import { ConsultationBalanceCard } from '@/components/customer/ConsultationBalanceCard';
 import { InviteCard } from '@/components/customer/InviteCard';
 import { getActiveCreditBalance } from '@/lib/credits/getActiveCreditBalance';
+import { maybeSendWelcomeEmail, maybeRedeemInvite } from '@/lib/auth/postSignInTasks';
 import styles from './Dashboard.module.css';
 
 export const maxDuration = 30;
@@ -52,11 +54,19 @@ export default async function CustomerDashboard() {
   // Profile, pets, consultations, and care plans all fire together
   const QUERY_TIMEOUT = 8000;
 
+  const emptyCreditBalance = {
+    totalCredits: 0,
+    activePacks: 0,
+    hasPendingRequest: false,
+    pendingRequestId: null,
+    pendingRequestQuantity: null,
+  };
+
   const allQueries = Promise.all([
     // [0] Profile
     supabase
       .from('profiles')
-      .select('full_name')
+      .select('full_name, email, created_at')
       .eq('id', user.id)
       .single(),
     // [1] Pets
@@ -111,12 +121,19 @@ export default async function CustomerDashboard() {
       .eq('customer_id', user.id)
       .eq('status', 'active')
       .order('purchased_at', { ascending: true }),
+    // [6] Credit balance. Previously awaited on its own AFTER this batch
+    // resolved, which cost a full extra serial round-trip on every dashboard
+    // load. It depends on nothing here, so it belongs in the batch. Its own
+    // catch keeps a credits failure from taking down the rest of the page,
+    // exactly as the separate await did.
+    getActiveCreditBalance(supabase, user.id).catch(() => emptyCreditBalance),
   ]);
 
   type QueryResult = Awaited<typeof allQueries>;
   const emptyResult = { data: null, error: null, count: null, status: 0, statusText: '' };
   const fallback = [
     emptyResult, emptyResult, emptyResult, emptyResult, emptyResult, emptyResult,
+    emptyCreditBalance,
   ] as unknown as QueryResult;
 
   const [
@@ -126,23 +143,27 @@ export default async function CustomerDashboard() {
     { data: recentData },
     { data: carePlansData },
     { data: packsData },
+    creditBalance,
   ] = await withTimeout(allQueries, QUERY_TIMEOUT, fallback);
+
+  // Sign-in side-effects the user isn't waiting for. `after()` runs these once
+  // the response has been streamed, so they cost the page nothing. They used to
+  // be two fire-and-forget fetches racing the navigation out of the OTP form.
+  // Both are idempotent, so running them on every dashboard render is safe.
+  after(async () => {
+    await Promise.allSettled([
+      maybeSendWelcomeEmail({
+        email: profile?.email ?? user.email,
+        fullName: profile?.full_name,
+        createdAt: profile?.created_at,
+      }),
+      maybeRedeemInvite(supabase, user),
+    ]);
+  });
 
   // Fall back to 'there' if name is missing or is the default placeholder 'User'
   const rawName = profile?.full_name;
   const userName = (rawName && rawName !== 'User') ? rawName : 'there';
-
-  // Credit balance — fetched separately (lightweight, not part of the
-  // timeout-protected batch) so it can't break the rest of the dashboard.
-  const creditBalance = await getActiveCreditBalance(supabase, user.id).catch(
-    () => ({
-      totalCredits: 0,
-      activePacks: 0,
-      hasPendingRequest: false,
-      pendingRequestId: null,
-      pendingRequestQuantity: null,
-    })
-  );
 
   const pets = (petsData || []).map(mapPetFromDB);
 

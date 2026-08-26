@@ -136,33 +136,33 @@ export async function middleware(request: NextRequest) {
 
   // If user exists, check role-based access
   if (user) {
-    // Try to read role from app_metadata (cached in JWT, no DB query needed).
-    // Falls back to a profile query only if app_metadata.role is not set.
-    let userRole = (user.app_metadata?.role as string) || '';
+    // Read the role from profiles, which is the source of truth.
+    //
+    // This used to prefer a copy cached in app_metadata, written back
+    // fire-and-forget on a miss, to avoid a ~400ms cross-region query while
+    // functions ran in iad1. In bom1 that query is single-digit milliseconds,
+    // so the cache had come to cost more than it saved: every request by a
+    // user without the cached value paid an admin API write on top of the
+    // query, and in a serverless function un-awaited work can be frozen before
+    // it completes — so for a new user it might never land at all.
+    //
+    // It was also wrong in a way that locked people out. Nothing invalidated
+    // the cached value, so promoting a customer to vet left app_metadata
+    // saying 'customer' forever: their own portal refused them with
+    // wrong_account, and editing profiles.role did not help because the stale
+    // copy won. Reading the table every time is less code and always correct.
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
 
-    if (!userRole) {
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-
-      if (profileError) {
-        console.error('Middleware: failed to fetch profile for user', user.id, profileError);
-        return supabaseResponse;
-      }
-
-      userRole = profile?.role || 'customer';
-
-      // Cache role in app_metadata so future requests skip the DB query.
-      // Fire-and-forget: this is a nice-to-have optimization, not critical for the request.
-      import('@/lib/supabase/admin').then(({ createClient: createAdminClient }) => {
-        const adminClient = createAdminClient();
-        adminClient.auth.admin.updateUserById(user.id, {
-          app_metadata: { role: userRole },
-        }).catch(() => {});
-      }).catch(() => {});
+    if (profileError) {
+      console.error('Middleware: failed to fetch profile for user', user.id, profileError);
+      return supabaseResponse;
     }
+
+    const userRole = profile?.role || 'customer';
 
     // Check if user's role matches the portal they're accessing
     if (!isRoleAllowedOnPortal(userRole, portal)) {

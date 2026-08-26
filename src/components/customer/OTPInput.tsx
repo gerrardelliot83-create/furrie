@@ -45,13 +45,6 @@ export function OTPInput({
     }
   }, [autoFocus]);
 
-  useEffect(() => {
-    // Call onComplete when all digits are filled
-    if (value.length === length && onComplete) {
-      onComplete(value);
-    }
-  }, [value, length, onComplete]);
-
   const focusInput = (index: number) => {
     if (index >= 0 && index < length && inputRefs.current[index]) {
       inputRefs.current[index]?.focus();
@@ -75,6 +68,14 @@ export function OTPInput({
     // Move to next input if digit entered
     if (digit && index < length - 1) {
       focusInput(index + 1);
+    }
+
+    // Submitting is a response to the user finishing their input, so it
+    // belongs here rather than in an effect watching `value`. As an effect it
+    // re-ran on any dependency identity change, and could fire while the
+    // inputs were already disabled mid-submit.
+    if (newValue.length === length) {
+      onComplete?.(newValue);
     }
   };
 
@@ -118,6 +119,10 @@ export function OTPInput({
       // Focus the next empty input or the last input
       const nextIndex = Math.min(pastedDigits.length, length - 1);
       focusInput(nextIndex);
+
+      if (pastedDigits.length === length) {
+        onComplete?.(pastedDigits);
+      }
     }
   };
 

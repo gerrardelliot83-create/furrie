@@ -16,6 +16,10 @@ import styles from './AuthForm.module.css';
 type Step = 'email' | 'otp';
 
 const RESEND_COOLDOWN = 60; // seconds
+// How long to wait for the post-verify navigation before handing the form
+// back to the user. Generous: a cold serverless function plus a dynamic
+// dashboard render can legitimately take several seconds.
+const NAV_STALL_TIMEOUT = 8000;
 const RATE_LIMIT_COOLDOWN = 300; // 5 minutes when rate limited
 const COOLDOWN_STORAGE_KEY = 'furrie_otp_cooldown_until';
 
@@ -85,7 +89,21 @@ export function AuthForm() {
     return 0;
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Set when the post-verify navigation didn't land, so the button can offer
+  // to continue rather than mislabelling itself "Verify code" to a user who
+  // is already signed in.
+  const [navStalled, setNavStalled] = useState(false);
   const verifiedRef = useRef(false);
+  // Synchronous submit guard. `isSubmitting` is React state, so it is not
+  // visible to a second call made in the same tick — see handleVerifyOtp.
+  const submittingRef = useRef(false);
+  const navTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // A successful navigation unmounts this form, which clears the stall timer
+  // before it can fire.
+  useEffect(() => () => {
+    if (navTimerRef.current) clearTimeout(navTimerRef.current);
+  }, []);
 
   // Check for error param (e.g., wrong account type)
   // Delay toast slightly to ensure the Toast portal is mounted after Suspense hydration
@@ -167,8 +185,39 @@ export function AuthForm() {
     toast(t('otpSent'), 'success');
   };
 
+  // Navigate to the dashboard, and arm a fallback so a stalled navigation
+  // can't leave the user staring at a spinner with no way out. If the
+  // navigation lands, this component unmounts and the cleanup clears it.
+  const goToDashboard = useCallback(() => {
+    setIsSubmitting(true);
+    setOtpError('');
+    setNavStalled(false);
+    router.replace('/dashboard');
+
+    if (navTimerRef.current) clearTimeout(navTimerRef.current);
+    navTimerRef.current = setTimeout(() => {
+      setIsSubmitting(false);
+      setNavStalled(true);
+      setOtpError(t('signedInNavStalled'));
+    }, NAV_STALL_TIMEOUT);
+  }, [router, t]);
+
   const handleVerifyOtp = useCallback(async (code: string) => {
-    if (code.length !== OTP_LENGTH || verifiedRef.current) return;
+    // Already verified: the code has been spent, so re-verifying would fail.
+    // A second call here means the navigation stalled and the user pressed
+    // the button again — retry the navigation, don't re-verify.
+    if (verifiedRef.current) {
+      goToDashboard();
+      return;
+    }
+
+    // Guard on a ref, not on `isSubmitting`. State updates are async, so two
+    // calls in the same tick both clear a state-based check and both spend the
+    // single-use OTP. The second one then fails and runs the error branch,
+    // flashing "invalid code" and wiping the digits of a user who is by that
+    // point already signed in.
+    if (code.length !== OTP_LENGTH || submittingRef.current) return;
+    submittingRef.current = true;
 
     setIsSubmitting(true);
     setOtpError('');
@@ -176,14 +225,13 @@ export function AuthForm() {
     const { error } = await verifyOtp(email, code);
 
     if (error) {
+      submittingRef.current = false;
       setIsSubmitting(false);
       setOtpError(t('invalidOtp'));
       setOtp(''); // Clear OTP on error
       return;
     }
 
-    // Mark as verified to prevent double submission.
-    // Keep isSubmitting=true so the button stays disabled until navigation completes.
     verifiedRef.current = true;
     toast(t('welcomeBack'), 'success');
 
@@ -218,21 +266,8 @@ export function AuthForm() {
         });
     }
 
-    // `replace`, not `push`: navigate straight to the dashboard without a
-    // wasted server round-trip and without leaving /login in history (the
-    // back button would otherwise land on a login page that middleware
-    // immediately bounces back to /dashboard).
-    //
-    // There used to be a `router.refresh()` here, on the theory that
-    // middleware needed a beat to see the new auth cookies. It didn't:
-    // verifyOtp has already persisted them by the time it resolves, and the
-    // refresh re-rendered /login server-side only for middleware to answer
-    // with a redirect to /dashboard — a full cross-region round-trip spent
-    // to learn what we were about to do anyway, ahead of the navigation the
-    // user was waiting on. /dashboard is a dynamic route, so nothing stale
-    // is cached client-side for the refresh to have been guarding against.
-    router.replace('/dashboard');
-  }, [email, verifyOtp, router, toast, t, tInvite]);
+    goToDashboard();
+  }, [email, verifyOtp, goToDashboard, toast, t, tInvite]);
 
   const handleResendOtp = async () => {
     if (resendTimer > 0) return;
@@ -293,10 +328,10 @@ export function AuthForm() {
           variant="primary"
           onClick={() => handleVerifyOtp(otp)}
           loading={isSubmitting || loading}
-          disabled={otp.length !== OTP_LENGTH}
+          disabled={!navStalled && otp.length !== OTP_LENGTH}
           fullWidth
         >
-          {t('verifyOtp')}
+          {navStalled ? t('continueToDashboard') : t('verifyOtp')}
         </Button>
 
         <div className={styles.resendContainer}>

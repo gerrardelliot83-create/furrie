@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
 import { getTranslations } from 'next-intl/server';
 import { getCurrentUser } from '@/lib/supabase/getCurrentUser';
 import { mapPetFromDB } from '@/lib/utils/petMapper';
@@ -16,6 +17,7 @@ import { PackCtaCard } from '@/components/customer';
 import { ConsultationBalanceCard } from '@/components/customer/ConsultationBalanceCard';
 import { InviteCard } from '@/components/customer/InviteCard';
 import { getActiveCreditBalance } from '@/lib/credits/getActiveCreditBalance';
+import { maybeSendWelcomeEmail, maybeRedeemInvite } from '@/lib/auth/postSignInTasks';
 import styles from './Dashboard.module.css';
 
 export const maxDuration = 30;
@@ -64,7 +66,7 @@ export default async function CustomerDashboard() {
     // [0] Profile
     supabase
       .from('profiles')
-      .select('full_name')
+      .select('full_name, email, created_at')
       .eq('id', user.id)
       .single(),
     // [1] Pets
@@ -143,6 +145,21 @@ export default async function CustomerDashboard() {
     { data: packsData },
     creditBalance,
   ] = await withTimeout(allQueries, QUERY_TIMEOUT, fallback);
+
+  // Sign-in side-effects the user isn't waiting for. `after()` runs these once
+  // the response has been streamed, so they cost the page nothing. They used to
+  // be two fire-and-forget fetches racing the navigation out of the OTP form.
+  // Both are idempotent, so running them on every dashboard render is safe.
+  after(async () => {
+    await Promise.allSettled([
+      maybeSendWelcomeEmail({
+        email: profile?.email ?? user.email,
+        fullName: profile?.full_name,
+        createdAt: profile?.created_at,
+      }),
+      maybeRedeemInvite(supabase, user),
+    ]);
+  });
 
   // Fall back to 'there' if name is missing or is the default placeholder 'User'
   const rawName = profile?.full_name;

@@ -27,7 +27,6 @@ const INVITE_STORAGE_KEY = 'furrie_invite_code';
 
 export function AuthForm() {
   const t = useTranslations('auth');
-  const tInvite = useTranslations('invite');
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -166,7 +165,7 @@ export function AuthForm() {
     if (!validateEmail(email)) return;
 
     setIsSubmitting(true);
-    const { error, isRateLimited } = await signInWithOtp(email);
+    const { error, isRateLimited } = await signInWithOtp(email, inviteCode || undefined);
     setIsSubmitting(false);
 
     if (error) {
@@ -235,45 +234,21 @@ export function AuthForm() {
     verifiedRef.current = true;
     toast(t('welcomeBack'), 'success');
 
-    // Send welcome email after a tick to ensure cookies are settled
-    // (non-blocking, endpoint is idempotent)
-    setTimeout(() => {
-      fetch('/api/email/welcome', { method: 'POST' }).catch(() => {});
-    }, 200);
-
-    // Redeem invite code if present (non-blocking — the user gets their
-    // credit asynchronously; failure doesn't block login)
-    const savedInvite =
-      typeof window !== 'undefined'
-        ? sessionStorage.getItem(INVITE_STORAGE_KEY)
-        : null;
-    if (savedInvite) {
-      fetch('/api/invites/redeem', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: savedInvite }),
-      })
-        .then((r) => {
-          if (r.ok) {
-            sessionStorage.removeItem(INVITE_STORAGE_KEY);
-            toast(tInvite('freeConsultation'), 'success');
-          } else {
-            console.error('[INVITE] Redeem failed with status:', r.status);
-          }
-        })
-        .catch((err) => {
-          console.error('[INVITE] Failed to redeem invite code:', err);
-        });
-    }
+    // Welcome email and invite redemption used to fire from here as two
+    // fire-and-forget requests, competing with the navigation the user is
+    // actually waiting on. They now run server-side via `after()` on the first
+    // authenticated render — see lib/auth/postSignInTasks.ts. Verifying and
+    // navigating is all this handler does.
+    sessionStorage.removeItem(INVITE_STORAGE_KEY);
 
     goToDashboard();
-  }, [email, verifyOtp, goToDashboard, toast, t, tInvite]);
+  }, [email, verifyOtp, goToDashboard, toast, t]);
 
   const handleResendOtp = async () => {
     if (resendTimer > 0) return;
 
     setIsSubmitting(true);
-    const { error, isRateLimited } = await signInWithOtp(email);
+    const { error, isRateLimited } = await signInWithOtp(email, inviteCode || undefined);
     setIsSubmitting(false);
 
     if (error) {

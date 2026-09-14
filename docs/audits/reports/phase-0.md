@@ -40,6 +40,23 @@ The job that has been failing every ten minutes for months now works. Video-call
 | Next 16.3.5, no critical/high in `npm audit` | `package.json:next = "16.3.5"`; `npm audit --audit-level=high` exits 0; full audit reports 1 low | Yes |
 | Deletion reference table in the PR | PR #51 description, section "Deletion reference table" (also below) | Yes |
 
+## Verification on a production build (2026-09-14, `next build && next start`, placeholder Supabase)
+
+The Vercel preview sits behind Deployment Protection (Vercel SSO), so it cannot be probed anonymously; Gerard's logged-in browser can open it. The same build was verified locally with `NODE_ENV=production`:
+
+| Check | Request | Result |
+|---|---|---|
+| Wrapper adds a request id | `GET /api/pets` unauthenticated | `401 {"error":"Unauthorized","code":"AUTH_REQUIRED"}`, header `x-request-id: c6bd2113-…` |
+| SEC-8 fail closed | `GET /api/cron/close-stale-active`, `CRON_SECRET` unset | `401 {"code":"CRON_NOT_CONFIGURED"}` |
+| SEC-8 wrong secret | same, `Authorization: Bearer wrong` | `401` |
+| SEC-8 right secret | same, correct bearer | guard passed; `500 Query failed` from the placeholder database |
+| BRK-2 unset secret | `POST /api/daily/webhook`, `DAILY_WEBHOOK_SECRET` unset | `503 {"code":"WEBHOOK_NOT_CONFIGURED"}` |
+| BRK-2 genuine event | signed per Daily's scheme with a random base64 secret | `200 {"received":true}` |
+| BRK-2 tampered signature | same, signature altered | `401 {"code":"INVALID_SIGNATURE"}` |
+| BRK-2 replay | same, timestamp 10 min old | `401 {"code":"STALE_TIMESTAMP"}` |
+| SEC-1 gone | `GET /api/admin/setup-webhooks` | `404` |
+| SEC-10 | `GET /api/auth/callback?next=//evil.com` | `307 → /login` on the same host |
+
 ## Gerard must do
 
 Do these in order. Steps 1–3 are before merge; 4 is the preview click-through; 5 is after merge; 6 prepares Phase 1.
@@ -56,7 +73,7 @@ Do these in order. Steps 1–3 are before merge; 4 is the preview click-through;
 
 - [ ] **3. Set `SENTRY_TRACES_SAMPLE_RATE` = `1`** in Vercel → Settings → Environment Variables, for Production and Preview (decision D1). It takes effect on the next deployment, so do this before merging.
 
-- [ ] **4. Click through the preview** (customer portal only — the preview URL has no `vet.`/`admin.` subdomains, so those portals are checked on production after merge):
+- [ ] **4. Click through the preview** (you will be asked to sign in to Vercel first — the preview is protected; customer portal only, since the preview URL has no `vet.`/`admin.` subdomains, so those portals are checked on production after merge):
   `https://furrie-git-chore-phase-0-stabilise-aeneshs-projects.vercel.app` → sign in with your customer account → dashboard loads → Consultations list → open one → Pets → open a pet → **upload a pet photo** (this exercises the `uploadthing` package whose `effect` dependency was overridden; if the upload fails, tell me before merging) → Profile → sign out.
 
 - [ ] **5. After merge, on production:**

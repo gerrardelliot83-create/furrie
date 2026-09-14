@@ -2,6 +2,24 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { getMeetingsByRoom } from '@/lib/daily';
 import { checkPlusSubscriptionWithClient, calculateThreadExpiry } from '@/lib/utils/followUpHelpers';
+import type { Database } from '@/lib/database.types';
+
+type ConsultationRow = Database['public']['Tables']['consultations']['Row'];
+
+// Column list checked against the generated schema types at compile time.
+// BRK-1: this cron selected a non-existent `room_name` column and returned
+// 500 on every run for months; a typo here is now a type error.
+const STALE_COLUMNS = [
+  'id',
+  'customer_id',
+  'pet_id',
+  'vet_id',
+  'started_at',
+  'scheduled_at',
+  'daily_room_name',
+] as const satisfies readonly (keyof ConsultationRow)[];
+
+type StaleConsultation = Pick<ConsultationRow, (typeof STALE_COLUMNS)[number]>;
 
 /**
  * GET /api/cron/close-stale-active
@@ -31,9 +49,10 @@ export async function GET(request: Request) {
   // Find stale active consultations
   const { data: staleConsultations, error: fetchError } = await supabaseAdmin
     .from('consultations')
-    .select('id, customer_id, pet_id, vet_id, started_at, scheduled_at, room_name')
+    .select(STALE_COLUMNS.join(', '))
     .eq('status', 'active')
-    .lt('started_at', staleCutoff.toISOString());
+    .lt('started_at', staleCutoff.toISOString())
+    .returns<StaleConsultation[]>();
 
   if (fetchError) {
     console.error('[close-stale-active] Failed to fetch stale consultations:', fetchError);
@@ -59,7 +78,7 @@ export async function GET(request: Request) {
     let durationSource = 'unknown';
 
     // Try to get actual duration from Daily.co
-    const roomName = consultation.room_name || `furrie-${consultation.id}`;
+    const roomName = consultation.daily_room_name || `furrie-${consultation.id}`;
     try {
       const meetingData = await getMeetingsByRoom(roomName);
       if (meetingData && meetingData.ended) {

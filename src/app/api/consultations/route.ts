@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
 import { mapConsultationWithRelationsFromDB } from '@/lib/utils/consultationMapper';
+import { withRoute } from '@/server/handler';
 
 // GET /api/consultations - List user's consultations
-export async function GET(request: Request) {
+export const GET = withRoute(async function GET(request: Request) {
   try {
     const { user, error: authError, supabase } = await getRequestUser();
 
@@ -93,4 +94,4 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-}
+});

@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
+import { withRoute } from '@/server/handler';
 
 // POST /api/vet/vaccinations/reject - Reject a vaccination record
-export async function POST(request: Request) {
+export const POST = withRoute(async function POST(request: Request) {
   try {
     const { user, error: authError, supabase } = await getRequestUser();
 
@@ -113,4 +114,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+});

@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { withRoute } from '@/server/handler';
 
 // GET /api/vet/pets/[id] - Get pet details for vet (only if vet has consulted this pet)
-export async function GET(
+export const GET = withRoute(async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -93,4 +94,4 @@ export async function GET(
       { status: 500 }
     );
   }
-}
+});

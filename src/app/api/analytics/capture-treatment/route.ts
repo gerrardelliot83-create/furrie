@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { DIAGNOSES } from '@/lib/data/diagnoses';
 import { MEDICATIONS } from '@/lib/data/medications';
 import type { PrescribedMedication } from '@/types';
+import { withRoute } from '@/server/handler';
 
 interface CaptureRequest {
   consultationId: string;
@@ -19,7 +20,7 @@ interface CaptureRequest {
  *
  * Non-blocking — failure here should never prevent consultation completion.
  */
-export async function POST(request: Request) {
+export const POST = withRoute(async function POST(request: Request) {
   try {
     const { user, error: authError, supabase } = await getRequestUser();
 
@@ -190,4 +191,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+});

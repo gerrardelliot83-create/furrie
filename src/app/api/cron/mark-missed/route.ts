@@ -3,6 +3,7 @@ import { verifyCronRequest } from '@/lib/cron/auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { createNotification } from '@/lib/notifications/createNotification';
 import { sendMissedAppointmentEmail } from '@/lib/email';
+import { withRoute } from '@/server/handler';
 
 /**
  * GET /api/cron/mark-missed
@@ -12,7 +13,7 @@ import { sendMissedAppointmentEmail } from '@/lib/email';
  *
  * Cron schedule: Every 5 minutes (see vercel.json)
  */
-export async function GET(request: Request) {
+export const GET = withRoute(async function GET(request: Request) {
   // Verify cron secret (set in Vercel environment)
   const denied = verifyCronRequest(request);
   if (denied) return denied;
@@ -197,4 +198,4 @@ export async function GET(request: Request) {
     processed: results.length,
     results,
   });
-}
+});

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
+import { withRoute } from '@/server/handler';
 
 interface SubmissionBody {
   type: 'medication' | 'diagnosis';
@@ -13,7 +14,7 @@ interface SubmissionBody {
  * POST /api/submissions
  * Submit a new medication or diagnosis for admin review
  */
-export async function POST(request: NextRequest) {
+export const POST = withRoute(async function POST(request: NextRequest) {
   try {
     const { user, error: authError, supabase } = await getRequestUser();
 
@@ -99,13 +100,13 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
 /**
  * GET /api/submissions
  * List submissions — vets see their own, admins see all pending
  */
-export async function GET(request: NextRequest) {
+export const GET = withRoute(async function GET(request: NextRequest) {
   try {
     const { user, error: authError, supabase } = await getRequestUser();
 
@@ -154,4 +155,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

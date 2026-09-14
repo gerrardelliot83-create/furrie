@@ -20,13 +20,14 @@ import {
   validateTreatmentPlanDraft,
   type TreatmentPlanDraft,
 } from '@/lib/treatment-plans/schemas';
+import { withRoute } from '@/server/handler';
 
 interface PatchBody {
   updated_at?: string;
   draft?: Partial<TreatmentPlanDraft>;
 }
 
-export async function PATCH(
+export const PATCH = withRoute(async function PATCH(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
@@ -164,4 +165,4 @@ export async function PATCH(
       { status: 500 }
     );
   }
-}
+});

@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
+import { withRoute } from '@/server/handler';
 
 // POST /api/consultations/[id]/flag - Flag a consultation
-export async function POST(
+export const POST = withRoute(async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -96,10 +97,10 @@ export async function POST(
       { status: 500 }
     );
   }
-}
+});
 
 // PATCH /api/consultations/[id]/flag - Withdraw a flag (within 24 hours)
-export async function PATCH(
+export const PATCH = withRoute(async function PATCH(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -172,4 +173,4 @@ export async function PATCH(
       { status: 500 }
     );
   }
-}
+});

@@ -11,8 +11,9 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { FEATURES } from '@/lib/config/features';
+import { withRoute } from '@/server/handler';
 
-export async function POST(request: Request) {
+export const POST = withRoute(async function POST(request: Request) {
   try {
     if (!FEATURES.ENABLE_INVITES) {
       return NextResponse.json(
@@ -51,4 +52,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+});

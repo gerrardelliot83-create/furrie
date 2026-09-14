@@ -3,6 +3,7 @@ import { getRequestUser } from '@/lib/auth/withAuth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { createRoom, generateToken, DAILY_DOMAIN } from '@/lib/daily';
 import { canJoinConsultation } from '@/lib/scheduling';
+import { withRoute } from '@/server/handler';
 
 /**
  * POST /api/consultations/[id]/join
@@ -28,7 +29,7 @@ import { canJoinConsultation } from '@/lib/scheduling';
  *   }
  * }
  */
-export async function POST(
+export const POST = withRoute(async function POST(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -242,4 +243,4 @@ export async function POST(
       { status: 500 }
     );
   }
-}
+});

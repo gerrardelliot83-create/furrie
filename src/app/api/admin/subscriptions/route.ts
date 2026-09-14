@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { sendPlusActivatedEmail } from '@/lib/email';
 import { verifyAdmin, logAdminAction } from '@/lib/admin/auth';
+import { withRoute } from '@/server/handler';
 
 /**
  * GET /api/admin/subscriptions
@@ -9,7 +10,7 @@ import { verifyAdmin, logAdminAction } from '@/lib/admin/auth';
  * List subscriptions with optional filters.
  * Query params: status, customerId, petId, limit, offset
  */
-export async function GET(request: Request) {
+export const GET = withRoute(async function GET(request: Request) {
   try {
     const result = await verifyAdmin();
     if (result.error) return result.error;
@@ -74,7 +75,7 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-}
+});
 
 interface CreateSubscriptionBody {
   customerId: string;
@@ -88,7 +89,7 @@ interface CreateSubscriptionBody {
  * Create a Plus subscription for a customer's pet.
  * Body: { customerId, petId, durationDays? (default 30) }
  */
-export async function POST(request: Request) {
+export const POST = withRoute(async function POST(request: Request) {
   try {
     const result = await verifyAdmin();
     if (result.error) return result.error;
@@ -244,7 +245,7 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+});
 
 /**
  * DELETE /api/admin/subscriptions
@@ -252,7 +253,7 @@ export async function POST(request: Request) {
  * Cancel a subscription by setting status to 'cancelled'.
  * Body: { subscriptionId }
  */
-export async function DELETE(request: Request) {
+export const DELETE = withRoute(async function DELETE(request: Request) {
   try {
     const result = await verifyAdmin();
     if (result.error) return result.error;
@@ -322,4 +323,4 @@ export async function DELETE(request: Request) {
       { status: 500 }
     );
   }
-}
+});

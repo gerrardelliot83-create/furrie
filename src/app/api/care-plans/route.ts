@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { createNotification } from '@/lib/notifications/createNotification';
 import { sendCarePlanCreatedEmail } from '@/lib/email';
 import type { CarePlanCategory } from '@/types';
+import { withRoute } from '@/server/handler';
 
 const VALID_CATEGORIES: CarePlanCategory[] = [
   'preventive', 'treatment', 'nutrition', 'vaccination', 'medication', 'supplement', 'custom',
@@ -14,7 +15,7 @@ const VALID_STEP_TYPES = [
 ];
 
 // GET /api/care-plans?petId=xxx — List care plans for a pet
-export async function GET(request: Request) {
+export const GET = withRoute(async function GET(request: Request) {
   try {
     const { user, error: authError, supabase } = await getRequestUser();
 
@@ -82,10 +83,10 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-}
+});
 
 // POST /api/care-plans — Create a care plan with steps
-export async function POST(request: Request) {
+export const POST = withRoute(async function POST(request: Request) {
   try {
     const { user, error: authError, supabase } = await getRequestUser();
 
@@ -267,4 +268,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+});

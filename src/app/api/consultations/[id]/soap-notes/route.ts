@@ -6,6 +6,7 @@ import {
   mapSoapNoteFromDB,
   SoapValidationError,
 } from '@/lib/utils/soapMapper';
+import { withRoute } from '@/server/handler';
 
 /**
  * SOAP notes for a consultation.
@@ -132,7 +133,7 @@ async function upsertSoapNote(
   });
 }
 
-export async function POST(
+export const POST = withRoute(async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -146,9 +147,9 @@ export async function POST(
       { status: 500 }
     );
   }
-}
+});
 
-export async function PATCH(
+export const PATCH = withRoute(async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -162,4 +163,4 @@ export async function PATCH(
       { status: 500 }
     );
   }
-}
+});

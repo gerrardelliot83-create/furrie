@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { verifyAdmin, logAdminAction } from '@/lib/admin/auth';
 import { sendEmail } from '@/lib/email';
 import { passwordResetEmail } from '@/lib/email/templates';
+import { withRoute } from '@/server/handler';
 
 /**
  * The portal whose /auth/callback should receive the recovery token. Every
@@ -27,7 +28,7 @@ function portalFor(role: string | null): { origin: string; name: string } {
  * 2. action: 'change' — Change the admin's own password
  *    Body: { action: 'change', currentPassword: string, newPassword: string }
  */
-export async function POST(request: Request) {
+export const POST = withRoute(async function POST(request: Request) {
   try {
     const result = await verifyAdmin();
     if (result.error) return result.error;
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+});
 
 /**
  * Send a password reset email to a user.

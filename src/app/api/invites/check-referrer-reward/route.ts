@@ -14,8 +14,9 @@ import { getRequestUser } from '@/lib/auth/withAuth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { grantReferrerRewardIfEligible } from '@/lib/invites/grantReferrerReward';
 import { FEATURES } from '@/lib/config/features';
+import { withRoute } from '@/server/handler';
 
-export async function POST(request: Request) {
+export const POST = withRoute(async function POST(request: Request) {
   try {
     if (!FEATURES.ENABLE_INVITES) {
       return NextResponse.json({ checked: true, rewarded: false });
@@ -57,4 +58,4 @@ export async function POST(request: Request) {
     console.error('POST /api/invites/check-referrer-reward error:', err);
     return NextResponse.json({ checked: true, rewarded: false });
   }
-}
+});

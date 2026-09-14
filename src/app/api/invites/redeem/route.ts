@@ -16,6 +16,7 @@
 import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
 import { FEATURES } from '@/lib/config/features';
+import { withRoute } from '@/server/handler';
 
 /** RPC failure reasons → the HTTP status + message this endpoint has always returned. */
 const FAILURE_RESPONSES: Record<string, { error: string; status: number }> = {
@@ -35,7 +36,7 @@ interface RedeemResult {
   already?: boolean;
 }
 
-export async function POST(request: Request) {
+export const POST = withRoute(async function POST(request: Request) {
   try {
     if (!FEATURES.ENABLE_INVITES) {
       return NextResponse.json(
@@ -103,4 +104,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+});

@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
 import { createNotification } from '@/lib/notifications/createNotification';
+import { withRoute } from '@/server/handler';
 
 // POST /api/care-plans/[id]/steps/[stepId]/complete — Mark step as completed
-export async function POST(
+export const POST = withRoute(async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string; stepId: string }> }
 ) {
@@ -150,4 +151,4 @@ export async function POST(
       { status: 500 }
     );
   }
-}
+});

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { verifyAdmin } from '@/lib/admin/auth';
+import { withRoute } from '@/server/handler';
 
 interface HealthCheck {
   name: string;
@@ -15,7 +16,7 @@ interface HealthCheck {
  * System health checks for the admin dashboard.
  * Checks: database connectivity, auth service, storage, key table counts.
  */
-export async function GET() {
+export const GET = withRoute(async function GET() {
   try {
     const result = await verifyAdmin();
     if (result.error) return result.error;
@@ -115,4 +116,4 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
+});

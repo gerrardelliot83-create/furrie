@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { sendWelcomeEmail } from '@/lib/email';
+import { withRoute } from '@/server/handler';
 
 /**
  * POST /api/email/welcome
  * Send welcome email to newly signed up customer
  */
-export async function POST() {
+export const POST = withRoute(async function POST() {
   try {
     const supabase = await createClient();
 
@@ -64,4 +65,4 @@ export async function POST() {
       { status: 500 }
     );
   }
-}
+});

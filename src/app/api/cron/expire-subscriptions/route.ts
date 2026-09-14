@@ -3,6 +3,7 @@ import { verifyCronRequest } from '@/lib/cron/auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { createNotification } from '@/lib/notifications/createNotification';
 import { sendSubscriptionExpiredEmail } from '@/lib/email';
+import { withRoute } from '@/server/handler';
 
 /**
  * GET /api/cron/expire-subscriptions
@@ -12,7 +13,7 @@ import { sendSubscriptionExpiredEmail } from '@/lib/email';
  *
  * Cron schedule: Every hour (see vercel.json)
  */
-export async function GET(request: Request) {
+export const GET = withRoute(async function GET(request: Request) {
   const denied = verifyCronRequest(request);
   if (denied) return denied;
 
@@ -108,4 +109,4 @@ export async function GET(request: Request) {
     processed: results.length,
     results,
   });
-}
+});

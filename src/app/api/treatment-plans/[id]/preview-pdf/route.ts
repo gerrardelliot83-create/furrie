@@ -20,12 +20,13 @@ import {
 } from '@/lib/treatment-plans/schemas';
 import { loadTreatmentPlanContext } from '@/lib/treatment-plans/fetchContext';
 import { renderTreatmentPlanPdf } from '@/lib/treatment-plans/renderPdf';
+import { withRoute } from '@/server/handler';
 
 interface PreviewBody {
   draft?: unknown;
 }
 
-export async function POST(
+export const POST = withRoute(async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
@@ -145,4 +146,4 @@ export async function POST(
       { status: 500 }
     );
   }
-}
+});

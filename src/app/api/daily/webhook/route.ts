@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { getRecordingLink } from '@/lib/daily';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { checkPlusSubscriptionWithClient, calculateThreadExpiry } from '@/lib/utils/followUpHelpers';
+import { withRoute } from '@/server/handler';
 
 const DAILY_WEBHOOK_SECRET = process.env.DAILY_WEBHOOK_SECRET;
 
@@ -47,9 +48,9 @@ function verifyDailySignature(
  * GET /api/daily/webhook
  * Daily.co sends a GET request to validate the webhook URL during registration
  */
-export async function GET() {
+export const GET = withRoute(async function GET() {
   return NextResponse.json({ status: 'ok' });
-}
+});
 
 /**
  * POST /api/daily/webhook
@@ -64,7 +65,7 @@ export async function GET() {
  * Security: Verifies HMAC signature from Daily.co
  * See: https://docs.daily.co/reference/rest-api/webhooks
  */
-export async function POST(request: NextRequest) {
+export const POST = withRoute(async function POST(request: NextRequest) {
   try {
     // Get raw body for signature verification
     const rawBody = await request.text();
@@ -131,7 +132,7 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
 /**
  * Handle recording.ready-to-download event

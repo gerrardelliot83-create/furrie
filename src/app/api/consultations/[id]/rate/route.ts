@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { withRoute } from '@/server/handler';
 
 /**
  * POST /api/consultations/[id]/rate
@@ -11,7 +12,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
  * Only the customer of the consultation can submit a rating.
  * Ratings can only be submitted for completed consultations.
  */
-export async function POST(
+export const POST = withRoute(async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -121,7 +122,7 @@ export async function POST(
       { status: 500 }
     );
   }
-}
+});
 
 /**
  * Updates the vet's average rating based on all their ratings

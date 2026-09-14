@@ -29,6 +29,7 @@ import type {
   PreviousPdfEntry,
   TreatmentPlanView,
 } from '@/lib/treatment-plans/types';
+import { withRoute } from '@/server/handler';
 
 // ----------------------------------------------------------------------------
 // Shared helpers
@@ -129,7 +130,7 @@ async function verifyVet(userId: string) {
 // GET /api/treatment-plans?consultationId=...
 // ----------------------------------------------------------------------------
 
-export async function GET(request: Request) {
+export const GET = withRoute(async function GET(request: Request) {
   try {
     const { user, error: authError, supabase } = await getRequestUser();
 
@@ -219,7 +220,7 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-}
+});
 
 // ----------------------------------------------------------------------------
 // POST /api/treatment-plans { consultationId }
@@ -229,7 +230,7 @@ interface CreateBody {
   consultationId?: string;
 }
 
-export async function POST(request: Request) {
+export const POST = withRoute(async function POST(request: Request) {
   try {
     const { user, error: authError, supabase } = await getRequestUser();
 
@@ -364,4 +365,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+});

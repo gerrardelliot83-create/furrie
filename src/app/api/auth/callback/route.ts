@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { withRoute } from '@/server/handler';
 
 /**
  * Only ever redirect to a path on this origin. Rejects absolute URLs,
@@ -13,7 +14,7 @@ function safeNextPath(raw: string | null): string {
   return /^\/(?![\/\\])/.test(candidate) ? candidate : '/dashboard';
 }
 
-export async function GET(request: Request) {
+export const GET = withRoute(async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get('code');
   const next = safeNextPath(requestUrl.searchParams.get('next'));
@@ -38,4 +39,4 @@ export async function GET(request: Request) {
 
   // No code provided - redirect to login
   return NextResponse.redirect(new URL('/login', requestUrl.origin));
-}
+});

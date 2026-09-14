@@ -5,8 +5,9 @@ import { createOrder, SKIP_PAYMENTS, PAYMENT_GATEWAY } from '@/lib/payments';
 import { sendBookingConfirmationEmail, sendVetNewBookingEmail } from '@/lib/email';
 import { checkRateLimit, getClientIp, RATE_LIMITS, rateLimitResponse } from '@/lib/utils/rate-limit';
 import type { CreateOrderRequest } from '@/lib/payments/types';
+import { withRoute } from '@/server/handler';
 
-export async function POST(request: Request) {
+export const POST = withRoute(async function POST(request: Request) {
   try {
     // Rate limit: 10 payment requests per minute per IP
     const ip = getClientIp(request);
@@ -189,4 +190,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+});

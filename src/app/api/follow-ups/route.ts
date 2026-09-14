@@ -4,6 +4,7 @@ import {
   mapConsultationWithRelationsFromDB,
   type ConsultationWithRelations,
 } from '@/lib/utils/consultationMapper';
+import { withRoute } from '@/server/handler';
 
 type FollowUpStatus = 'active' | 'expired' | 'all';
 
@@ -39,7 +40,7 @@ interface FollowUpItem {
   unreadCount: number;
 }
 
-export async function GET(request: Request) {
+export const GET = withRoute(async function GET(request: Request) {
   try {
     const { user, error: authError, supabase } = await getRequestUser();
 
@@ -151,4 +152,4 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-}
+});

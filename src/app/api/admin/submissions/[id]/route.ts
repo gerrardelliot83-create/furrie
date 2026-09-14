@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { withRoute } from '@/server/handler';
 
 /**
  * PATCH /api/admin/submissions/[id]
  * Approve or reject a medication/diagnosis submission.
  * Admin-only endpoint.
  */
-export async function PATCH(
+export const PATCH = withRoute(async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -86,4 +87,4 @@ export async function PATCH(
       { status: 500 }
     );
   }
-}
+});

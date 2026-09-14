@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
+import { withRoute } from '@/server/handler';
 
 // GET /api/care-plans/[id]/steps/[stepId]/responses — List responses for a step
-export async function GET(
+export const GET = withRoute(async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string; stepId: string }> }
 ) {
@@ -39,10 +40,10 @@ export async function GET(
       { status: 500 }
     );
   }
-}
+});
 
 // POST /api/care-plans/[id]/steps/[stepId]/responses — Add a response
-export async function POST(
+export const POST = withRoute(async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string; stepId: string }> }
 ) {
@@ -95,4 +96,4 @@ export async function POST(
       { status: 500 }
     );
   }
-}
+});

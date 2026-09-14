@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
+import { withRoute } from '@/server/handler';
 
 // GET /api/vet/stats - Get vet dashboard statistics
-export async function GET() {
+export const GET = withRoute(async function GET() {
   try {
     const { user, error: authError, supabase } = await getRequestUser();
 
@@ -133,4 +134,4 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
+});

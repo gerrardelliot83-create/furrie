@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { verifyCronRequest } from '@/lib/cron/auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { withRoute } from '@/server/handler';
 
 /**
  * GET /api/cron/expire-threads
@@ -10,7 +11,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
  *
  * Cron schedule: Every hour (see vercel.json)
  */
-export async function GET(request: Request) {
+export const GET = withRoute(async function GET(request: Request) {
   const denied = verifyCronRequest(request);
   if (denied) return denied;
 
@@ -61,4 +62,4 @@ export async function GET(request: Request) {
     processed: results.length,
     results,
   });
-}
+});

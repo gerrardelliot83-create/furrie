@@ -7,11 +7,12 @@ import {
   sendPaymentReceiptEmail,
   sendVetNewBookingEmail,
 } from '@/lib/email';
+import { withRoute } from '@/server/handler';
 
 // Disable body parsing to get raw body for signature verification
 export const dynamic = 'force-dynamic';
 
-export async function POST(request: Request) {
+export const POST = withRoute(async function POST(request: Request) {
   try {
     // Get raw body for signature verification
     const rawBody = await request.text();
@@ -297,4 +298,4 @@ export async function POST(request: Request) {
       message: 'Webhook processing failed',
     });
   }
-}
+});

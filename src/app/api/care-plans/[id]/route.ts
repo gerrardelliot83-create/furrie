@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
 import type { CarePlanStatus } from '@/types';
+import { withRoute } from '@/server/handler';
 
 const VALID_STATUSES: CarePlanStatus[] = ['draft', 'active', 'completed', 'archived'];
 
 // GET /api/care-plans/[id] — Get plan with steps and responses
-export async function GET(
+export const GET = withRoute(async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -65,10 +66,10 @@ export async function GET(
       { status: 500 }
     );
   }
-}
+});
 
 // PATCH /api/care-plans/[id] — Update plan status/details
-export async function PATCH(
+export const PATCH = withRoute(async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -133,4 +134,4 @@ export async function PATCH(
       { status: 500 }
     );
   }
-}
+});

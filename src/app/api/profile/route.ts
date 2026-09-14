@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import type { User } from '@/types';
+import { withRoute } from '@/server/handler';
 
 // Map database profile to User type
 function mapProfileFromDB(row: {
@@ -33,7 +34,7 @@ function mapProfileFromDB(row: {
 }
 
 // GET /api/profile - Get current user's profile
-export async function GET() {
+export const GET = withRoute(async function GET() {
   try {
     const { user, error: authError, supabase } = await getRequestUser();
 
@@ -76,10 +77,10 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
+});
 
 // PATCH /api/profile - Update current user's profile
-export async function PATCH(request: Request) {
+export const PATCH = withRoute(async function PATCH(request: Request) {
   try {
     const { user, error: authError, supabase } = await getRequestUser();
 
@@ -191,4 +192,4 @@ export async function PATCH(request: Request) {
       { status: 500 }
     );
   }
-}
+});

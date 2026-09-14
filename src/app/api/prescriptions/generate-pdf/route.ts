@@ -11,11 +11,12 @@ import {
   generatePrescriptionNumber,
   type PrescriptionData,
 } from '@/lib/prescriptions/template';
+import { withRoute } from '@/server/handler';
 
 const utapi = new UTApi();
 
 // POST /api/prescriptions/generate-pdf - Generate prescription PDF
-export async function POST(request: Request) {
+export const POST = withRoute(async function POST(request: Request) {
   try {
     const { user, error: authError, supabase } = await getRequestUser();
 
@@ -286,4 +287,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+});

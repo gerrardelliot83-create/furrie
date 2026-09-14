@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { getMeetingsByRoom } from '@/lib/daily';
 import { checkPlusSubscriptionWithClient, calculateThreadExpiry } from '@/lib/utils/followUpHelpers';
 import type { Database } from '@/lib/database.types';
+import { withRoute } from '@/server/handler';
 
 type ConsultationRow = Database['public']['Tables']['consultations']['Row'];
 
@@ -36,7 +37,7 @@ type StaleConsultation = Pick<ConsultationRow, (typeof STALE_COLUMNS)[number]>;
  *
  * Cron schedule: Every 10 minutes (see vercel.json)
  */
-export async function GET(request: Request) {
+export const GET = withRoute(async function GET(request: Request) {
   const denied = verifyCronRequest(request);
   if (denied) return denied;
 
@@ -171,4 +172,4 @@ export async function GET(request: Request) {
     processed: results.length,
     results,
   });
-}
+});

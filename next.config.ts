@@ -5,6 +5,12 @@ import createNextIntlPlugin from "next-intl/plugin";
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const nextConfig: NextConfig = {
+  // Inlined into the browser bundle so instrumentation-client.ts can read the
+  // same SENTRY_TRACES_SAMPLE_RATE the server configs use (D1: one knob).
+  env: {
+    SENTRY_TRACES_SAMPLE_RATE: process.env.SENTRY_TRACES_SAMPLE_RATE ?? "0.25",
+  },
+
   // Image optimization for pet photos
   images: {
     // Serve modern formats to capable browsers.

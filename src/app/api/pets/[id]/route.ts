@@ -2,13 +2,14 @@ import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
 import { mapPetFromDB, mapPetUpdateToDB } from '@/lib/utils/petMapper';
 import type { Pet } from '@/types';
+import { withRoute } from '@/server/handler';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
 }
 
 // GET /api/pets/[id] - Get a single pet
-export async function GET(request: Request, context: RouteContext) {
+export const GET = withRoute(async function GET(request: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
     const { user, error: authError, supabase } = await getRequestUser();
@@ -52,10 +53,10 @@ export async function GET(request: Request, context: RouteContext) {
       { status: 500 }
     );
   }
-}
+});
 
 // PUT /api/pets/[id] - Update a pet
-export async function PUT(request: Request, context: RouteContext) {
+export const PUT = withRoute(async function PUT(request: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
     const { user, error: authError, supabase } = await getRequestUser();
@@ -126,10 +127,10 @@ export async function PUT(request: Request, context: RouteContext) {
       { status: 500 }
     );
   }
-}
+});
 
 // DELETE /api/pets/[id] - Delete a pet
-export async function DELETE(request: Request, context: RouteContext) {
+export const DELETE = withRoute(async function DELETE(request: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
     const { user, error: authError, supabase } = await getRequestUser();
@@ -163,7 +164,7 @@ export async function DELETE(request: Request, context: RouteContext) {
       { status: 500 }
     );
   }
-}
+});
 
 // Mobile sends PATCH; web uses PUT. Both share the same partial-update semantics.
 export const PATCH = PUT;

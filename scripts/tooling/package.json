@@ -1,0 +1,16 @@
+{
+  "name": "furrie-tooling",
+  "private": true,
+  "description": "One-off data conversion scripts. Kept out of the app's dependency tree so xlsx (no upstream fix for its advisories) never ships with the app.",
+  "scripts": {
+    "convert-breeds": "tsx convert-breeds.ts",
+    "check-excel": "tsx check-excel.ts",
+    "check-excel-raw": "tsx check-excel-raw.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "tsx": "^4.21.0",
+    "typescript": "^5",
+    "xlsx": "^0.18.5"
+  }
+}

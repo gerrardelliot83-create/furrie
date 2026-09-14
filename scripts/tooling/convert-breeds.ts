@@ -4,12 +4,16 @@
  * Reads dog and cat breeds from Excel file and generates TypeScript data file.
  * Only uses "Dog Breeds" and "Cat Breeds" sheets (main source of truth).
  *
- * Usage: npx ts-node scripts/convert-breeds.ts
+ * Usage: cd scripts/tooling && npm install && npm run convert-breeds
+ * (xlsx lives only in scripts/tooling/package.json; it is not part of the app.)
  */
 
 import * as XLSX from 'xlsx';
 import * as fs from 'fs';
 import * as path from 'path';
+
+// scripts/tooling -> repo root
+const REPO_ROOT = path.join(__dirname, '..', '..');
 
 interface RawBreed {
   'Breed Name': string;
@@ -74,12 +78,11 @@ function sortBreeds(breeds: Breed[]): Breed[] {
 
 function main() {
   const excelPath = path.join(
-    __dirname,
-    '..',
+    REPO_ROOT,
     'docs',
     'Comprehensive_Dog_Cat_Breed_Database.xlsx'
   );
-  const outputPath = path.join(__dirname, '..', 'src', 'lib', 'data', 'breeds.ts');
+  const outputPath = path.join(REPO_ROOT, 'src', 'lib', 'data', 'breeds.ts');
 
   console.log('Reading Excel file:', excelPath);
 

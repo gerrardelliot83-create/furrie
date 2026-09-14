@@ -73,7 +73,7 @@ export async function GET() {
     const { count: stuckCount } = await supabaseAdmin
       .from('consultations')
       .select('id', { count: 'exact', head: true })
-      .in('status', ['pending', 'matching'])
+      .eq('status', 'pending') // 'matching' was removed in migration 004 (BRK-7)
       .lt('created_at', oneHourAgo);
 
     if ((stuckCount || 0) > 0) {
@@ -81,7 +81,7 @@ export async function GET() {
         name: 'consultation_queue',
         status: 'degraded',
         latencyMs: 0,
-        details: `${stuckCount} consultation(s) stuck in pending/matching for >1 hour`,
+        details: `${stuckCount} consultation(s) stuck in pending for >1 hour`,
       });
     } else {
       checks.push({

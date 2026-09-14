@@ -5,9 +5,7 @@ export { EmergencyDisclaimer } from './EmergencyDisclaimer';
 export { ConsultationSummary } from './ConsultationSummary';
 export { TimeSlotSelector } from './TimeSlotSelector';
 export { BookingConfirmation } from './BookingConfirmation';
-export { MatchingScreen } from './MatchingScreen'; // Deprecated - kept for backwards compatibility
 export { ConsultationCard } from './ConsultationCard';
-export { PreJoinScreen } from './PreJoinScreen';
 export { VideoRoom } from './VideoRoom';
 export { CallControls } from './CallControls';
 export { VideoTile } from './VideoTile';
@@ -16,4 +14,3 @@ export { RatingForm } from './RatingForm';
 export { ChatInterface } from './ChatInterface';
 export { MessageBubble } from './MessageBubble';
 export { MessageComposer } from './MessageComposer';
-export { PaymentButton } from './PaymentButton';

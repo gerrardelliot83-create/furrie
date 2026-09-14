@@ -1,10 +1,47 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { getRecordingLink } from '@/lib/daily';
-import { createHmac } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { checkPlusSubscriptionWithClient, calculateThreadExpiry } from '@/lib/utils/followUpHelpers';
 
 const DAILY_WEBHOOK_SECRET = process.env.DAILY_WEBHOOK_SECRET;
+
+// Reject events whose timestamp is further than this from our clock (replay window).
+const MAX_TIMESTAMP_SKEW_SECONDS = 5 * 60;
+
+type SignatureCheck = 'ok' | 'stale_timestamp' | 'mismatch';
+
+/**
+ * Daily's documented scheme (BRK-2):
+ *   secret   = base64-decode(DAILY_WEBHOOK_SECRET)
+ *   payload  = `${X-Webhook-Timestamp}.${raw request body}`
+ *   expected = base64(HMAC-SHA256(secret, payload))
+ * The previous implementation used the raw secret and a hex digest, so with
+ * the secret set every genuine event was rejected as 'Invalid signature'.
+ * https://docs.daily.co/reference/rest-api/webhooks
+ */
+function verifyDailySignature(
+  rawBody: string,
+  signature: string,
+  timestamp: string,
+  secret: string
+): SignatureCheck {
+  // Daily sends Unix seconds; tolerate milliseconds defensively.
+  const tsNumber = Number(timestamp);
+  if (!Number.isFinite(tsNumber)) return 'stale_timestamp';
+  const tsSeconds = tsNumber > 1e12 ? tsNumber / 1000 : tsNumber;
+  const nowSeconds = Date.now() / 1000;
+  if (Math.abs(nowSeconds - tsSeconds) > MAX_TIMESTAMP_SKEW_SECONDS) {
+    return 'stale_timestamp';
+  }
+
+  const expected = createHmac('sha256', Buffer.from(secret, 'base64'))
+    .update(`${timestamp}.${rawBody}`)
+    .digest();
+  const provided = Buffer.from(signature, 'base64');
+  if (provided.length !== expected.length) return 'mismatch';
+  return timingSafeEqual(provided, expected) ? 'ok' : 'mismatch';
+}
 
 /**
  * GET /api/daily/webhook
@@ -32,28 +69,35 @@ export async function POST(request: NextRequest) {
     // Get raw body for signature verification
     const rawBody = await request.text();
 
-    // Verify webhook signature if secret is configured
-    // Allow requests without signature headers to pass (Daily.co validation pings)
-    if (DAILY_WEBHOOK_SECRET) {
+    // Without a secret we cannot tell Daily from anyone else. In production
+    // that is a misconfiguration, not a reason to trust the event (SEC-8).
+    if (!DAILY_WEBHOOK_SECRET) {
+      if (process.env.NODE_ENV === 'production') {
+        console.error('DAILY_WEBHOOK_SECRET is not set; refusing to process webhook');
+        return NextResponse.json(
+          { error: 'Webhook secret not configured', code: 'WEBHOOK_NOT_CONFIGURED' },
+          { status: 503 }
+        );
+      }
+      console.warn('DAILY_WEBHOOK_SECRET is not set; skipping signature verification (non-production only)');
+    } else {
       const signature = request.headers.get('x-webhook-signature');
       const timestamp = request.headers.get('x-webhook-timestamp');
 
       if (!signature || !timestamp) {
-        // No signature headers = likely a Daily.co validation ping during webhook setup
-        // Return 200 to pass validation; real events always include signature headers
+        // Daily's registration check posts without signature headers. Acknowledge
+        // it but process nothing: an unsigned request never reaches the handlers.
         console.log('Webhook request without signature headers — treating as validation ping');
         return NextResponse.json({ received: true });
       }
 
-      // Verify signature: HMAC-SHA256(timestamp.rawBody)
-      const signaturePayload = `${timestamp}.${rawBody}`;
-      const expectedSignature = createHmac('sha256', DAILY_WEBHOOK_SECRET)
-        .update(signaturePayload)
-        .digest('hex');
-
-      if (signature !== expectedSignature) {
-        console.error('Invalid webhook signature');
-        return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+      const check = verifyDailySignature(rawBody, signature, timestamp, DAILY_WEBHOOK_SECRET);
+      if (check !== 'ok') {
+        console.error(`Rejected Daily webhook: ${check}`);
+        return NextResponse.json(
+          { error: 'Invalid signature', code: check === 'stale_timestamp' ? 'STALE_TIMESTAMP' : 'INVALID_SIGNATURE' },
+          { status: 401 }
+        );
       }
     }
 

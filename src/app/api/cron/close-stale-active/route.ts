@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { verifyCronRequest } from '@/lib/cron/auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { getMeetingsByRoom } from '@/lib/daily';
 import { checkPlusSubscriptionWithClient, calculateThreadExpiry } from '@/lib/utils/followUpHelpers';
@@ -36,11 +37,8 @@ type StaleConsultation = Pick<ConsultationRow, (typeof STALE_COLUMNS)[number]>;
  * Cron schedule: Every 10 minutes (see vercel.json)
  */
 export async function GET(request: Request) {
-  // Verify cron secret
-  const authHeader = request.headers.get('authorization');
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const denied = verifyCronRequest(request);
+  if (denied) return denied;
 
   const now = new Date();
   // 90-minute threshold: max consultation is 30 min, this provides a wide safety margin

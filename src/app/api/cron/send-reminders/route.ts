@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { verifyCronRequest } from '@/lib/cron/auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { createNotification } from '@/lib/notifications/createNotification';
 import {
@@ -20,10 +21,8 @@ import {
  */
 export async function GET(request: Request) {
   // Verify cron secret (set in Vercel environment)
-  const authHeader = request.headers.get('authorization');
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const denied = verifyCronRequest(request);
+  if (denied) return denied;
 
   const now = new Date();
   const results: Array<{

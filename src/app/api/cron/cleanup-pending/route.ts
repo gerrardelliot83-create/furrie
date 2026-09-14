@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { verifyCronRequest } from '@/lib/cron/auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
 /**
@@ -10,10 +11,8 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
  * Cron schedule: Every hour (see vercel.json)
  */
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization');
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const denied = verifyCronRequest(request);
+  if (denied) return denied;
 
   const now = new Date();
   // Consultations pending for more than 2 hours are considered abandoned

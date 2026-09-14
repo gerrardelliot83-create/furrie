@@ -53,6 +53,11 @@ export function AuthForm() {
         : null;
     const code = urlCode || storedCode || '';
     if (code) {
+      // Syncing from the URL and sessionStorage (external sources) on mount.
+      // Moving this into a lazy initial state would read sessionStorage during
+      // SSR and cause a hydration mismatch; the proper rework is tracked in
+      // docs/audits/backlog.md (P0-1).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setInviteCode(code);
       if (typeof window !== 'undefined') {
         sessionStorage.setItem(INVITE_STORAGE_KEY, code);

@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: typecheck · lint · build · audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Build-time placeholders only. Nothing here is secret; the real values
+      # live in Vercel. They exist so `next build` can evaluate the config
+      # and client bundles without throwing on a missing NEXT_PUBLIC_* var.
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder
+      SUPABASE_SECRET_KEY: placeholder
+      UPLOADTHING_TOKEN: placeholder
+      NEXT_PUBLIC_APP_URL: https://app.furrie.in
+      NEXT_PUBLIC_DAILY_DOMAIN: placeholder.daily.co
+      NEXT_TELEMETRY_DISABLED: 1
+      SENTRY_SUPPRESS_TURBOPACK_WARNING: 1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Audit (high and critical only)
+        run: npm audit --audit-level=high

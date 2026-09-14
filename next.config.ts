@@ -1,16 +1,10 @@
 import type { NextConfig } from "next";
-import { withSentryConfig } from "@sentry/nextjs";
+import { withSentryConfig } from "@sentry/nextjs/config";
 import createNextIntlPlugin from "next-intl/plugin";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const nextConfig: NextConfig = {
-  // Tree-shake icon and date libraries to keep bundles small.
-  // Per audit F-18 - these libraries benefit from per-export imports.
-  experimental: {
-    optimizePackageImports: ["lucide-react", "date-fns"],
-  },
-
   // Image optimization for pet photos
   images: {
     // Serve modern formats to capable browsers.
@@ -134,9 +128,6 @@ export default withSentryConfig(withNextIntl(nextConfig), {
 
   // Suppress logs unless in CI
   silent: !process.env.CI,
-
-  // Automatically tree-shake Sentry logger statements
-  disableLogger: true,
 
   // Hide source maps from client bundles
   sourcemaps: {

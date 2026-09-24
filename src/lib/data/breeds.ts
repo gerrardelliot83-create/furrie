@@ -14,9 +14,32 @@ export interface Breed {
   coatColors: string[];
   foundInIndia: 'Yes' | 'Rare' | 'No';
   indianNative: boolean;
+  /** Other names people search for, e.g. "Alsatian" for German Shepherd */
+  aliases?: string[];
+  /** The mixed / not-sure option, listed before every other group */
+  mixed?: boolean;
 }
 
 export const DOG_BREEDS: Breed[] = [
+  {
+    "name": "Mixed breed / Indie",
+    "lifespan": "",
+    "weight": "",
+    "height": "",
+    "coatColors": [],
+    "foundInIndia": "Yes",
+    "indianNative": false,
+    "aliases": [
+      "Desi",
+      "Crossbreed",
+      "Cross breed",
+      "Mongrel",
+      "Street dog",
+      "Stray",
+      "Unknown"
+    ],
+    "mixed": true
+  },
   {
     "name": "Bakharwal",
     "lifespan": "10-12",
@@ -138,7 +161,12 @@ export const DOG_BREEDS: Breed[] = [
       "Black"
     ],
     "foundInIndia": "Yes",
-    "indianNative": true
+    "indianNative": true,
+    "aliases": [
+      "Indie",
+      "INDog",
+      "Desi"
+    ]
   },
   {
     "name": "Indian Spitz",
@@ -401,7 +429,10 @@ export const DOG_BREEDS: Breed[] = [
       "except for merle"
     ],
     "foundInIndia": "Yes",
-    "indianNative": false
+    "indianNative": false,
+    "aliases": [
+      "Pitbull"
+    ]
   },
   {
     "name": "Australian Cattle Dog",
@@ -661,7 +692,11 @@ export const DOG_BREEDS: Breed[] = [
       "White"
     ],
     "foundInIndia": "Yes",
-    "indianNative": false
+    "indianNative": false,
+    "aliases": [
+      "English Bulldog",
+      "British Bulldog"
+    ]
   },
   {
     "name": "Bullmastiff",
@@ -819,7 +854,10 @@ export const DOG_BREEDS: Breed[] = [
       "Fawn"
     ],
     "foundInIndia": "Yes",
-    "indianNative": false
+    "indianNative": false,
+    "aliases": [
+      "Doberman Pinscher"
+    ]
   },
   {
     "name": "Dogo Argentino",
@@ -841,6 +879,104 @@ export const DOG_BREEDS: Breed[] = [
       "Fawn",
       "Mahogany",
       "Isabella"
+    ],
+    "foundInIndia": "Yes",
+    "indianNative": false
+  },
+  {
+    "name": "English Cocker Spaniel",
+    "lifespan": "12-14",
+    "weight": "13-15 kg",
+    "height": "Male: 39-41 cm, Female: 38-39 cm",
+    "coatColors": [
+      "Black",
+      "Golden",
+      "Liver",
+      "Blue Roan",
+      "Orange Roan"
+    ],
+    "foundInIndia": "Yes",
+    "indianNative": false
+  },
+  {
+    "name": "French Bulldog",
+    "lifespan": "10-12",
+    "weight": "8-14 kg",
+    "height": "28-33 cm",
+    "coatColors": [
+      "Fawn",
+      "Brindle",
+      "Cream",
+      "White",
+      "Brindle & White"
+    ],
+    "foundInIndia": "Yes",
+    "indianNative": false,
+    "aliases": [
+      "Frenchie",
+      "French Bully"
+    ]
+  },
+  {
+    "name": "German Shepherd",
+    "lifespan": "9-13",
+    "weight": "Male: 30-40 kg, Female: 22-32 kg",
+    "height": "Male: 60-65 cm, Female: 55-60 cm",
+    "coatColors": [
+      "Black & Tan",
+      "Black & Red",
+      "Sable",
+      "Black",
+      "Grey"
+    ],
+    "foundInIndia": "Yes",
+    "indianNative": false,
+    "aliases": [
+      "Alsatian",
+      "GSD",
+      "German Shepherd Dog"
+    ]
+  },
+  {
+    "name": "German Spitz",
+    "lifespan": "13-15",
+    "weight": "In proportion to height",
+    "height": "Klein: 23-29 cm, Mittel: 30-38 cm",
+    "coatColors": [
+      "White",
+      "Black",
+      "Orange",
+      "Cream",
+      "Grey"
+    ],
+    "foundInIndia": "Yes",
+    "indianNative": false
+  },
+  {
+    "name": "Golden Retriever",
+    "lifespan": "10-12",
+    "weight": "Male: 29-34 kg, Female: 25-29 kg",
+    "height": "Male: 58-61 cm, Female: 55-57 cm",
+    "coatColors": [
+      "Light Golden",
+      "Golden",
+      "Dark Golden",
+      "Cream"
+    ],
+    "foundInIndia": "Yes",
+    "indianNative": false
+  },
+  {
+    "name": "Great Dane",
+    "lifespan": "7-10",
+    "weight": "Male: 64-79 kg, Female: 50-64 kg",
+    "height": "Male: 76-81 cm, Female: 71-76 cm",
+    "coatColors": [
+      "Fawn",
+      "Brindle",
+      "Harlequin",
+      "Black",
+      "Blue"
     ],
     "foundInIndia": "Yes",
     "indianNative": false
@@ -3234,6 +3370,139 @@ export const DOG_BREEDS: Breed[] = [
     "indianNative": false
   },
   {
+    "name": "English Mastiff",
+    "lifespan": "6-10",
+    "weight": "Male: 73-104 kg, Female: 54-77 kg",
+    "height": "Male: from 76 cm, Female: from 70 cm",
+    "coatColors": [
+      "Fawn",
+      "Apricot",
+      "Brindle"
+    ],
+    "foundInIndia": "Rare",
+    "indianNative": false
+  },
+  {
+    "name": "English Setter",
+    "lifespan": "11-12",
+    "weight": "Male: 29-36 kg, Female: 20-25 kg",
+    "height": "Male: 65-68 cm, Female: 61-65 cm",
+    "coatColors": [
+      "Blue Belton",
+      "Orange Belton",
+      "Lemon Belton",
+      "Liver Belton",
+      "Tricolour"
+    ],
+    "foundInIndia": "Rare",
+    "indianNative": false
+  },
+  {
+    "name": "English Springer Spaniel",
+    "lifespan": "12-14",
+    "weight": "Male: 23 kg, Female: 18 kg",
+    "height": "Male: 51 cm, Female: 48 cm",
+    "coatColors": [
+      "Liver & White",
+      "Black & White",
+      "Tricolour"
+    ],
+    "foundInIndia": "Rare",
+    "indianNative": false
+  },
+  {
+    "name": "Eurasier",
+    "lifespan": "12-16",
+    "weight": "Male: 23-32 kg, Female: 18-26 kg",
+    "height": "Male: 52-60 cm, Female: 48-56 cm",
+    "coatColors": [
+      "Fawn",
+      "Red",
+      "Wolf-Grey",
+      "Black",
+      "Black & Tan"
+    ],
+    "foundInIndia": "Rare",
+    "indianNative": false
+  },
+  {
+    "name": "Finnish Spitz",
+    "lifespan": "13-15",
+    "weight": "Male: 12-13 kg, Female: 7-10 kg",
+    "height": "Male: 44-50 cm, Female: 39-45 cm",
+    "coatColors": [
+      "Red-Gold",
+      "Golden-Red",
+      "Reddish Brown"
+    ],
+    "foundInIndia": "Rare",
+    "indianNative": false
+  },
+  {
+    "name": "Flat-coated Retriever",
+    "lifespan": "8-10",
+    "weight": "Male: 27-36 kg, Female: 25-32 kg",
+    "height": "Male: 59-61 cm, Female: 56-59 cm",
+    "coatColors": [
+      "Black",
+      "Liver"
+    ],
+    "foundInIndia": "Rare",
+    "indianNative": false
+  },
+  {
+    "name": "German Shorthaired Pointer",
+    "lifespan": "10-12",
+    "weight": "Male: 25-32 kg, Female: 20-27 kg",
+    "height": "Male: 58-64 cm, Female: 53-59 cm",
+    "coatColors": [
+      "Liver",
+      "Liver & White",
+      "Black",
+      "Black & White"
+    ],
+    "foundInIndia": "Rare",
+    "indianNative": false
+  },
+  {
+    "name": "Giant Schnauzer",
+    "lifespan": "12-15",
+    "weight": "Male: 27-39 kg, Female: 25-34 kg",
+    "height": "Male: 65-70 cm, Female: 60-65 cm",
+    "coatColors": [
+      "Black",
+      "Salt & Pepper"
+    ],
+    "foundInIndia": "Rare",
+    "indianNative": false
+  },
+  {
+    "name": "Gordon Setter",
+    "lifespan": "12-13",
+    "weight": "Male: 25-36 kg, Female: 20-32 kg",
+    "height": "Male: 61-69 cm, Female: 58-66 cm",
+    "coatColors": [
+      "Black & Tan"
+    ],
+    "foundInIndia": "Rare",
+    "indianNative": false
+  },
+  {
+    "name": "Greyhound",
+    "lifespan": "10-13",
+    "weight": "Male: 30-32 kg, Female: 27-29 kg",
+    "height": "Male: 71-76 cm, Female: 68-71 cm",
+    "coatColors": [
+      "Black",
+      "Brindle",
+      "Fawn",
+      "Blue",
+      "White"
+    ],
+    "foundInIndia": "Rare",
+    "indianNative": false
+  },
+  {
     "name": "Hmong Bobtail Dog",
     "lifespan": "15",
     "weight": "Male: 18-26 kg, Female: 16-24 kg",
@@ -5562,7 +5831,10 @@ export const DOG_BREEDS: Breed[] = [
       "Brindle and White"
     ],
     "foundInIndia": "Rare",
-    "indianNative": false
+    "indianNative": false,
+    "aliases": [
+      "Saint Bernard"
+    ]
   },
   {
     "name": "Stabyhoun",
@@ -6736,6 +7008,26 @@ export const DOG_BREEDS: Breed[] = [
 ];
 
 export const CAT_BREEDS: Breed[] = [
+  {
+    "name": "Indian / Domestic cat (mixed)",
+    "lifespan": "",
+    "weight": "",
+    "height": "",
+    "coatColors": [],
+    "foundInIndia": "Yes",
+    "indianNative": false,
+    "aliases": [
+      "Desi",
+      "Indie",
+      "Domestic shorthair",
+      "Domestic longhair",
+      "Crossbreed",
+      "Street cat",
+      "Stray",
+      "Unknown"
+    ],
+    "mixed": true
+  },
   {
     "name": "Abyssinian",
     "lifespan": "12-15",
@@ -8131,15 +8423,17 @@ export function getBreedNames(species: 'dog' | 'cat'): string[] {
  * Search breeds by name (case-insensitive partial match)
  */
 export function searchBreeds(query: string, species?: 'dog' | 'cat'): Breed[] {
-  const normalizedQuery = query.toLowerCase().trim();
+  const normalizedQuery = query.toLowerCase().replace(/\s+/g, ' ').trim();
   if (!normalizedQuery) return [];
 
   const breeds = species
     ? getBreedsBySpecies(species)
     : [...DOG_BREEDS, ...CAT_BREEDS];
 
-  return breeds.filter((b) =>
-    b.name.toLowerCase().includes(normalizedQuery)
+  return breeds.filter(
+    (b) =>
+      b.name.toLowerCase().includes(normalizedQuery) ||
+      b.aliases?.some((alias) => alias.toLowerCase().includes(normalizedQuery))
   );
 }
 

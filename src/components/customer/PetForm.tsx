@@ -157,6 +157,18 @@ export function PetForm({ pet, mode, className, onSuccess, onCancel }: PetFormPr
     [updateFormData]
   );
 
+  // A breed only belongs to one species, so switching species clears it.
+  // Runs on the user's click only, never when an existing pet loads for editing.
+  const handleSpeciesChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement>) => {
+      const species = e.target.value as Pet['species'];
+      if (species === formData.species) return;
+      updateFormData('species', species);
+      updateFormData('breed', '');
+    },
+    [formData.species, updateFormData]
+  );
+
   const validateForm = useCallback((): boolean => {
     const newErrors: FormErrors = {};
 
@@ -372,7 +384,7 @@ export function PetForm({ pet, mode, className, onSuccess, onCancel }: PetFormPr
                     name="species"
                     value="dog"
                     checked={formData.species === 'dog'}
-                    onChange={handleInputChange}
+                    onChange={handleSpeciesChange}
                     className={styles.radioInput}
                   />
                   <span className={styles.radioText}>{t('dog')}</span>
@@ -383,7 +395,7 @@ export function PetForm({ pet, mode, className, onSuccess, onCancel }: PetFormPr
                     name="species"
                     value="cat"
                     checked={formData.species === 'cat'}
-                    onChange={handleInputChange}
+                    onChange={handleSpeciesChange}
                     className={styles.radioInput}
                   />
                   <span className={styles.radioText}>{t('cat')}</span>
@@ -400,6 +412,7 @@ export function PetForm({ pet, mode, className, onSuccess, onCancel }: PetFormPr
               onChange={(breed) => updateFormData('breed', breed)}
               species={formData.species || 'dog'}
               error={errors.breed}
+              helperText="Can't find it? Type your pet's breed and choose &ldquo;Use&rdquo;."
             />
 
             <div className={styles.fieldGroup}>

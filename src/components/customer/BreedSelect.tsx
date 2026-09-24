@@ -26,14 +26,28 @@ interface BreedSelectProps {
 }
 
 interface GroupedBreeds {
+  mixed: Breed[];
   indianNative: Breed[];
   foundInIndia: Breed[];
   rare: Breed[];
   other: Breed[];
 }
 
+const CUSTOM_BREED_MIN_LENGTH = 2;
+const CUSTOM_BREED_MAX_LENGTH = 60;
+
+/** The typed text as a breed of its own, or null when it is too short or too long */
+function toCustomBreed(query: string): string | null {
+  const breed = query.replace(/\s+/g, ' ').trim();
+  if (breed.length < CUSTOM_BREED_MIN_LENGTH || breed.length > CUSTOM_BREED_MAX_LENGTH) {
+    return null;
+  }
+  return breed;
+}
+
 function groupBreeds(breeds: Breed[]): GroupedBreeds {
   const grouped: GroupedBreeds = {
+    mixed: [],
     indianNative: [],
     foundInIndia: [],
     rare: [],
@@ -41,7 +55,9 @@ function groupBreeds(breeds: Breed[]): GroupedBreeds {
   };
 
   breeds.forEach((breed) => {
-    if (breed.indianNative) {
+    if (breed.mixed) {
+      grouped.mixed.push(breed);
+    } else if (breed.indianNative) {
       grouped.indianNative.push(breed);
     } else if (breed.foundInIndia === 'Yes') {
       grouped.foundInIndia.push(breed);
@@ -89,7 +105,7 @@ export function BreedSelect({
   // Get breeds based on species and search, memoized to prevent unnecessary recalculations
   const { groupedBreeds, flattenedBreeds } = useMemo(() => {
     if (!breedModule) {
-      const empty: GroupedBreeds = { indianNative: [], foundInIndia: [], rare: [], other: [] };
+      const empty: GroupedBreeds = { mixed: [], indianNative: [], foundInIndia: [], rare: [], other: [] };
       return { groupedBreeds: empty, flattenedBreeds: [] as Breed[] };
     }
 
@@ -101,6 +117,7 @@ export function BreedSelect({
 
     // Flatten for keyboard navigation
     const flattened = [
+      ...grouped.mixed,
       ...grouped.indianNative,
       ...grouped.foundInIndia,
       ...grouped.rare,
@@ -109,6 +126,11 @@ export function BreedSelect({
 
     return { groupedBreeds: grouped, flattenedBreeds: flattened };
   }, [species, searchQuery, breedModule]);
+
+  // Offer the typed text as the breed only once the list has loaded and nothing matches it
+  const customBreed =
+    breedModule && flattenedBreeds.length === 0 ? toCustomBreed(searchQuery) : null;
+  const optionCount = flattenedBreeds.length + (customBreed ? 1 : 0);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -144,8 +166,8 @@ export function BreedSelect({
   }, [isOpen]);
 
   const handleSelectBreed = useCallback(
-    (breed: Breed) => {
-      onChange(breed.name);
+    (breedName: string) => {
+      onChange(breedName);
       setSearchQuery('');
       setIsOpen(false);
       setFocusedIndex(-1);
@@ -167,19 +189,21 @@ export function BreedSelect({
         case 'ArrowDown':
           e.preventDefault();
           setFocusedIndex((prev) =>
-            prev < flattenedBreeds.length - 1 ? prev + 1 : 0
+            prev < optionCount - 1 ? prev + 1 : 0
           );
           break;
         case 'ArrowUp':
           e.preventDefault();
           setFocusedIndex((prev) =>
-            prev > 0 ? prev - 1 : flattenedBreeds.length - 1
+            prev > 0 ? prev - 1 : optionCount - 1
           );
           break;
         case 'Enter':
           e.preventDefault();
           if (focusedIndex >= 0 && flattenedBreeds[focusedIndex]) {
-            handleSelectBreed(flattenedBreeds[focusedIndex]);
+            handleSelectBreed(flattenedBreeds[focusedIndex].name);
+          } else if (customBreed) {
+            handleSelectBreed(customBreed);
           }
           break;
         case 'Escape':
@@ -190,7 +214,7 @@ export function BreedSelect({
           break;
       }
     },
-    [isOpen, flattenedBreeds, focusedIndex, handleSelectBreed]
+    [isOpen, flattenedBreeds, optionCount, customBreed, focusedIndex, handleSelectBreed]
   );
 
   const handleInputFocus = useCallback(() => {
@@ -227,12 +251,14 @@ export function BreedSelect({
                 styles.option,
                 focusedIndex === globalIndex && styles.focused
               )}
-              onClick={() => handleSelectBreed(breed)}
+              onClick={() => handleSelectBreed(breed.name)}
               role="option"
               aria-selected={value === breed.name}
             >
               <span className={styles.breedName}>{breed.name}</span>
-              <span className={styles.breedLifespan}>{breed.lifespan} years</span>
+              {breed.lifespan && (
+                <span className={styles.breedLifespan}>{breed.lifespan} years</span>
+              )}
             </li>
           );
         })}
@@ -282,6 +308,7 @@ export function BreedSelect({
             onKeyDown={handleKeyDown}
             onFocus={handleInputFocus}
             placeholder={value || placeholder}
+            maxLength={CUSTOM_BREED_MAX_LENGTH}
             disabled={disabled}
             role="combobox"
             aria-expanded={isOpen}
@@ -340,10 +367,32 @@ export function BreedSelect({
             role="listbox"
             aria-label="Breeds"
           >
-            {flattenedBreeds.length === 0 ? (
-              <li className={styles.noResults}>No breeds found</li>
+            {!breedModule ? (
+              <li className={styles.noResults}>Loading breeds...</li>
+            ) : flattenedBreeds.length === 0 ? (
+              <>
+                <li className={styles.noResults}>
+                  {customBreed ? 'Not in our list' : 'No breeds found'}
+                </li>
+                {customBreed && (
+                  <li
+                    data-breed-item
+                    className={cn(styles.option, focusedIndex === 0 && styles.focused)}
+                    onClick={() => handleSelectBreed(customBreed)}
+                    role="option"
+                    aria-selected={value === customBreed}
+                  >
+                    <span className={styles.breedName}>Use &ldquo;{customBreed}&rdquo;</span>
+                  </li>
+                )}
+              </>
             ) : (
               <>
+                {renderBreedGroup(groupedBreeds.mixed, 'Mixed breed', currentIndex)}
+                {(() => {
+                  currentIndex += groupedBreeds.mixed.length;
+                  return null;
+                })()}
                 {renderBreedGroup(
                   groupedBreeds.indianNative,
                   'Indian Native',

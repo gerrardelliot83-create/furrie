@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { DIAGNOSES } from '@/lib/data/diagnoses';
 import { MEDICATIONS } from '@/lib/data/medications';
 import type { PrescribedMedication } from '@/types';
+import { withRoute } from '@/server/handler';
 
 interface CaptureRequest {
   consultationId: string;
@@ -19,7 +20,7 @@ interface CaptureRequest {
  *
  * Non-blocking — failure here should never prevent consultation completion.
  */
-export async function POST(request: Request) {
+export const POST = withRoute(async function POST(request: Request) {
   try {
     const { user, error: authError, supabase } = await getRequestUser();
 
@@ -114,40 +115,21 @@ export async function POST(request: Request) {
     for (const med of medications) {
       if (!med.name) continue;
 
-      // 1. UPSERT vet_prescribing_patterns (via authenticated client — RLS allows vet to write own)
-      const { error: patternError } = await supabase
-        .from('vet_prescribing_patterns')
-        .upsert(
-          {
-            vet_id: user.id,
-            pet_species: pet.species,
-            diagnosis,
-            medication_name: med.name,
-            dosage: med.dosage || null,
-            route: med.route || null,
-            frequency: med.frequency || null,
-            duration: med.duration || null,
-            last_used_at: new Date().toISOString(),
-          },
-          {
-            onConflict: 'vet_id,pet_species,diagnosis,medication_name',
-          }
-        );
+      // 1. Insert-or-increment vet_prescribing_patterns in one RPC (authenticated
+      //    client; the function is SECURITY INVOKER and keys on auth.uid()).
+      //    BRK-5: the RPC never existed, so use_count never moved past 1.
+      const { error: patternError } = await supabase.rpc('increment_prescribing_use_count', {
+        p_species: pet.species,
+        p_diagnosis: diagnosis,
+        p_medication: med.name,
+        p_dosage: med.dosage || null,
+        p_route: med.route || null,
+        p_frequency: med.frequency || null,
+        p_duration: med.duration || null,
+      });
 
       if (patternError) {
-        console.error('Failed to upsert prescribing pattern:', patternError);
-      } else {
-        // Increment use_count — upsert doesn't support increment, so do a separate update
-        try {
-          await supabase.rpc('increment_prescribing_use_count' as never, {
-            p_vet_id: user.id,
-            p_species: pet.species,
-            p_diagnosis: diagnosis,
-            p_medication: med.name,
-          } as never);
-        } catch {
-          // RPC not set up — use_count stays at 1 for new records
-        }
+        console.error('Failed to record prescribing pattern:', patternError.code, patternError.message);
       }
 
       // Determine medication category
@@ -209,4 +191,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+});

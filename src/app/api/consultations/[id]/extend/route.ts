@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
 import { extendRoomExpiry } from '@/lib/daily';
+import { withRoute } from '@/server/handler';
 
 const EXTENSION_MINUTES = 15;
 
@@ -11,7 +12,7 @@ const EXTENSION_MINUTES = 15;
  * Only the assigned vet can extend a session.
  * Updates both the Daily.co room expiry and the consultation record.
  */
-export async function POST(
+export const POST = withRoute(async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -117,4 +118,4 @@ export async function POST(
       { status: 500 }
     );
   }
-}
+});

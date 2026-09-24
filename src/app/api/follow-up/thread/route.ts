@@ -7,6 +7,7 @@ import {
   calculateThreadExpiry,
 } from '@/lib/utils/followUpHelpers';
 import { sendFollowUpAvailableEmail } from '@/lib/email';
+import { withRoute } from '@/server/handler';
 
 interface CreateThreadRequest {
   consultationId: string;
@@ -17,7 +18,7 @@ interface CreateThreadRequest {
  * Create a follow-up thread for a consultation
  * Called after vet submits SOAP notes
  */
-export async function POST(request: NextRequest) {
+export const POST = withRoute(async function POST(request: NextRequest) {
   try {
     const { user, error: authError, supabase } = await getRequestUser();
 
@@ -166,13 +167,13 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
 /**
  * GET /api/follow-up/thread?consultationId=xxx
  * Get follow-up thread for a consultation
  */
-export async function GET(request: NextRequest) {
+export const GET = withRoute(async function GET(request: NextRequest) {
   try {
     const { user, error: authError, supabase } = await getRequestUser();
 
@@ -225,4 +226,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

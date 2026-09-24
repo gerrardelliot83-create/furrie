@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
+import { withRoute } from '@/server/handler';
 
 // GET /api/consultations/[id]/detail — Full consultation detail for customer panel
-export async function GET(
+export const GET = withRoute(async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -95,4 +96,4 @@ export async function GET(
       { status: 500 }
     );
   }
-}
+});

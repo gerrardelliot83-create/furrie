@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import * as path from 'path';
 import * as fs from 'fs';
 
-const excelPath = path.join(process.cwd(), 'docs', 'Comprehensive_Dog_Cat_Breed_Database.xlsx');
+const excelPath = path.join(__dirname, '..', '..', 'docs', 'Comprehensive_Dog_Cat_Breed_Database.xlsx');
 
 if (!fs.existsSync(excelPath)) {
   console.error('Excel file not found:', excelPath);

@@ -49,8 +49,6 @@ function getStatusLabel(status: string, outcome: string | null): string {
         return 'Completed';
       case 'missed':
         return 'Missed';
-      case 'no_show':
-        return 'No Show';
       case 'cancelled':
         return 'Cancelled';
       default:
@@ -75,7 +73,6 @@ function getStatusLabel(status: string, outcome: string | null): string {
 function getOutcomeBadgeClass(outcome: string | null): string {
   switch (outcome) {
     case 'missed':
-    case 'no_show':
       return styles.badgeMissed;
     case 'cancelled':
       return styles.badgePending;

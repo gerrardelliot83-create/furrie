@@ -82,7 +82,9 @@ export default async function VetConsultationsPage({ searchParams }: PageProps) 
   } else if (statusFilter === 'completed') {
     query = query.eq('status', 'closed').eq('outcome', 'success');
   } else if (statusFilter === 'missed') {
-    query = query.eq('status', 'closed').eq('outcome', 'no_show');
+    // Outcome value is 'missed' (migration 004); 'no_show' never existed, so
+    // this tab was always empty (BRK-7).
+    query = query.eq('status', 'closed').eq('outcome', 'missed');
   }
 
   // Apply search filter — match pet name or customer name via concern_text (full text)

@@ -3,6 +3,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
 
 import { ToastProvider } from '@/components/ui/Toast';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 import '@/styles/globals.css';
 
 export const metadata: Metadata = {
@@ -60,6 +61,9 @@ export default async function RootLayout({
         <NextIntlClientProvider messages={messages}>
           <ToastProvider>{children}</ToastProvider>
         </NextIntlClientProvider>
+        {/* Real-user Web Vitals. Gerard enabled Speed Insights on Vercel on
+            2026-09-14; the component is what actually collects the data. */}
+        <SpeedInsights />
       </body>
     </html>
   );

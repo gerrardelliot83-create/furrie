@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
+import { withRoute } from '@/server/handler';
 
 /**
  * GET /api/packs/[id]
  * Get pack detail with usage history
  */
-export async function GET(
+export const GET = withRoute(async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -66,4 +67,4 @@ export async function GET(
       { status: 500 }
     );
   }
-}
+});

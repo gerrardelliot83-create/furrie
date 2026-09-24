@@ -7,8 +7,9 @@
 import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
 import { FEATURES } from '@/lib/config/features';
+import { withRoute } from '@/server/handler';
 
-export async function GET() {
+export const GET = withRoute(async function GET() {
   try {
     if (!FEATURES.ENABLE_INVITES) {
       return NextResponse.json(
@@ -47,4 +48,4 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
+});

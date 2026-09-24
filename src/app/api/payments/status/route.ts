@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
 import { getPaymentStatus, SKIP_PAYMENTS } from '@/lib/payments';
+import { withRoute } from '@/server/handler';
 
-export async function GET(request: Request) {
+export const GET = withRoute(async function GET(request: Request) {
   try {
     const { user, error: authError, supabase } = await getRequestUser();
     if (authError || !user) {
@@ -74,4 +75,4 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-}
+});

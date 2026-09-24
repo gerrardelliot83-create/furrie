@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
 import { computeAvailableSlots } from '@/lib/scheduling';
+import { withRoute } from '@/server/handler';
 
 /**
  * GET /api/consultations/available-slots
@@ -27,7 +28,7 @@ import { computeAvailableSlots } from '@/lib/scheduling';
  *   ]
  * }
  */
-export async function GET(request: Request) {
+export const GET = withRoute(async function GET(request: Request) {
   try {
     const { user, error: authError } = await getRequestUser();
 
@@ -82,4 +83,4 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-}
+});

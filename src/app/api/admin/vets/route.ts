@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { sendVetWelcomeEmail } from '@/lib/email';
 import { verifyAdmin, logAdminAction } from '@/lib/admin/auth';
+import { withRoute } from '@/server/handler';
 
 interface CreateVetBody {
   email: string;
@@ -22,7 +23,7 @@ interface CreateVetBody {
  * 2. Update profile: role='vet', full_name, phone
  * 3. Insert vet_profiles row
  */
-export async function POST(request: Request) {
+export const POST = withRoute(async function POST(request: Request) {
   try {
     const result = await verifyAdmin();
     if (result.error) return result.error;
@@ -180,14 +181,14 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+});
 
 /**
  * GET /api/admin/vets
  *
  * List all vets (profiles + vet_profiles joined).
  */
-export async function GET() {
+export const GET = withRoute(async function GET() {
   try {
     const result = await verifyAdmin();
     if (result.error) return result.error;
@@ -234,7 +235,7 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
+});
 
 interface UpdateVetBody {
   vetId: string;
@@ -254,7 +255,7 @@ interface UpdateVetBody {
  * Update a vet's profile, vet_profiles, or deactivate (soft delete).
  * Body: { vetId, ...fieldsToUpdate }
  */
-export async function PATCH(request: Request) {
+export const PATCH = withRoute(async function PATCH(request: Request) {
   try {
     const result = await verifyAdmin();
     if (result.error) return result.error;
@@ -355,7 +356,7 @@ export async function PATCH(request: Request) {
       { status: 500 }
     );
   }
-}
+});
 
 /**
  * DELETE /api/admin/vets
@@ -364,7 +365,7 @@ export async function PATCH(request: Request) {
  * Otherwise returns 409 and suggests deactivation.
  * Body: { vetId }
  */
-export async function DELETE(request: Request) {
+export const DELETE = withRoute(async function DELETE(request: Request) {
   try {
     const result = await verifyAdmin();
     if (result.error) return result.error;
@@ -463,4 +464,4 @@ export async function DELETE(request: Request) {
       { status: 500 }
     );
   }
-}
+});

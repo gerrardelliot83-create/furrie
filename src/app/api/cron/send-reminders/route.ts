@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { verifyCronRequest } from '@/lib/cron/auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { createNotification } from '@/lib/notifications/createNotification';
 import {
@@ -7,6 +8,7 @@ import {
   sendCustomerFifteenMinReminderEmail,
   sendVetFifteenMinReminderEmail,
 } from '@/lib/email';
+import { withRoute } from '@/server/handler';
 
 /**
  * GET /api/cron/send-reminders
@@ -18,12 +20,10 @@ import {
  *
  * Cron schedule: Every 5 minutes (see vercel.json)
  */
-export async function GET(request: Request) {
+export const GET = withRoute(async function GET(request: Request) {
   // Verify cron secret (set in Vercel environment)
-  const authHeader = request.headers.get('authorization');
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const denied = verifyCronRequest(request);
+  if (denied) return denied;
 
   const now = new Date();
   const results: Array<{
@@ -292,4 +292,4 @@ export async function GET(request: Request) {
     processed: results.length,
     results,
   });
-}
+});

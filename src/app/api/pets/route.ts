@@ -2,9 +2,10 @@ import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
 import { mapPetFromDB, mapPetToDB } from '@/lib/utils/petMapper';
 import type { Pet } from '@/types';
+import { withRoute } from '@/server/handler';
 
 // GET /api/pets - List user's pets
-export async function GET() {
+export const GET = withRoute(async function GET() {
   try {
     const { user, error: authError, supabase } = await getRequestUser();
 
@@ -40,10 +41,10 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
+});
 
 // POST /api/pets - Create new pet
-export async function POST(request: Request) {
+export const POST = withRoute(async function POST(request: Request) {
   try {
     const { user, error: authError, supabase } = await getRequestUser();
 
@@ -116,4 +117,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+});

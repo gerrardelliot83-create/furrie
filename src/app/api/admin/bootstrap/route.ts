@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { withRoute } from '@/server/handler';
 
 /**
  * POST /api/admin/bootstrap
@@ -19,7 +20,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
  *     -H "Content-Type: application/json" \
  *     -d '{"email":"admin@furrie.in","password":"...","fullName":"Admin","secret":"your-bootstrap-secret"}'
  */
-export async function POST(request: Request) {
+export const POST = withRoute(async function POST(request: Request) {
   try {
     const body = await request.json();
 
@@ -158,4 +159,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+});

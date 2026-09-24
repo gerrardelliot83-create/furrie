@@ -3,7 +3,7 @@
  * Source: docs/Comprehensive_Dog_Cat_Breed_Database.xlsx
  * Generated: 2026-02-06T21:48:25.349Z
  *
- * DO NOT EDIT MANUALLY - Run `npx ts-node scripts/convert-breeds.ts` to regenerate
+ * DO NOT EDIT MANUALLY - Run `npm run convert-breeds` in scripts/tooling to regenerate
  */
 
 export interface Breed {

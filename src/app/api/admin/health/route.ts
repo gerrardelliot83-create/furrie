@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { verifyAdmin } from '@/lib/admin/auth';
+import { withRoute } from '@/server/handler';
 
 interface HealthCheck {
   name: string;
@@ -15,7 +16,7 @@ interface HealthCheck {
  * System health checks for the admin dashboard.
  * Checks: database connectivity, auth service, storage, key table counts.
  */
-export async function GET() {
+export const GET = withRoute(async function GET() {
   try {
     const result = await verifyAdmin();
     if (result.error) return result.error;
@@ -73,7 +74,7 @@ export async function GET() {
     const { count: stuckCount } = await supabaseAdmin
       .from('consultations')
       .select('id', { count: 'exact', head: true })
-      .in('status', ['pending', 'matching'])
+      .eq('status', 'pending') // 'matching' was removed in migration 004 (BRK-7)
       .lt('created_at', oneHourAgo);
 
     if ((stuckCount || 0) > 0) {
@@ -81,7 +82,7 @@ export async function GET() {
         name: 'consultation_queue',
         status: 'degraded',
         latencyMs: 0,
-        details: `${stuckCount} consultation(s) stuck in pending/matching for >1 hour`,
+        details: `${stuckCount} consultation(s) stuck in pending for >1 hour`,
       });
     } else {
       checks.push({
@@ -115,4 +116,4 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
+});

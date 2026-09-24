@@ -9,6 +9,7 @@ import {
   DEFAULT_CURRENCY,
 } from '@/lib/pricing';
 import type { PetPricingInput, SubscriptionPricing, SachetPricing } from '@/lib/pricing/types';
+import { withRoute } from '@/server/handler';
 
 interface ComputePriceRequest {
   type: 'consultation' | 'subscription' | 'sachet';
@@ -18,7 +19,7 @@ interface ComputePriceRequest {
   sachetType?: SachetPricing['sachetType'];
 }
 
-export async function POST(request: Request) {
+export const POST = withRoute(async function POST(request: Request) {
   try {
     const { user, error: authError, supabase } = await getRequestUser();
     if (authError || !user) {
@@ -227,4 +228,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+});

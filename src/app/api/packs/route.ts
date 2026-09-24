@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
+import { withRoute } from '@/server/handler';
 
 /**
  * GET /api/packs
  * List customer's consultation packs with balance
  */
-export async function GET() {
+export const GET = withRoute(async function GET() {
   try {
     const { user, error: authError, supabase } = await getRequestUser();
     if (authError || !user) {
@@ -37,4 +38,4 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
+});

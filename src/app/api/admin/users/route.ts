@@ -2,13 +2,14 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { sendWelcomeEmail } from '@/lib/email';
 import { verifyAdmin, logAdminAction } from '@/lib/admin/auth';
+import { withRoute } from '@/server/handler';
 
 /**
  * GET /api/admin/users
  *
  * List all customers with pet count and subscription status.
  */
-export async function GET(request: Request) {
+export const GET = withRoute(async function GET(request: Request) {
   try {
     const result = await verifyAdmin();
     if (result.error) return result.error;
@@ -75,7 +76,7 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-}
+});
 
 interface CreateUserBody {
   email: string;
@@ -92,7 +93,7 @@ interface CreateUserBody {
  * 2. Update profile with full_name, phone
  * 3. Send welcome email
  */
-export async function POST(request: Request) {
+export const POST = withRoute(async function POST(request: Request) {
   try {
     const result = await verifyAdmin();
     if (result.error) return result.error;
@@ -202,7 +203,7 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+});
 
 interface UpdateUserBody {
   userId: string;
@@ -217,7 +218,7 @@ interface UpdateUserBody {
  * Update a customer's profile or deactivate (soft delete).
  * Body: { userId, ...fieldsToUpdate }
  */
-export async function PATCH(request: Request) {
+export const PATCH = withRoute(async function PATCH(request: Request) {
   try {
     const result = await verifyAdmin();
     if (result.error) return result.error;
@@ -298,7 +299,7 @@ export async function PATCH(request: Request) {
       { status: 500 }
     );
   }
-}
+});
 
 /**
  * DELETE /api/admin/users
@@ -307,7 +308,7 @@ export async function PATCH(request: Request) {
  * Otherwise returns 409 and suggests deactivation.
  * Body: { userId }
  */
-export async function DELETE(request: Request) {
+export const DELETE = withRoute(async function DELETE(request: Request) {
   try {
     const result = await verifyAdmin();
     if (result.error) return result.error;
@@ -412,4 +413,4 @@ export async function DELETE(request: Request) {
       { status: 500 }
     );
   }
-}
+});

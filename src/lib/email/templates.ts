@@ -609,6 +609,33 @@ export function vetWelcomeEmail(params: {
   };
 }
 
+// ─── Admin-triggered password reset ───────────────────────────────────────────
+export function passwordResetEmail(params: {
+  name: string;
+  link: string;
+  portalName: string;
+}): { subject: string; html: string } {
+  return {
+    subject: 'Reset your Furrie password',
+    html: wrapEmailBody(`
+      <p style="${textStyle}">Hi ${params.name},</p>
+      <p style="${textStyle}">
+        A Furrie administrator has started a password reset for your ${params.portalName} account.
+        Use the button below to sign in securely; the link works once and expires in one hour.
+      </p>
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="${params.link}" style="${btnPrimary}">Sign in to Furrie</a>
+      </div>
+      <p style="${textStyle}">
+        If you did not expect this email, you can ignore it and your password will stay as it is.
+      </p>
+      <p style="${textStyle}">
+        Team Furrie
+      </p>
+    `),
+  };
+}
+
 // ─── 15. New Care Plan Created ─────────────────────────────────────────────────
 export function carePlanCreatedEmail(params: {
   customerName: string;

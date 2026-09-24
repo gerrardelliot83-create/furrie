@@ -10,6 +10,7 @@ import { sendBookingConfirmationEmail, sendVetNewBookingEmail } from '@/lib/emai
 import { checkRateLimit, getClientIp, RATE_LIMITS, rateLimitResponse } from '@/lib/utils/rate-limit';
 import { formatScheduledTimeShort } from '@/lib/utils';
 import { PACK_UNIT_PRICE } from '@/types';
+import { withRoute } from '@/server/handler';
 
 interface MediaUploadRef {
   url: string;
@@ -64,7 +65,7 @@ interface BookRequest {
  *   }
  * }
  */
-export async function POST(request: Request) {
+export const POST = withRoute(async function POST(request: Request) {
   try {
     // Rate limit: 10 booking requests per minute per IP
     const ip = getClientIp(request);
@@ -473,4 +474,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+});

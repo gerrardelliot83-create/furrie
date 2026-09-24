@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
 import { validateAvailabilitySchedule } from '@/lib/scheduling/validateAvailabilitySchedule';
+import { withRoute } from '@/server/handler';
 
 /**
  * GET /api/vet/profile
  *
  * Returns the authenticated vet's profile + vet_profiles data.
  */
-export async function GET() {
+export const GET = withRoute(async function GET() {
   try {
     const { user, error: authError, supabase } = await getRequestUser();
 
@@ -55,7 +56,7 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
+});
 
 /**
  * PATCH /api/vet/profile
@@ -65,7 +66,7 @@ export async function GET() {
  *   years_of_experience, availability_schedule (camelCase: availabilitySchedule)
  * They CANNOT change: qualifications, vci_registration_number (admin-managed)
  */
-export async function PATCH(request: Request) {
+export const PATCH = withRoute(async function PATCH(request: Request) {
   try {
     const { user, error: authError, supabase } = await getRequestUser();
 
@@ -215,4 +216,4 @@ export async function PATCH(request: Request) {
       { status: 500 }
     );
   }
-}
+});

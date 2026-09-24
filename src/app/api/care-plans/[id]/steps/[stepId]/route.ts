@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
+import { withRoute } from '@/server/handler';
 
 // PATCH /api/care-plans/[id]/steps/[stepId] — Update step details
-export async function PATCH(
+export const PATCH = withRoute(async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string; stepId: string }> }
 ) {
@@ -64,10 +65,10 @@ export async function PATCH(
       { status: 500 }
     );
   }
-}
+});
 
 // DELETE /api/care-plans/[id]/steps/[stepId] — Delete a step
-export async function DELETE(
+export const DELETE = withRoute(async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string; stepId: string }> }
 ) {
@@ -103,4 +104,4 @@ export async function DELETE(
       { status: 500 }
     );
   }
-}
+});

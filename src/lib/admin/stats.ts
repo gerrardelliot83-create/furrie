@@ -83,11 +83,12 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       .select('id', { count: 'exact', head: true })
       .eq('status', 'active'),
 
-    // Pending/matching consultations (need attention)
+    // Pending consultations (need attention). 'matching' was removed in
+    // migration 004 (BRK-7).
     supabase
       .from('consultations')
       .select('id', { count: 'exact', head: true })
-      .in('status', ['pending', 'matching']),
+      .eq('status', 'pending'),
 
     // Total consultations (all time)
     supabase

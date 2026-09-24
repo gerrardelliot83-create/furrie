@@ -42,8 +42,7 @@ yarn-error.log*
 next-env.d.ts
 
 # Internal documentation (not for public repo)
-CLAUDE.md
-/docs/
+# CLAUDE.md and /docs/ are tracked as of Phase 0 (2026-09-14)
 /Instructions/
 
 # Claude Code plans

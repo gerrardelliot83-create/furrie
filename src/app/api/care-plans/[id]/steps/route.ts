@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
+import { withRoute } from '@/server/handler';
 
 const VALID_STEP_TYPES = [
   'medication', 'supplement', 'test', 'vaccination', 'nutrition', 'exercise', 'video_check_in', 'custom',
 ];
 
 // GET /api/care-plans/[id]/steps — List steps for a plan
-export async function GET(
+export const GET = withRoute(async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -43,10 +44,10 @@ export async function GET(
       { status: 500 }
     );
   }
-}
+});
 
 // POST /api/care-plans/[id]/steps — Add a new step
-export async function POST(
+export const POST = withRoute(async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -120,4 +121,4 @@ export async function POST(
       { status: 500 }
     );
   }
-}
+});

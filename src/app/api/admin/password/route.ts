@@ -1,6 +1,21 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { verifyAdmin, logAdminAction } from '@/lib/admin/auth';
+import { sendEmail } from '@/lib/email';
+import { passwordResetEmail } from '@/lib/email/templates';
+import { withRoute } from '@/server/handler';
+
+/**
+ * The portal whose /auth/callback should receive the recovery token. Every
+ * portal mounts the same handler (src/lib/auth/handleAuthCallback.ts), which
+ * accepts ?token_hash= and creates the session server-side.
+ */
+function portalFor(role: string | null): { origin: string; name: string } {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.furrie.in';
+  if (role === 'vet') return { origin: appUrl.replace('//app.', '//vet.'), name: 'vet portal' };
+  if (role === 'admin') return { origin: appUrl.replace('//app.', '//admin.'), name: 'admin portal' };
+  return { origin: appUrl, name: 'Furrie' };
+}
 
 /**
  * POST /api/admin/password
@@ -13,7 +28,7 @@ import { verifyAdmin, logAdminAction } from '@/lib/admin/auth';
  * 2. action: 'change' — Change the admin's own password
  *    Body: { action: 'change', currentPassword: string, newPassword: string }
  */
-export async function POST(request: Request) {
+export const POST = withRoute(async function POST(request: Request) {
   try {
     const result = await verifyAdmin();
     if (result.error) return result.error;
@@ -37,11 +52,17 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+});
 
 /**
  * Send a password reset email to a user.
- * Uses Supabase's built-in magic link / password reset flow.
+ *
+ * BRK-6: this used to call generateLink() and then report success without
+ * sending anything. Supabase's own resetPasswordForEmail() is not used here
+ * because a server-initiated link would come back implicit-flow (tokens in
+ * the URL fragment) which the server-side callback cannot read. Instead we
+ * take the hashed_token, point it at the user's portal callback (verifyOtp
+ * path) and deliver it ourselves through Resend.
  */
 async function handlePasswordReset(
   adminId: string,
@@ -57,7 +78,7 @@ async function handlePasswordReset(
   // Look up the user's email
   const { data: profile, error: fetchError } = await supabaseAdmin
     .from('profiles')
-    .select('id, email, full_name')
+    .select('id, email, full_name, role')
     .eq('id', body.userId)
     .single();
 
@@ -68,14 +89,30 @@ async function handlePasswordReset(
     );
   }
 
-  // Use Supabase auth to generate a password reset link
-  const { error: resetError } = await supabaseAdmin.auth.admin.generateLink({
+  const { data: linkData, error: resetError } = await supabaseAdmin.auth.admin.generateLink({
     type: 'recovery',
     email: profile.email,
   });
 
-  if (resetError) {
-    console.error('Error generating password reset link:', resetError);
+  const hashedToken = linkData?.properties?.hashed_token;
+  if (resetError || !hashedToken) {
+    console.error('Error generating password reset link:', resetError?.message ?? 'no hashed_token');
+    return NextResponse.json(
+      { error: 'Failed to send password reset email', code: 'RESET_ERROR' },
+      { status: 500 }
+    );
+  }
+
+  const portal = portalFor(profile.role);
+  const link = `${portal.origin}/auth/callback?token_hash=${encodeURIComponent(hashedToken)}&type=recovery&next=/dashboard`;
+  const email = passwordResetEmail({
+    name: profile.full_name || 'there',
+    link,
+    portalName: portal.name,
+  });
+  const sent = await sendEmail({ to: profile.email, subject: email.subject, html: email.html });
+
+  if (!sent.success) {
     return NextResponse.json(
       { error: 'Failed to send password reset email', code: 'RESET_ERROR' },
       { status: 500 }

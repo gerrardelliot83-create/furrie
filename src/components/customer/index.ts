@@ -1,6 +1,4 @@
 export { OTPInput } from './OTPInput';
-export { LoginForm } from './LoginForm';
-export { SignupForm } from './SignupForm';
 export { FileUpload } from './FileUpload';
 export { TagInput } from './TagInput';
 export { BreedSelect } from './BreedSelect';

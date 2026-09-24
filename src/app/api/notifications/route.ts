@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
+import { withRoute } from '@/server/handler';
 
 // GET /api/notifications — fetch current user's notifications
-export async function GET(request: NextRequest) {
+export const GET = withRoute(async function GET(request: NextRequest) {
   try {
     const { user, error: authError, supabase } = await getRequestUser();
 
@@ -50,10 +51,10 @@ export async function GET(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-}
+});
 
 // PATCH /api/notifications — mark notification(s) as read
-export async function PATCH(request: NextRequest) {
+export const PATCH = withRoute(async function PATCH(request: NextRequest) {
   try {
     const { user, error: authError, supabase } = await getRequestUser();
 
@@ -97,4 +98,4 @@ export async function PATCH(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-}
+});

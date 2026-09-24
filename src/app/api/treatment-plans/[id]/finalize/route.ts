@@ -34,6 +34,7 @@ import { loadTreatmentPlanContext } from '@/lib/treatment-plans/fetchContext';
 import { renderTreatmentPlanPdf } from '@/lib/treatment-plans/renderPdf';
 import { sendTreatmentPlanEmail } from '@/lib/email';
 import type { PreviousPdfEntry } from '@/lib/treatment-plans/types';
+import { withRoute } from '@/server/handler';
 
 const utapi = new UTApi();
 
@@ -41,7 +42,7 @@ interface FinalizeBody {
   draft?: unknown;
 }
 
-export async function POST(
+export const POST = withRoute(async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
@@ -308,4 +309,4 @@ export async function POST(
       { status: 500 }
     );
   }
-}
+});

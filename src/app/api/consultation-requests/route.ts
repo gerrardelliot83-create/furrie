@@ -12,6 +12,7 @@ import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
 import { sendCreditRequestReceivedEmail, sendCreditRequestInternalEmail } from '@/lib/email';
 import { FEATURES } from '@/lib/config/features';
+import { withRoute } from '@/server/handler';
 
 interface RequestBody {
   quantity?: number;
@@ -20,7 +21,7 @@ interface RequestBody {
   note?: string;
 }
 
-export async function POST(request: Request) {
+export const POST = withRoute(async function POST(request: Request) {
   try {
     if (!FEATURES.ENABLE_PACK_REQUESTS) {
       return NextResponse.json(
@@ -124,9 +125,9 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+});
 
-export async function GET(request: Request) {
+export const GET = withRoute(async function GET(request: Request) {
   try {
     const { user, error: authError, supabase } = await getRequestUser();
 
@@ -160,4 +161,4 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-}
+});

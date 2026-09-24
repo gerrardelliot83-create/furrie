@@ -1,14 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
-import {
-  mapConsultationFromDB,
-  mapConsultationToDB,
-  mapConsultationWithRelationsFromDB,
-} from '@/lib/utils/consultationMapper';
-import { checkPlusSubscriptionWithClient } from '@/lib/utils/followUpHelpers';
+import { mapConsultationWithRelationsFromDB } from '@/lib/utils/consultationMapper';
+import { withRoute } from '@/server/handler';
 
 // GET /api/consultations - List user's consultations
-export async function GET(request: Request) {
+export const GET = withRoute(async function GET(request: Request) {
   try {
     const { user, error: authError, supabase } = await getRequestUser();
 
@@ -98,95 +94,4 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-}
-
-// POST /api/consultations - Create new consultation
-export async function POST(request: Request) {
-  try {
-    const { user, error: authError, supabase } = await getRequestUser();
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized', code: 'AUTH_REQUIRED' },
-        { status: 401 }
-      );
-    }
-
-    const body = await request.json();
-
-    // Validate required fields
-    if (!body.petId) {
-      return NextResponse.json(
-        { error: 'Missing required field: petId', code: 'VALIDATION_ERROR' },
-        { status: 400 }
-      );
-    }
-
-    // Verify pet belongs to user
-    const { data: pet, error: petError } = await supabase
-      .from('pets')
-      .select('id')
-      .eq('id', body.petId)
-      .single();
-
-    if (petError || !pet) {
-      return NextResponse.json(
-        { error: 'Pet not found or does not belong to you', code: 'PET_NOT_FOUND' },
-        { status: 404 }
-      );
-    }
-
-    // Validate concern text or symptoms
-    if (!body.concernText && (!body.symptomCategories || body.symptomCategories.length === 0)) {
-      return NextResponse.json(
-        {
-          error: 'Please provide a concern description or select at least one symptom',
-          code: 'VALIDATION_ERROR',
-        },
-        { status: 400 }
-      );
-    }
-
-    // Check if customer has active Plus subscription for this pet
-    const isPlusUser = await checkPlusSubscriptionWithClient(supabase, user.id, body.petId);
-
-    // Map to database format
-    const consultationData = mapConsultationToDB(
-      {
-        petId: body.petId,
-        concernText: body.concernText?.trim() || null,
-        symptomCategories: body.symptomCategories || [],
-        type: 'direct_connect',
-        isFree: isPlusUser,
-        isPriority: isPlusUser,
-      },
-      user.id
-    );
-
-    // Insert consultation
-    const { data: consultation, error } = await supabase
-      .from('consultations')
-      .insert(consultationData)
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error creating consultation:', error);
-      return NextResponse.json(
-        { error: 'Failed to create consultation', code: 'CREATE_ERROR' },
-        { status: 500 }
-      );
-    }
-
-    // Map back to TypeScript interface
-    const mappedConsultation = mapConsultationFromDB(consultation);
-
-    return NextResponse.json({ consultation: mappedConsultation }, { status: 201 });
-  } catch (error) {
-    console.error('Unexpected error in POST /api/consultations:', error);
-    return NextResponse.json(
-      { error: 'Internal server error', code: 'INTERNAL_ERROR' },
-      { status: 500 }
-    );
-  }
-}
+});

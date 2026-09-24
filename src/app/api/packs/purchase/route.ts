@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { createOrder, SKIP_PAYMENTS, PAYMENT_GATEWAY } from '@/lib/payments';
 import type { PackSize } from '@/types';
 import { PACK_UNIT_PRICE, PACK_PRICING } from '@/types';
+import { withRoute } from '@/server/handler';
 
 interface PurchaseRequest {
   packSize: PackSize;
@@ -16,7 +17,7 @@ interface PurchaseRequest {
  * Request: { packSize: 3 | 5 | 10 }
  * Response: { orderId, redirectUrl, packDetails }
  */
-export async function POST(request: Request) {
+export const POST = withRoute(async function POST(request: Request) {
   try {
     const { user, error: authError } = await getRequestUser();
     if (authError || !user) {
@@ -162,4 +163,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+});

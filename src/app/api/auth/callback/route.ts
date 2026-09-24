@@ -1,10 +1,23 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { withRoute } from '@/server/handler';
 
-export async function GET(request: Request) {
+/**
+ * Only ever redirect to a path on this origin. Rejects absolute URLs,
+ * protocol-relative `//evil.com` and backslash variants that browsers
+ * normalise to `//` (SEC-10 open redirect). Mirrors handleAuthCallback.ts.
+ */
+function safeNextPath(raw: string | null): string {
+  if (!raw) return '/dashboard';
+  const candidate = raw.startsWith('/') ? raw : `/${raw}`;
+  // A single leading slash followed by anything except another slash or a backslash.
+  return /^\/(?![\/\\])/.test(candidate) ? candidate : '/dashboard';
+}
+
+export const GET = withRoute(async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get('code');
-  const next = requestUrl.searchParams.get('next') || '/dashboard';
+  const next = safeNextPath(requestUrl.searchParams.get('next'));
 
   if (code) {
     const supabase = await createClient();
@@ -12,20 +25,9 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      // Determine the redirect based on the host
-      const host = requestUrl.host;
-      let redirectPath = next;
-
-      // Ensure we redirect to the correct portal
-      if (host.startsWith('app.') || host.includes('app.furrie')) {
-        redirectPath = next.startsWith('/') ? next : `/${next}`;
-      } else if (host.startsWith('vet.') || host.includes('vet.furrie')) {
-        redirectPath = next.startsWith('/') ? next : `/${next}`;
-      } else if (host.startsWith('admin.') || host.includes('admin.furrie')) {
-        redirectPath = next.startsWith('/') ? next : `/${next}`;
-      }
-
-      return NextResponse.redirect(new URL(redirectPath, requestUrl.origin));
+      // `next` is already a same-origin path (see safeNextPath); the host
+      // rewrites in vercel.json map it onto the right portal.
+      return NextResponse.redirect(new URL(next, requestUrl.origin));
     }
 
     // Auth error - redirect to login with error
@@ -37,4 +39,4 @@ export async function GET(request: Request) {
 
   // No code provided - redirect to login
   return NextResponse.redirect(new URL('/login', requestUrl.origin));
-}
+});

@@ -5,9 +5,10 @@ import {
   mapConsultationWithRelationsFromDB,
   mapConsultationUpdateToDB,
 } from '@/lib/utils/consultationMapper';
+import { withRoute } from '@/server/handler';
 
 // GET /api/consultations/[id] - Get single consultation
-export async function GET(
+export const GET = withRoute(async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -292,10 +293,10 @@ export async function GET(
       { status: 500 }
     );
   }
-}
+});
 
 // PATCH /api/consultations/[id] - Update consultation (e.g., cancel)
-export async function PATCH(
+export const PATCH = withRoute(async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -437,4 +438,4 @@ export async function PATCH(
       { status: 500 }
     );
   }
-}
+});

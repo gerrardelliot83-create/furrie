@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { withRoute } from '@/server/handler';
 
 /**
  * POST /api/admin/bootstrap/reset-password
@@ -14,7 +15,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
  *     body: JSON.stringify({ email: "admin@example.com", password: "newpass", secret: "..." })
  *   })
  */
-export async function POST(request: Request) {
+export const POST = withRoute(async function POST(request: Request) {
   try {
     const body = await request.json();
 
@@ -63,4 +64,4 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-}
+});

@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
+import { withRoute } from '@/server/handler';
 
 // POST /api/consultations/[id]/flag - Flag a consultation
-export async function POST(
+export const POST = withRoute(async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -66,13 +67,14 @@ export async function POST(
       );
     }
 
-    // Insert flag record
+    // Insert flag record. Columns are `details` and `admin_status` (BRK-3:
+    // the route wrote `notes`/`status`, which do not exist, so every POST 500ed).
     const { error: flagError } = await supabase.from('consultation_flags').insert({
       consultation_id: consultationId,
       flagged_by: user.id,
       reason,
-      notes: notes || null,
-      status: 'pending',
+      details: notes || null,
+      admin_status: 'pending',
     });
 
     if (flagError) {
@@ -83,15 +85,7 @@ export async function POST(
       );
     }
 
-    // Update consultation to mark it as flagged
-    await supabase
-      .from('consultations')
-      .update({
-        is_flagged: true,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', consultationId);
-
+    // consultations has no is_flagged column; flag state lives on consultation_flags.
     return NextResponse.json({
       success: true,
       message: 'Consultation flagged successfully',
@@ -103,10 +97,10 @@ export async function POST(
       { status: 500 }
     );
   }
-}
+});
 
 // PATCH /api/consultations/[id]/flag - Withdraw a flag (within 24 hours)
-export async function PATCH(
+export const PATCH = withRoute(async function PATCH(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -127,7 +121,7 @@ export async function PATCH(
       .select('id, created_at')
       .eq('consultation_id', consultationId)
       .eq('flagged_by', user.id)
-      .eq('status', 'pending')
+      .eq('admin_status', 'pending')
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -151,32 +145,21 @@ export async function PATCH(
       );
     }
 
-    // Update flag status to withdrawn
-    const { error: updateError } = await supabase
+    // Mark withdrawn. RLS ("Vets can withdraw own pending flags") only lets the
+    // vet move their own pending flag to 'withdrawn'; `.select()` so a silent
+    // zero-row update surfaces as an error instead of a false success.
+    const { data: updated, error: updateError } = await supabase
       .from('consultation_flags')
-      .update({ status: 'withdrawn' })
-      .eq('id', flag.id);
+      .update({ admin_status: 'withdrawn' })
+      .eq('id', flag.id)
+      .select('id')
+      .maybeSingle();
 
-    if (updateError) {
+    if (updateError || !updated) {
       return NextResponse.json(
         { error: 'Failed to withdraw flag', code: 'UPDATE_ERROR' },
         { status: 500 }
       );
-    }
-
-    // Check if there are any remaining pending flags
-    const { count } = await supabase
-      .from('consultation_flags')
-      .select('id', { count: 'exact', head: true })
-      .eq('consultation_id', consultationId)
-      .eq('status', 'pending');
-
-    // If no more pending flags, remove flagged status from consultation
-    if (!count || count === 0) {
-      await supabase
-        .from('consultations')
-        .update({ is_flagged: false, updated_at: new Date().toISOString() })
-        .eq('id', consultationId);
     }
 
     return NextResponse.json({
@@ -190,4 +173,4 @@ export async function PATCH(
       { status: 500 }
     );
   }
-}
+});

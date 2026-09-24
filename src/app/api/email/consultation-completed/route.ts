@@ -3,13 +3,14 @@ import { createClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { createNotification } from '@/lib/notifications/createNotification';
 import { sendConsultationCompletedEmail } from '@/lib/email';
+import { withRoute } from '@/server/handler';
 
 /**
  * POST /api/email/consultation-completed
  * Send consultation completed email to customer
  * Called from SOAPForm after vet completes consultation
  */
-export async function POST(request: Request) {
+export const POST = withRoute(async function POST(request: Request) {
   try {
     const supabase = await createClient();
 
@@ -96,4 +97,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+});

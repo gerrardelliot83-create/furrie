@@ -1,7 +1,27 @@
 import { NextResponse } from 'next/server';
+import { verifyCronRequest } from '@/lib/cron/auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { getMeetingsByRoom } from '@/lib/daily';
 import { checkPlusSubscriptionWithClient, calculateThreadExpiry } from '@/lib/utils/followUpHelpers';
+import type { Database } from '@/lib/database.types';
+import { withRoute } from '@/server/handler';
+
+type ConsultationRow = Database['public']['Tables']['consultations']['Row'];
+
+// Column list checked against the generated schema types at compile time.
+// BRK-1: this cron selected a non-existent `room_name` column and returned
+// 500 on every run for months; a typo here is now a type error.
+const STALE_COLUMNS = [
+  'id',
+  'customer_id',
+  'pet_id',
+  'vet_id',
+  'started_at',
+  'scheduled_at',
+  'daily_room_name',
+] as const satisfies readonly (keyof ConsultationRow)[];
+
+type StaleConsultation = Pick<ConsultationRow, (typeof STALE_COLUMNS)[number]>;
 
 /**
  * GET /api/cron/close-stale-active
@@ -17,12 +37,9 @@ import { checkPlusSubscriptionWithClient, calculateThreadExpiry } from '@/lib/ut
  *
  * Cron schedule: Every 10 minutes (see vercel.json)
  */
-export async function GET(request: Request) {
-  // Verify cron secret
-  const authHeader = request.headers.get('authorization');
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+export const GET = withRoute(async function GET(request: Request) {
+  const denied = verifyCronRequest(request);
+  if (denied) return denied;
 
   const now = new Date();
   // 90-minute threshold: max consultation is 30 min, this provides a wide safety margin
@@ -31,9 +48,10 @@ export async function GET(request: Request) {
   // Find stale active consultations
   const { data: staleConsultations, error: fetchError } = await supabaseAdmin
     .from('consultations')
-    .select('id, customer_id, pet_id, vet_id, started_at, scheduled_at, room_name')
+    .select(STALE_COLUMNS.join(', '))
     .eq('status', 'active')
-    .lt('started_at', staleCutoff.toISOString());
+    .lt('started_at', staleCutoff.toISOString())
+    .returns<StaleConsultation[]>();
 
   if (fetchError) {
     console.error('[close-stale-active] Failed to fetch stale consultations:', fetchError);
@@ -59,7 +77,7 @@ export async function GET(request: Request) {
     let durationSource = 'unknown';
 
     // Try to get actual duration from Daily.co
-    const roomName = consultation.room_name || `furrie-${consultation.id}`;
+    const roomName = consultation.daily_room_name || `furrie-${consultation.id}`;
     try {
       const meetingData = await getMeetingsByRoom(roomName);
       if (meetingData && meetingData.ended) {
@@ -154,4 +172,4 @@ export async function GET(request: Request) {
     processed: results.length,
     results,
   });
-}
+});

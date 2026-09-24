@@ -17,6 +17,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { sendCreditsAddedEmail } from '@/lib/email';
+import { withRoute } from '@/server/handler';
 
 async function verifyAdmin() {
   const supabase = await createClient();
@@ -54,7 +55,7 @@ async function verifyAdmin() {
   return { error: null, user };
 }
 
-export async function GET(request: Request) {
+export const GET = withRoute(async function GET(request: Request) {
   try {
     const { error: authErr, user } = await verifyAdmin();
     if (authErr || !user) return authErr!;
@@ -95,7 +96,7 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-}
+});
 
 interface PatchBody {
   requestId?: string;
@@ -103,7 +104,7 @@ interface PatchBody {
   packId?: string;
 }
 
-export async function PATCH(request: Request) {
+export const PATCH = withRoute(async function PATCH(request: Request) {
   try {
     const { error: authErr, user } = await verifyAdmin();
     if (authErr || !user) return authErr!;
@@ -241,4 +242,4 @@ export async function PATCH(request: Request) {
       { status: 500 }
     );
   }
-}
+});

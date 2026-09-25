@@ -1,11 +1,12 @@
 /**
- * ConsultationBalanceCard — compact credit indicator shown on the
- * customer dashboard unconditionally (not gated by ENABLE_PAYMENTS).
+ * ConsultationBalanceCard — credit indicator on the customer dashboard.
  *
- * Three states:
- *   1. Has credits → show count + "Book a consultation" CTA.
- *   2. Zero credits, no pending request → show 0 + "Request more" CTA.
- *   3. Zero credits, pending request → show "Request submitted" badge.
+ * States (L1, 2026-09-25):
+ *   1. Has credits → count (+ soonest expiry) + "Book a consultation" and "Buy more".
+ *   2. No credits, order waiting for payment → "Finish paying" (to /buy).
+ *   3. No credits, order marked paid → "We're checking your payment".
+ *   4. No credits, request from before online payment → note + "Buy consultations".
+ *   5. No credits, nothing open → "Buy consultations".
  *
  * This is a server component that receives pre-fetched data.
  */
@@ -13,6 +14,7 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import type { CreditBalance } from '@/lib/credits/getActiveCreditBalance';
+import { formatInr, packLabel } from '@/lib/pricing/packs';
 import styles from './ConsultationBalanceCard.module.css';
 
 interface Props {
@@ -20,12 +22,21 @@ interface Props {
   isPlusUser?: boolean;
 }
 
+function istDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    day: 'numeric',
+    month: 'short',
+  });
+}
+
 export function ConsultationBalanceCard({ balance, isPlusUser }: Props) {
   // Plus users have unlimited consultations — don't show the credit card.
   if (isPlusUser) return null;
 
-  const { totalCredits, activePacks, hasPendingRequest, pendingRequestQuantity } = balance;
+  const { totalCredits, soonestExpiry, openRequest } = balance;
   const hasCredits = totalCredits > 0;
+  const priced = openRequest && !openRequest.isLegacy ? openRequest : null;
 
   return (
     <div className={styles.card}>
@@ -36,30 +47,48 @@ export function ConsultationBalanceCard({ balance, isPlusUser }: Props) {
         </span>
       </div>
 
-      {hasCredits && activePacks > 0 && (
-        <p className={styles.subtitle}>
-          from {activePacks} active pack{activePacks === 1 ? '' : 's'}
-        </p>
+      {hasCredits && soonestExpiry && (
+        <p className={styles.subtitle}>A free credit expires on {istDate(soonestExpiry)}.</p>
       )}
 
-      {!hasCredits && hasPendingRequest && (
+      {priced && priced.claimedAt && (
         <div className={styles.pendingBadge}>
-          Request submitted for {pendingRequestQuantity} consultation
-          {pendingRequestQuantity === 1 ? '' : 's'} — our team will reach out shortly
+          We&apos;re checking your payment for order {priced.reference}. You&apos;ll get an email when
+          your consultations are ready.
         </div>
       )}
 
+      {priced && !priced.claimedAt && (
+        <div className={styles.pendingBadge}>
+          Order {priced.reference} ({packLabel(priced.packSize ?? priced.quantity)}
+          {priced.amount !== null ? `, ${formatInr(priced.amount)}` : ''}) is waiting for your payment.
+        </div>
+      )}
+
+      {openRequest?.isLegacy && !hasCredits && (
+        <p className={styles.subtitle}>
+          You asked us earlier for {packLabel(openRequest.quantity)}. You can now buy directly.
+        </p>
+      )}
+
       <div className={styles.actions}>
-        {hasCredits ? (
+        {hasCredits && (
           <Link href="/connect">
             <Button variant="primary" size="sm">
               Book a consultation
             </Button>
           </Link>
-        ) : !hasPendingRequest ? (
-          <Link href="/connect?requestCredits=true">
-            <Button variant="primary" size="sm">
-              Request more consultations
+        )}
+        {priced && !priced.claimedAt ? (
+          <Link href="/buy">
+            <Button variant={hasCredits ? 'secondary' : 'primary'} size="sm">
+              Finish paying
+            </Button>
+          </Link>
+        ) : !priced ? (
+          <Link href="/buy">
+            <Button variant={hasCredits ? 'secondary' : 'primary'} size="sm">
+              {hasCredits ? 'Buy more' : 'Buy consultations'}
             </Button>
           </Link>
         ) : null}

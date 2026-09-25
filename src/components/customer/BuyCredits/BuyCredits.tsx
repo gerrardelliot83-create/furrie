@@ -158,8 +158,14 @@ export function BuyCredits({
       body: JSON.stringify({ utr: /^[0-9]{12}$/.test(utr.replace(/\s+/g, '')) ? utr : undefined }),
       keepalive: true,
     }).catch(() => undefined);
-    setOrder({ ...order, claimedAt: new Date().toISOString() });
-    setStep('checking');
+    // Switch screens only after the browser has followed the link: removing
+    // the <a> during its own click can cancel the navigation.
+    const claimedAt = new Date().toISOString();
+    setTimeout(() => {
+      setOrder((current) => (current ? { ...current, claimedAt } : current));
+      setStep('checking');
+      router.refresh();
+    }, 400);
   };
 
   if (step === 'checking' && order) {

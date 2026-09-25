@@ -17,7 +17,7 @@ import { PackCtaCard } from '@/components/customer';
 import { ConsultationBalanceCard } from '@/components/customer/ConsultationBalanceCard';
 import { InviteCard } from '@/components/customer/InviteCard';
 import { getActiveCreditBalance, EMPTY_CREDIT_BALANCE } from '@/lib/credits/getActiveCreditBalance';
-import { maybeSendWelcomeEmail, maybeRedeemInvite } from '@/lib/auth/postSignInTasks';
+import { maybeSendWelcomeEmail, maybeRedeemInvite, grantSignupCredits } from '@/lib/auth/postSignInTasks';
 import styles from './Dashboard.module.css';
 
 export const maxDuration = 30;
@@ -50,6 +50,11 @@ export default async function CustomerDashboard() {
   if (authError || !user) {
     redirect('/login');
   }
+
+  // A new invitee or waitlist member gets their free credit before the
+  // balance is read, so it shows on this first view (L1). No-op for accounts
+  // older than 30 minutes.
+  await grantSignupCredits(supabase, user);
 
   const greeting = getGreeting();
 

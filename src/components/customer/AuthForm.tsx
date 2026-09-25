@@ -25,6 +25,15 @@ const COOLDOWN_STORAGE_KEY = 'furrie_otp_cooldown_until';
 
 const INVITE_STORAGE_KEY = 'furrie_invite_code';
 
+/**
+ * Invite codes are 8 characters shown as XXXX-XXXX. Accept them typed in
+ * lower case, with spaces, or without the dash; return '' until complete.
+ */
+function normaliseInviteCode(raw: string): string {
+  const chars = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  return chars.length === 8 ? `${chars.slice(0, 4)}-${chars.slice(4)}` : '';
+}
+
 export function AuthForm() {
   const t = useTranslations('auth');
   const router = useRouter();
@@ -43,10 +52,38 @@ export function AuthForm() {
   const [inviteValid, setInviteValid] = useState<boolean | null>(null);
   const [inviteReferrer, setInviteReferrer] = useState<string>('');
   const [showInviteField, setShowInviteField] = useState(false);
+  // What the customer is typing into the manual box (L1: the box used to be
+  // a controlled input stuck at "", so only a full paste worked).
+  const [inviteInput, setInviteInput] = useState<string>('');
+
+  const validateInvite = (code: string) => {
+    fetch('/api/invites/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        setInviteValid(data.valid === true);
+        if (data.valid && data.referrerFirstName) {
+          setInviteReferrer(data.referrerFirstName);
+        }
+      })
+      .catch(() => setInviteValid(false));
+  };
+
+  const clearInvite = () => {
+    setInviteCode('');
+    setInviteValid(null);
+    setInviteReferrer('');
+    setInviteInput('');
+    setShowInviteField(true);
+    sessionStorage.removeItem(INVITE_STORAGE_KEY);
+  };
 
   // Detect ?invite= param on mount (or restore from sessionStorage)
   useEffect(() => {
-    const urlCode = searchParams.get('invite')?.trim().toUpperCase();
+    const urlCode = normaliseInviteCode(searchParams.get('invite') ?? '');
     const storedCode =
       typeof window !== 'undefined'
         ? sessionStorage.getItem(INVITE_STORAGE_KEY)
@@ -170,7 +207,7 @@ export function AuthForm() {
     if (!validateEmail(email)) return;
 
     setIsSubmitting(true);
-    const { error, isRateLimited } = await signInWithOtp(email, inviteCode || undefined);
+    const { error, isRateLimited } = await signInWithOtp(email, inviteValid === false ? undefined : inviteCode || undefined);
     setIsSubmitting(false);
 
     if (error) {
@@ -253,7 +290,7 @@ export function AuthForm() {
     if (resendTimer > 0) return;
 
     setIsSubmitting(true);
-    const { error, isRateLimited } = await signInWithOtp(email, inviteCode || undefined);
+    const { error, isRateLimited } = await signInWithOtp(email, inviteValid === false ? undefined : inviteCode || undefined);
     setIsSubmitting(false);
 
     if (error) {
@@ -387,30 +424,26 @@ export function AuthForm() {
             name="inviteCode"
             label="Invite code"
             placeholder="e.g. ABCD-1234"
-            value=""
+            value={inviteInput}
+            autoComplete="off"
             onChange={(e) => {
-              const v = e.target.value.trim().toUpperCase();
-              if (v.length >= 9) {
-                setInviteCode(v);
-                sessionStorage.setItem(INVITE_STORAGE_KEY, v);
-                fetch('/api/invites/validate', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ code: v }),
-                })
-                  .then((r) => r.json())
-                  .then((data) => {
-                    setInviteValid(data.valid === true);
-                    if (data.referrerFirstName) setInviteReferrer(data.referrerFirstName);
-                  })
-                  .catch(() => {});
+              const typed = e.target.value.toUpperCase();
+              setInviteInput(typed);
+              const code = normaliseInviteCode(typed);
+              if (code) {
+                setInviteCode(code);
+                sessionStorage.setItem(INVITE_STORAGE_KEY, code);
+                validateInvite(code);
               }
             }}
           />
         )}
         {inviteCode && inviteValid === false && (
           <p className={styles.errorText} style={{ marginBottom: '0.5rem' }}>
-            Invalid or already-used invite code.
+            Invite code {inviteCode} is not valid or has already been used.{' '}
+            <button type="button" className={styles.inviteToggle} onClick={clearInvite}>
+              Remove it
+            </button>
           </p>
         )}
 

@@ -43,11 +43,13 @@ export const POST = withRoute(async function POST(request: Request) {
     // Look up the consultation to get customer_id
     const { data: consultation } = await supabaseAdmin
       .from('consultations')
-      .select('customer_id')
+      .select('customer_id, vet_id')
       .eq('id', consultationId)
       .single();
 
-    if (!consultation) {
+    // Only the consultation's own customer or vet may trigger the check (L1);
+    // anyone else gets the same answer as for a missing consultation.
+    if (!consultation || (consultation.customer_id !== user.id && consultation.vet_id !== user.id)) {
       return NextResponse.json({ checked: true, rewarded: false });
     }
 

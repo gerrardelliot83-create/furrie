@@ -4,6 +4,10 @@ import { getCurrentUser } from '@/lib/supabase/getCurrentUser';
 import { FEATURES } from '@/lib/config/features';
 import { mapPetFromDB } from '@/lib/utils/petMapper';
 import { getActiveCreditBalance, EMPTY_CREDIT_BALANCE } from '@/lib/credits/getActiveCreditBalance';
+import { loadBuyState } from '@/lib/credits/buyState';
+import { PACK_QUOTES } from '@/lib/pricing/packs';
+import { PAYMENT_CHECK_PROMISE } from '@/lib/upi/config';
+import { BuyCredits } from '@/components/customer/BuyCredits/BuyCredits';
 import { ConnectFlow } from './ConnectFlow';
 import styles from './ConnectPage.module.css';
 
@@ -55,6 +59,34 @@ export default async function ConnectPage({
     .map((sub) => sub.pet_id as string);
 
   const totalCredits = balance.totalCredits;
+
+  // No credit (and no Plus): offer to buy instead of walking through a booking
+  // the server would refuse (L1).
+  if (totalCredits === 0 && plusPetIds.length === 0 && FEATURES.ENABLE_PACK_REQUESTS) {
+    const { data: profile } = await supabase.from('profiles').select('full_name, email').eq('id', user.id).single();
+    const buyState = await loadBuyState(supabase, user.id, {
+      name: profile?.full_name,
+      email: profile?.email ?? user.email,
+    });
+    return (
+      <div className={styles.pageContainer}>
+        <header className={styles.pageHeader}>
+          <h1 className={styles.pageTitle}>Book a consultation</h1>
+          <p className={styles.pageDescription}>
+            Each booking uses one consultation credit.
+          </p>
+        </header>
+        <BuyCredits
+          quotes={PACK_QUOTES}
+          initialRequest={buyState.initialRequest}
+          legacyQuantity={buyState.legacyQuantity}
+          promise={PAYMENT_CHECK_PROMISE}
+          heading="You need a consultation credit to book"
+          intro="Buy one or more consultations by UPI. Once we have checked your payment, come back here and pick a time."
+        />
+      </div>
+    );
+  }
 
   return (
     <div className={styles.pageContainer}>

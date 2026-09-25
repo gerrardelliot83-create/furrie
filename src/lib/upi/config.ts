@@ -36,3 +36,11 @@ export const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://app.furrie.in
 export function isValidVpa(vpa: string): boolean {
   return VPA_PATTERN.test(vpa);
 }
+
+/**
+ * What the pay screen promises about when credits arrive. Deliberately
+ * without hours until Gerard confirms who checks the bank and when
+ * (open question, 2026-09-25) — never promise a time we can't keep.
+ */
+export const PAYMENT_CHECK_PROMISE =
+  'We check payments through the day and add your consultations as soon as we find yours. You will get an email when they are ready.';

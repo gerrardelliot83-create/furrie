@@ -1,36 +1,57 @@
 /**
  * /api/consultation-requests
  *
- * POST — Customer submits a request for more consultations.
- *   Body: { quantity: number, preferredContact?: string, contactPhone?: string, note?: string }
- *   Enforces max 1 pending request per customer (DB unique partial index).
+ * POST — Customer starts a UPI purchase (L1, 2026-09-25).
+ *   Body: { packSize: 1 | 3 | 5 | 10 }
+ *   The server prices the pack (GST on top), creates a unique payment
+ *   reference and returns everything the pay screen needs (amount, UPI link,
+ *   QR code, WhatsApp/call links). One open request per customer:
+ *   - an open request for the same pack that isn't marked paid is returned
+ *     again (same reference);
+ *   - an open request for another pack that isn't marked paid is replaced
+ *     (closed as 'replaced' — an admin can still grant it if it was paid);
+ *   - a request already marked paid → 409, until an admin has checked it.
+ *   Written with the service role after the auth check: amounts only ever
+ *   come from the server's price list.
  *
- * GET — Customer fetches their own requests (pending first, then recent).
+ * GET — Customer fetches their own requests (most recent first).
  */
 
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
-import { sendCreditRequestReceivedEmail, sendCreditRequestInternalEmail } from '@/lib/email';
+import { supabaseAdmin } from '@/lib/supabase/admin';
+import { sendPaymentRequestEmail } from '@/lib/email';
 import { FEATURES } from '@/lib/config/features';
+import { isPurchasablePackSize, quotePack } from '@/lib/pricing/packs';
+import { generatePaymentReference } from '@/lib/upi/reference';
+import { APP_URL, UPI_CONFIG } from '@/lib/upi/config';
+import {
+  PAYMENT_REQUEST_COLUMNS,
+  buildPaymentRequestView,
+  isPricedRequest,
+  type PaymentRequestRow,
+} from '@/lib/credits/paymentView';
+import { checkRateLimit, getClientIp, RATE_LIMITS, rateLimitResponse } from '@/lib/utils/rate-limit';
 import { withRoute } from '@/server/handler';
 
-interface RequestBody {
-  quantity?: number;
-  preferredContact?: string;
-  contactPhone?: string;
-  note?: string;
-}
+const REFERENCE_INDEX = 'l1_uq_credit_requests_reference';
+const ONE_PENDING_INDEX = 'uq_one_pending_request_per_customer';
 
 export const POST = withRoute(async function POST(request: Request) {
   try {
     if (!FEATURES.ENABLE_PACK_REQUESTS) {
       return NextResponse.json(
-        { error: 'Credit requests are not currently available', code: 'FEATURE_DISABLED' },
+        { error: 'Buying consultations is not currently available', code: 'FEATURE_DISABLED' },
         { status: 404 }
       );
     }
-    const { user, error: authError, supabase } = await getRequestUser();
 
+    const rateCheck = checkRateLimit(`buy:${getClientIp(request)}`, RATE_LIMITS.payment);
+    if (!rateCheck.success) {
+      return rateLimitResponse(rateCheck.resetAt);
+    }
+
+    const { user, error: authError } = await getRequestUser();
     if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized', code: 'AUTH_REQUIRED' },
@@ -38,86 +59,135 @@ export const POST = withRoute(async function POST(request: Request) {
       );
     }
 
-    const body = (await request.json().catch(() => ({}))) as RequestBody;
-    const quantity = body.quantity;
-
-    if (!quantity || quantity < 1 || quantity > 50 || !Number.isInteger(quantity)) {
+    const body = (await request.json().catch(() => ({}))) as { packSize?: unknown };
+    if (!isPurchasablePackSize(body.packSize)) {
       return NextResponse.json(
-        { error: 'quantity must be an integer between 1 and 50', code: 'VALIDATION_ERROR' },
+        { error: 'Choose 1, 3, 5 or 10 consultations', code: 'VALIDATION_ERROR' },
         { status: 400 }
       );
     }
+    const quote = quotePack(body.packSize);
 
-    const validContacts = ['phone', 'email', 'whatsapp'];
-    const preferredContact = body.preferredContact && validContacts.includes(body.preferredContact)
-      ? body.preferredContact
-      : null;
-
-    const { data: inserted, error: insertError } = await supabase
-      .from('consultation_credit_requests')
-      .insert({
-        customer_id: user.id,
-        requested_quantity: quantity,
-        preferred_contact: preferredContact,
-        contact_phone: body.contactPhone?.trim() || null,
-        note: body.note?.trim()?.slice(0, 500) || null,
-      })
-      .select('id, requested_quantity, status, created_at')
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('full_name, email, role')
+      .eq('id', user.id)
       .single();
 
-    if (insertError) {
-      // Unique index violation → already has a pending request
-      if (
-        insertError.code === '23505' ||
-        insertError.message?.includes('uq_one_pending_request_per_customer')
-      ) {
+    if (!profile || profile.role !== 'customer') {
+      return NextResponse.json(
+        { error: 'Only customer accounts can buy consultations', code: 'FORBIDDEN' },
+        { status: 403 }
+      );
+    }
+    const customer = { name: profile.full_name, email: profile.email ?? user.email ?? null };
+
+    // The customer's open request, if any.
+    const { data: open } = await supabaseAdmin
+      .from('consultation_credit_requests')
+      .select(PAYMENT_REQUEST_COLUMNS)
+      .eq('customer_id', user.id)
+      .eq('status', 'pending')
+      .maybeSingle<PaymentRequestRow>();
+
+    if (open) {
+      if (open.payment_claimed_at) {
         return NextResponse.json(
           {
-            error: 'You already have a pending request. Please wait for our team to contact you.',
-            code: 'DUPLICATE_REQUEST',
+            error: `We're still checking your payment for order ${open.reference_code ?? ''}. You can buy more once it's confirmed.`,
+            code: 'PAYMENT_BEING_CHECKED',
+            request: isPricedRequest(open) ? buildPaymentRequestView(open, customer) : null,
           },
           { status: 409 }
         );
       }
-      console.error('Credit request insert error:', insertError);
+      if (isPricedRequest(open) && open.pack_size === quote.size && Number(open.amount_inr) === quote.total) {
+        return NextResponse.json({ request: buildPaymentRequestView(open, customer) });
+      }
+      // Replace the unpaid request (a legacy request from before L1 included).
+      await supabaseAdmin
+        .from('consultation_credit_requests')
+        .update({ status: 'cancelled', cancel_reason: 'replaced' })
+        .eq('id', open.id)
+        .eq('status', 'pending')
+        .is('payment_claimed_at', null);
+    }
+
+    // Insert with a fresh reference; retry if the reference is already taken.
+    let created: PaymentRequestRow | null = null;
+    for (let attempt = 1; attempt <= 3 && !created; attempt++) {
+      const { data, error } = await supabaseAdmin
+        .from('consultation_credit_requests')
+        .insert({
+          customer_id: user.id,
+          requested_quantity: quote.size,
+          pack_size: quote.size,
+          price_inr: quote.price,
+          gst_inr: quote.gst,
+          amount_inr: quote.total,
+          reference_code: generatePaymentReference(),
+          upi_vpa: UPI_CONFIG.vpa,
+        })
+        .select(PAYMENT_REQUEST_COLUMNS)
+        .single<PaymentRequestRow>();
+
+      if (!error && data) {
+        created = data;
+        break;
+      }
+      const message = `${error?.message ?? ''} ${error?.details ?? ''}`;
+      if (error?.code === '23505' && message.includes(REFERENCE_INDEX)) {
+        continue;
+      }
+      if (error?.code === '23505' && message.includes(ONE_PENDING_INDEX)) {
+        // Another tab created one at the same moment: return that one.
+        const { data: other } = await supabaseAdmin
+          .from('consultation_credit_requests')
+          .select(PAYMENT_REQUEST_COLUMNS)
+          .eq('customer_id', user.id)
+          .eq('status', 'pending')
+          .maybeSingle<PaymentRequestRow>();
+        if (other && isPricedRequest(other)) {
+          return NextResponse.json({ request: buildPaymentRequestView(other, customer) });
+        }
+      }
+      console.error('Credit request insert error:', error);
       return NextResponse.json(
-        { error: 'Failed to submit request', code: 'DB_ERROR' },
+        { error: 'Could not start your order. Please try again.', code: 'DB_ERROR' },
         { status: 500 }
       );
     }
 
-    // Send notification emails (non-blocking — don't let email failures block the response)
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('full_name, email, phone')
-      .eq('id', user.id)
-      .single();
+    if (!created) {
+      return NextResponse.json(
+        { error: 'Could not start your order. Please try again.', code: 'DB_ERROR' },
+        { status: 500 }
+      );
+    }
 
-    const customerName = profile?.full_name || 'Customer';
-    const customerEmail = profile?.email || user.email || '';
+    const view = buildPaymentRequestView(created, customer);
 
-    if (customerEmail) {
-      sendCreditRequestReceivedEmail({
-        customerEmail,
-        customerName,
-        quantity,
-      }).catch((emailErr) => {
-        console.error('[EMAIL] Failed to send credit request received email:', emailErr);
-      });
-
-      sendCreditRequestInternalEmail({
-        customerName,
-        customerEmail,
-        customerPhone: body.contactPhone?.trim() || profile?.phone || null,
-        quantity,
-        preferredContact,
-        note: body.note?.trim()?.slice(0, 500) || null,
-      }).catch((emailErr) => {
-        console.error('[EMAIL] Failed to send internal credit request email:', emailErr);
+    if (customer.email) {
+      const email = customer.email;
+      after(async () => {
+        const result = await sendPaymentRequestEmail({
+          customerEmail: email,
+          customerName: customer.name || 'there',
+          reference: view.reference,
+          packSize: view.packSize,
+          price: view.price,
+          gst: view.gst,
+          total: view.total,
+          vpa: view.vpa,
+          payUrl: `${APP_URL}/buy`,
+        });
+        if (!result.success) {
+          console.error('[buy] payment request email failed:', result.error);
+        }
       });
     }
 
-    return NextResponse.json({ request: inserted }, { status: 201 });
+    return NextResponse.json({ request: view }, { status: 201 });
   } catch (err) {
     console.error('POST /api/consultation-requests error:', err);
     return NextResponse.json(
@@ -127,7 +197,7 @@ export const POST = withRoute(async function POST(request: Request) {
   }
 });
 
-export const GET = withRoute(async function GET(request: Request) {
+export const GET = withRoute(async function GET() {
   try {
     const { user, error: authError, supabase } = await getRequestUser();
 

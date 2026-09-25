@@ -16,7 +16,7 @@ import { FEATURES } from '@/lib/config/features';
 import { PackCtaCard } from '@/components/customer';
 import { ConsultationBalanceCard } from '@/components/customer/ConsultationBalanceCard';
 import { InviteCard } from '@/components/customer/InviteCard';
-import { getActiveCreditBalance } from '@/lib/credits/getActiveCreditBalance';
+import { getActiveCreditBalance, EMPTY_CREDIT_BALANCE } from '@/lib/credits/getActiveCreditBalance';
 import { maybeSendWelcomeEmail, maybeRedeemInvite } from '@/lib/auth/postSignInTasks';
 import styles from './Dashboard.module.css';
 
@@ -54,13 +54,7 @@ export default async function CustomerDashboard() {
   // Profile, pets, consultations, and care plans all fire together
   const QUERY_TIMEOUT = 8000;
 
-  const emptyCreditBalance = {
-    totalCredits: 0,
-    activePacks: 0,
-    hasPendingRequest: false,
-    pendingRequestId: null,
-    pendingRequestQuantity: null,
-  };
+  const emptyCreditBalance = EMPTY_CREDIT_BALANCE;
 
   const allQueries = Promise.all([
     // [0] Profile

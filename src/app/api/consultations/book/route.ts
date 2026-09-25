@@ -1,15 +1,19 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
+import * as Sentry from '@sentry/nextjs';
 import { getRequestUser } from '@/lib/auth/withAuth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { createNotification } from '@/lib/notifications/createNotification';
 import { sendExpoPush } from '@/lib/notifications/sendExpoPush';
 import { findAvailableVetForSlot, SCHEDULING_CONSTANTS } from '@/lib/scheduling';
 import { checkPlusSubscriptionWithClient } from '@/lib/utils/followUpHelpers';
-import { findActivePackWithCredits, deductPackCredit } from '@/lib/utils/packHelpers';
-import { sendBookingConfirmationEmail, sendVetNewBookingEmail } from '@/lib/email';
+import { countUsableCredits, scheduleConsultationWithCredit } from '@/lib/credits/usableCredits';
+import {
+  sendBookingConfirmationEmail,
+  sendVetNewBookingEmail,
+  sendOpsBookingAlert,
+} from '@/lib/email';
 import { checkRateLimit, getClientIp, RATE_LIMITS, rateLimitResponse } from '@/lib/utils/rate-limit';
 import { formatScheduledTimeShort } from '@/lib/utils';
-import { PACK_UNIT_PRICE } from '@/types';
 import { withRoute } from '@/server/handler';
 
 interface MediaUploadRef {
@@ -27,18 +31,32 @@ interface BookRequest {
   media?: MediaUploadRef[];
 }
 
+const NO_CREDITS_RESPONSE = {
+  error: 'You need a consultation credit to book. Buy consultations from your dashboard, then book.',
+  code: 'NO_CREDITS',
+} as const;
+
+/** Unique-violation constraint names on consultations (production, 2026-09-24). */
+const SLOT_CONSTRAINT = 'idx_consultations_no_double_booking';
+const NUMBER_CONSTRAINT = 'consultations_consultation_number_key';
+
 /**
  * POST /api/consultations/book
  *
- * Books a consultation for a specific time slot.
+ * Books a consultation for a specific time slot. A consultation credit is
+ * required (L1, 2026-09-25): there is no pay-later path any more.
  *
  * Flow:
- * 1. Validate the slot is still available (race condition check)
- * 2. Find an available vet for that slot
- * 3. Create consultation with status='pending', type='scheduled'
- * 4. Return consultation details for payment flow
- *
- * After payment completes (via webhook), status changes to 'scheduled'.
+ * 1. Validate the request, the time and pet ownership
+ * 2. No usable credit (and not Plus) → 402 NO_CREDITS, before any slot is
+ *    held or any vet is notified
+ * 3. Find an available vet for the slot
+ * 4. Insert the consultation as 'pending', then take one credit and move it
+ *    to 'scheduled' in a single database transaction
+ *    (l1_schedule_with_credit). If that finds no credit (a race with another
+ *    booking), the pending row is removed and the answer is 402.
+ * 5. Notify the vet in-app now; emails, push and the ops alert run after the
+ *    response is sent.
  *
  * Request:
  * {
@@ -48,21 +66,10 @@ interface BookRequest {
  *   symptomCategories?: ["vomiting", "loss_of_appetite"]
  * }
  *
- * Response:
+ * Response (shape kept for the mobile app):
  * {
- *   consultation: {
- *     id: "uuid",
- *     consultationNumber: "FUR-20260209-001",
- *     status: "pending",
- *     type: "scheduled",
- *     scheduledAt: "2026-02-09T10:00:00+05:30",
- *     pet: { ... },
- *     vet: { ... }
- *   },
- *   payment: {
- *     amount: 499,
- *     currency: "INR"
- *   }
+ *   consultation: { id, consultationNumber, status: "scheduled", type, scheduledAt, pet, vet, ... },
+ *   isPlusUser, hasPackCredit, packCreditsRemaining
  * }
  */
 export const POST = withRoute(async function POST(request: Request) {
@@ -156,15 +163,18 @@ export const POST = withRoute(async function POST(request: Request) {
       );
     }
 
-    // Check if customer has active Plus subscription BEFORE vet matching (affects ranking)
+    // Plus subscribers book without credits (affects vet ranking too).
     const isPlusUser = await checkPlusSubscriptionWithClient(supabase, user.id, body.petId);
 
-    // Check if customer has an active pack with remaining credits
-    // Priority: Plus subscription > Pack credits > Single payment
-    const activePack = !isPlusUser
-      ? await findActivePackWithCredits(supabaseAdmin, user.id)
-      : null;
-    const hasPackCredit = activePack !== null;
+    // A credit is required. Checked before vet matching so a customer
+    // without one never holds a vet's slot or triggers a vet notification.
+    let creditsBefore = 0;
+    if (!isPlusUser) {
+      creditsBefore = await countUsableCredits(supabaseAdmin, user.id);
+      if (creditsBefore < 1) {
+        return NextResponse.json(NO_CREDITS_RESPONSE, { status: 402 });
+      }
+    }
 
     // Find an available vet for this slot with load balancing + Plus priority
     const vetId = await findAvailableVetForSlot(body.scheduledAt, [], isPlusUser);
@@ -179,54 +189,54 @@ export const POST = withRoute(async function POST(request: Request) {
       );
     }
 
-    // Get vet profile info
-    const { data: vetProfile } = await supabaseAdmin
-      .from('profiles')
-      .select('id, full_name, avatar_url')
-      .eq('id', vetId)
-      .single();
-
-    // Create consultation
-    // Plus users: status='scheduled' directly (no payment needed), is_free=true, is_priority=true
-    // Pack users: initially 'pending', promoted to 'scheduled' after credit deduction succeeds
-    // Free users: status='pending' (will change to 'scheduled' after payment)
-    const isFreeBooking = isPlusUser || hasPackCredit;
-    // For pack users, start as 'pending' until credit deduction is confirmed
+    // Plus: scheduled straight away. Credit: 'pending' until the credit is
+    // taken in the same transaction that confirms it.
     const initialStatus = isPlusUser ? 'scheduled' : 'pending';
-    const { data: consultation, error: createError } = await supabaseAdmin
-      .from('consultations')
-      .insert({
-        customer_id: user.id,
-        vet_id: vetId,
-        pet_id: body.petId,
-        type: 'scheduled',
-        status: initialStatus,
-        scheduled_at: body.scheduledAt,
-        concern_text: body.concernText || null,
-        symptom_categories: body.symptomCategories || [],
-        duration_minutes: 30,
-        is_priority: isPlusUser,
-        is_free: isFreeBooking,
-      })
-      .select(
-        `
-        id,
-        consultation_number,
-        status,
-        type,
-        scheduled_at,
-        concern_text,
-        symptom_categories,
-        created_at
-      `
-      )
-      .single();
+    const insertRow = {
+      customer_id: user.id,
+      vet_id: vetId,
+      pet_id: body.petId,
+      type: 'scheduled',
+      status: initialStatus,
+      scheduled_at: body.scheduledAt,
+      concern_text: body.concernText || null,
+      symptom_categories: body.symptomCategories || [],
+      duration_minutes: 30,
+      is_priority: isPlusUser,
+      is_free: true,
+    };
+    const selectCols =
+      'id, consultation_number, status, type, scheduled_at, concern_text, symptom_categories, created_at';
 
-    if (createError || !consultation) {
-      console.error('Error creating consultation:', createError);
+    // generate_consultation_number() can hand two same-day bookings the same
+    // number; that collision is retried, a slot collision is not.
+    let consultation: {
+      id: string;
+      consultation_number: string;
+      status: string;
+      type: string;
+      scheduled_at: string;
+      concern_text: string | null;
+      symptom_categories: string[] | null;
+      created_at: string;
+    } | null = null;
+    for (let attempt = 1; attempt <= 3 && !consultation; attempt++) {
+      const { data, error: createError } = await supabaseAdmin
+        .from('consultations')
+        .insert(insertRow)
+        .select(selectCols)
+        .single();
 
-      // Check if it's a unique constraint violation (slot already booked)
-      if (createError?.code === '23505') {
+      if (!createError && data) {
+        consultation = data;
+        break;
+      }
+
+      const message = `${createError?.message ?? ''} ${createError?.details ?? ''}`;
+      if (createError?.code === '23505' && message.includes(NUMBER_CONSTRAINT) && attempt < 3) {
+        continue;
+      }
+      if (createError?.code === '23505' && (message.includes(SLOT_CONSTRAINT) || !message.includes(NUMBER_CONSTRAINT))) {
         return NextResponse.json(
           {
             error: 'This time slot was just booked by someone else. Please choose a different time.',
@@ -235,53 +245,49 @@ export const POST = withRoute(async function POST(request: Request) {
           { status: 409 }
         );
       }
-
+      console.error('Error creating consultation:', createError);
       return NextResponse.json(
         { error: 'Failed to create consultation', code: 'CREATE_ERROR' },
         { status: 500 }
       );
     }
 
-    // Deduct pack credit if booking with pack — uses the atomic RPC
-    // `consume_pack_credit` which SELECT...FOR UPDATE SKIP LOCKED to
-    // prevent concurrent bookings from over-drawing a pack.
-    if (hasPackCredit && activePack) {
-      const usedPackId = await deductPackCredit(
-        supabaseAdmin,
-        user.id,
-        consultation.id
+    if (!consultation) {
+      return NextResponse.json(
+        { error: 'Failed to create consultation', code: 'CREATE_ERROR' },
+        { status: 500 }
       );
-      if (!usedPackId) {
-        // Credit deduction failed — delete the just-created consultation
-        // and return an error. This is safe because no notifications or
-        // side-effects have been triggered yet.
-        console.error('Pack credit deduction failed for consultation:', consultation.id);
-        await supabaseAdmin
-          .from('consultations')
-          .delete()
-          .eq('id', consultation.id);
+    }
+
+    if (!isPlusUser) {
+      let packId: string | null = null;
+      try {
+        packId = await scheduleConsultationWithCredit(supabaseAdmin, user.id, consultation.id);
+      } catch (creditErr) {
+        // Nothing was changed by the failed transaction; remove the pending row.
+        Sentry.captureException(creditErr, { tags: { area: 'booking', step: 'schedule_with_credit' } });
+        await supabaseAdmin.from('consultations').delete().eq('id', consultation.id).eq('status', 'pending');
         return NextResponse.json(
-          { error: 'No consultation credits available', code: 'NO_CREDITS' },
-          { status: 403 }
+          { error: 'Failed to confirm the booking. Please try again.', code: 'CREDIT_ERROR' },
+          { status: 500 }
         );
       }
 
-      // Credit deduction succeeded — promote consultation to 'scheduled'
-      const { error: promoteErr } = await supabaseAdmin
-        .from('consultations')
-        .update({ status: 'scheduled' })
-        .eq('id', consultation.id);
-
-      if (promoteErr) {
-        console.error('Failed to promote consultation to scheduled:', promoteErr);
-      } else {
-        // Update local reference for response
-        consultation.status = 'scheduled';
+      if (!packId) {
+        // Another booking took the last credit between our check and now.
+        await supabaseAdmin.from('consultations').delete().eq('id', consultation.id).eq('status', 'pending');
+        return NextResponse.json(NO_CREDITS_RESPONSE, { status: 402 });
       }
+      consultation.status = 'scheduled';
     }
 
-    // Send realtime notification to vet via broadcast channel
-    // This bypasses RLS issues since broadcasts don't go through postgres
+    // Get vet + customer profiles for notifications and the response
+    const [{ data: vetProfile }, { data: customerProfile }] = await Promise.all([
+      supabaseAdmin.from('profiles').select('id, full_name, avatar_url, email, expo_push_token').eq('id', vetId).single(),
+      supabaseAdmin.from('profiles').select('email, full_name').eq('id', user.id).single(),
+    ]);
+
+    // Realtime broadcast to the vet (Broadcast, not postgres_changes)
     try {
       const channel = supabaseAdmin.channel(`vet:${vetId}:notifications`);
       await channel.send({
@@ -289,125 +295,13 @@ export const POST = withRoute(async function POST(request: Request) {
         event: 'new_consultation',
         payload: {
           consultationId: consultation.id,
-          petName: pet?.name,
+          petName: pet.name,
           scheduledAt: body.scheduledAt,
         },
       });
-      // Unsubscribe after sending
       await supabaseAdmin.removeChannel(channel);
     } catch (notifyError) {
-      // Log but don't fail the booking
       console.error('Failed to send vet notification:', notifyError);
-    }
-
-    // Fetch customer profile once — used by the email block (free path only)
-    // AND by the vet push block (always). Hoisted out of the email conditional
-    // so it stays in scope for the push body below.
-    const { data: customerProfile } = await supabaseAdmin
-      .from('profiles')
-      .select('email, full_name')
-      .eq('id', user.id)
-      .single();
-
-    // Send booking emails (non-blocking for Plus/pack users who are immediately scheduled)
-    if (isFreeBooking) {
-      if (customerProfile?.email) {
-        const bookingEmailResult = await sendBookingConfirmationEmail(customerProfile.email, {
-          customerName: customerProfile.full_name || 'there',
-          petName: pet.name,
-          vetName: vetProfile?.full_name || 'Your Vet',
-          scheduledAt: body.scheduledAt,
-          consultationNumber: consultation.consultation_number,
-        });
-        if (!bookingEmailResult.success) {
-          console.error('Failed to send booking confirmation email:', bookingEmailResult.error);
-        }
-      }
-
-      // Send vet new booking email
-      const { data: vetUser } = await supabaseAdmin
-        .from('profiles')
-        .select('email, full_name')
-        .eq('id', vetId)
-        .single();
-
-      if (vetUser?.email) {
-        const vetEmailResult = await sendVetNewBookingEmail(vetUser.email, {
-          vetName: vetUser.full_name || 'Doctor',
-          customerName: customerProfile?.full_name || 'Customer',
-          petName: pet.name,
-          petSpecies: pet.species,
-          scheduledAt: body.scheduledAt,
-          consultationNumber: consultation.consultation_number,
-          isPriority: isPlusUser,
-        });
-        if (!vetEmailResult.success) {
-          console.error('Failed to send vet new booking email:', vetEmailResult.error);
-        }
-      }
-    }
-
-    // Mobile push to the assigned vet. Self-heals on stale tokens via the
-    // helper. Non-blocking — booking succeeds whether or not push lands.
-    try {
-      const { data: vetPushProfile } = await supabaseAdmin
-        .from('profiles')
-        .select('expo_push_token')
-        .eq('id', vetId)
-        .single();
-
-      if (vetPushProfile?.expo_push_token) {
-        await sendExpoPush(vetId, {
-          to: vetPushProfile.expo_push_token,
-          title: 'New consultation request',
-          body: `${pet.name} · ${customerProfile?.full_name || 'Customer'} · ${formatScheduledTimeShort(body.scheduledAt)}`,
-          data: {
-            consultationId: consultation.id,
-            deepLink: `/consultation/${consultation.id}`,
-            type: 'new_consultation_request',
-            scheduledAt: consultation.scheduled_at,
-            petName: pet.name,
-          },
-        });
-      }
-    } catch (pushErr) {
-      console.error('[expo-push] Vet push failed:', pushErr);
-    }
-
-    // Persistent in-app notification row for the vet. createNotification also
-    // broadcasts to `user:<vetId>:notifications`, which the web NotificationBell
-    // listens to — single call gives the vet a row + a badge bump.
-    try {
-      await createNotification({
-        user_id: vetId,
-        type: 'new_consultation_request',
-        title: 'New consultation request',
-        body: `${pet.name} · scheduled ${formatScheduledTimeShort(body.scheduledAt)}`,
-        channel: 'in_app',
-        data: {
-          consultationId: consultation.id,
-          deepLink: `/consultation/${consultation.id}`,
-          petId: pet.id,
-          petName: pet.name,
-          scheduledAt: consultation.scheduled_at,
-        },
-      });
-    } catch (notifyErr) {
-      console.error('[notifications] Vet in-app notification failed:', notifyErr);
-    }
-
-    // Create in-app notification for booking confirmation (customer)
-    try {
-      await createNotification({
-        user_id: user.id,
-        type: 'booking_confirmation',
-        title: 'Booking Confirmed',
-        body: `Your consultation for ${pet.name} has been booked${isFreeBooking ? '' : ' (pending payment)'}.`,
-        channel: 'in_app',
-        data: { consultationId: consultation.id },
-      });
-    } catch (notifyErr) {
-      console.error('Failed to create booking notification:', notifyErr);
     }
 
     // Save uploaded media if any
@@ -427,17 +321,111 @@ export const POST = withRoute(async function POST(request: Request) {
       }
     }
 
-    // Build response
-    const responseData: Record<string, unknown> = {
+    // Everything else runs after the response has been sent.
+    const booked = consultation;
+    after(async () => {
+      const tasks: Promise<unknown>[] = [];
+
+      tasks.push(
+        createNotification({
+          user_id: vetId,
+          type: 'new_consultation_request',
+          title: 'New consultation booked',
+          body: `${pet.name} · scheduled ${formatScheduledTimeShort(body.scheduledAt)}`,
+          channel: 'in_app',
+          data: {
+            consultationId: booked.id,
+            deepLink: `/consultation/${booked.id}`,
+            petId: pet.id,
+            petName: pet.name,
+            scheduledAt: booked.scheduled_at,
+          },
+        }),
+        createNotification({
+          user_id: user.id,
+          type: 'booking_confirmation',
+          title: 'Booking Confirmed',
+          body: `Your consultation for ${pet.name} has been booked.`,
+          channel: 'in_app',
+          data: { consultationId: booked.id },
+        })
+      );
+
+      if (customerProfile?.email) {
+        tasks.push(
+          sendBookingConfirmationEmail(customerProfile.email, {
+            customerName: customerProfile.full_name || 'there',
+            petName: pet.name,
+            vetName: vetProfile?.full_name || 'Your Vet',
+            scheduledAt: body.scheduledAt,
+            consultationNumber: booked.consultation_number,
+          })
+        );
+      }
+
+      if (vetProfile?.email) {
+        tasks.push(
+          sendVetNewBookingEmail(vetProfile.email, {
+            vetName: vetProfile.full_name || 'Doctor',
+            customerName: customerProfile?.full_name || 'Customer',
+            petName: pet.name,
+            petSpecies: pet.species,
+            scheduledAt: body.scheduledAt,
+            consultationNumber: booked.consultation_number,
+            isPriority: isPlusUser,
+          })
+        );
+      }
+
+      if (vetProfile?.expo_push_token) {
+        tasks.push(
+          sendExpoPush(vetId, {
+            to: vetProfile.expo_push_token,
+            title: 'New consultation booked',
+            body: `${pet.name} · ${customerProfile?.full_name || 'Customer'} · ${formatScheduledTimeShort(body.scheduledAt)}`,
+            data: {
+              consultationId: booked.id,
+              deepLink: `/consultation/${booked.id}`,
+              type: 'new_consultation_request',
+              scheduledAt: booked.scheduled_at,
+              petName: pet.name,
+            },
+          })
+        );
+      }
+
+      tasks.push(
+        sendOpsBookingAlert({
+          consultationNumber: booked.consultation_number,
+          scheduledAt: body.scheduledAt,
+          petName: pet.name,
+          petSpecies: pet.species,
+          customerName: customerProfile?.full_name || 'Customer',
+          customerEmail: customerProfile?.email ?? null,
+          vetName: vetProfile?.full_name || 'Vet',
+        })
+      );
+
+      const results = await Promise.allSettled(tasks);
+      for (const r of results) {
+        if (r.status === 'rejected') {
+          console.error('[book] post-booking task failed:', r.reason);
+        } else if (r.value && typeof r.value === 'object' && 'success' in r.value && r.value.success === false) {
+          console.error('[book] post-booking email failed:', (r.value as { error?: string }).error);
+        }
+      }
+    });
+
+    return NextResponse.json({
       consultation: {
-        id: consultation.id,
-        consultationNumber: consultation.consultation_number,
-        status: consultation.status,
-        type: consultation.type,
-        scheduledAt: consultation.scheduled_at,
-        concernText: consultation.concern_text,
-        symptomCategories: consultation.symptom_categories,
-        createdAt: consultation.created_at,
+        id: booked.id,
+        consultationNumber: booked.consultation_number,
+        status: booked.status,
+        type: booked.type,
+        scheduledAt: booked.scheduled_at,
+        concernText: booked.concern_text,
+        symptomCategories: booked.symptom_categories,
+        createdAt: booked.created_at,
         pet: {
           id: pet.id,
           name: pet.name,
@@ -453,20 +441,9 @@ export const POST = withRoute(async function POST(request: Request) {
           : null,
       },
       isPlusUser,
-      hasPackCredit,
-      packCreditsRemaining: activePack ? activePack.remaining_count - (hasPackCredit ? 1 : 0) : 0,
-    };
-
-    // Only include payment info for users who need to pay
-    if (!isFreeBooking) {
-      responseData.payment = {
-        amount: PACK_UNIT_PRICE,
-        currency: 'INR',
-        description: `Consultation for ${pet.name}`,
-      };
-    }
-
-    return NextResponse.json(responseData);
+      hasPackCredit: !isPlusUser,
+      packCreditsRemaining: isPlusUser ? 0 : Math.max(0, creditsBefore - 1),
+    });
   } catch (error) {
     console.error('Error in POST /api/consultations/book:', error);
     return NextResponse.json(

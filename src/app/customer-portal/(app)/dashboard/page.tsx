@@ -16,8 +16,8 @@ import { FEATURES } from '@/lib/config/features';
 import { PackCtaCard } from '@/components/customer';
 import { ConsultationBalanceCard } from '@/components/customer/ConsultationBalanceCard';
 import { InviteCard } from '@/components/customer/InviteCard';
-import { getActiveCreditBalance } from '@/lib/credits/getActiveCreditBalance';
-import { maybeSendWelcomeEmail, maybeRedeemInvite } from '@/lib/auth/postSignInTasks';
+import { getActiveCreditBalance, EMPTY_CREDIT_BALANCE } from '@/lib/credits/getActiveCreditBalance';
+import { maybeSendWelcomeEmail, maybeRedeemInvite, grantSignupCredits } from '@/lib/auth/postSignInTasks';
 import styles from './Dashboard.module.css';
 
 export const maxDuration = 30;
@@ -30,7 +30,10 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 function getGreeting(): string {
-  const hour = new Date().getHours();
+  // India time: the server runs in UTC.
+  const hour = Number(
+    new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', hourCycle: 'h23' }).format(new Date())
+  );
   if (hour < 12) return 'Good morning';
   if (hour < 17) return 'Good afternoon';
   return 'Good evening';
@@ -48,19 +51,18 @@ export default async function CustomerDashboard() {
     redirect('/login');
   }
 
+  // A new invitee or waitlist member gets their free credit before the
+  // balance is read, so it shows on this first view (L1). No-op for accounts
+  // older than 30 minutes.
+  await grantSignupCredits(supabase, user);
+
   const greeting = getGreeting();
 
   // Run ALL queries in parallel with timeout protection
   // Profile, pets, consultations, and care plans all fire together
   const QUERY_TIMEOUT = 8000;
 
-  const emptyCreditBalance = {
-    totalCredits: 0,
-    activePacks: 0,
-    hasPendingRequest: false,
-    pendingRequestId: null,
-    pendingRequestQuantity: null,
-  };
+  const emptyCreditBalance = EMPTY_CREDIT_BALANCE;
 
   const allQueries = Promise.all([
     // [0] Profile
@@ -239,9 +241,9 @@ export default async function CustomerDashboard() {
                 <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
               </svg>
             </div>
-            <h2 className={styles.ctaTitle}>Connect with a Vet Now</h2>
+            <h2 className={styles.ctaTitle}>Book a video consultation</h2>
             <p className={styles.ctaDescription}>
-              Get instant video consultation with a licensed veterinarian
+              Pick a time that suits you. A registered vet joins you on video.
             </p>
           </div>
           <Link href="/connect" className={styles.ctaButton}>

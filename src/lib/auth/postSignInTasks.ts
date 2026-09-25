@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { User } from '@supabase/supabase-js';
 
 import { sendWelcomeEmail } from '@/lib/email';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 import { FEATURES } from '@/lib/config/features';
 
 /**
@@ -91,4 +92,39 @@ export async function maybeRedeemInvite(
   } catch (err) {
     console.error('[postSignIn] invite redemption threw:', err);
   }
+}
+
+/** Accounts younger than this get their sign-up credits before the first render. */
+const NEW_ACCOUNT_WINDOW_MS = 30 * 60 * 1000;
+
+export function isNewAccount(createdAt: string | null | undefined): boolean {
+  return !!createdAt && Date.now() - new Date(createdAt).getTime() <= NEW_ACCOUNT_WINDOW_MS;
+}
+
+/**
+ * Give a waitlisted customer their founding free consultation (L1): one
+ * 60-day credit if their account email is on the founding list and it has
+ * not been granted before. The email is read from their profile inside the
+ * database function, never taken from the caller. Idempotent; never throws.
+ */
+export async function maybeClaimFoundingCredit(userId: string): Promise<void> {
+  try {
+    const { error } = await supabaseAdmin.rpc('l1_claim_founding_credit', { p_user_id: userId });
+    if (error) {
+      console.error('[postSignIn] founding credit claim failed:', error.message);
+    }
+  } catch (err) {
+    console.error('[postSignIn] founding credit claim threw:', err);
+  }
+}
+
+/**
+ * For a brand-new account: redeem its invite code and claim a founding credit
+ * BEFORE the dashboard reads the balance, so a new invitee sees their free
+ * consultation on the first view instead of "0 available" (L1). Both steps
+ * are idempotent; the dashboard's after() hook still covers older accounts.
+ */
+export async function grantSignupCredits(supabase: SupabaseClient, user: User): Promise<void> {
+  if (!isNewAccount(user.created_at)) return;
+  await Promise.allSettled([maybeRedeemInvite(supabase, user), maybeClaimFoundingCredit(user.id)]);
 }

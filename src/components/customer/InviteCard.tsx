@@ -64,15 +64,15 @@ export function InviteCard() {
 
   const handleWhatsApp = useCallback(() => {
     const text = encodeURIComponent(
-      `Hey! I use Furrie for vet consultations for my pet — it's been great. Here's an invite that gives you 1 free consultation: ${shareUrl}`
+      `Here's an invite to Furrie: video consultations with registered vets for dogs and cats. It gives you 1 free consultation: ${shareUrl}`
     );
     window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer');
   }, [shareUrl]);
 
   const handleEmail = useCallback(() => {
-    const subject = encodeURIComponent('Free vet consultation on Furrie');
+    const subject = encodeURIComponent('An invite to Furrie: 1 free vet consultation');
     const body = encodeURIComponent(
-      `Hey,\n\nI use Furrie for vet video consultations — they're licensed vets you can talk to from home. I thought you might find it useful for your pet.\n\nHere's an invite link that gives you 1 free consultation:\n${shareUrl}\n\nHope your fur baby is doing well!`
+      `Hi,\n\nHere's an invite to Furrie. You can book a video consultation with a registered vet for your dog or cat.\n\nThis link gives you 1 free consultation:\n${shareUrl}\n`
     );
     window.open(`mailto:?subject=${subject}&body=${body}`, '_self');
   }, [shareUrl]);

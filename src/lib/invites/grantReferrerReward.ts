@@ -42,6 +42,19 @@ export async function grantReferrerRewardIfEligible(
     // have already been rewarded — but we check referrer_rewarded_at above.
     if (count > 1) return;
 
+    // Claim the reward first (L1): only the call that flips
+    // referrer_rewarded_at from NULL goes on to create a pack, so two
+    // concurrent calls can no longer grant two rewards.
+    const { data: claimed, error: claimErr } = await supabaseAdmin
+      .from('invite_codes')
+      .update({ referrer_rewarded_at: new Date().toISOString() })
+      .eq('id', invite.id)
+      .is('referrer_rewarded_at', null)
+      .select('id')
+      .maybeSingle();
+
+    if (claimErr || !claimed) return; // someone else got there first
+
     // Create a 1-credit pack for the referrer
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 60);
@@ -64,18 +77,19 @@ export async function grantReferrerRewardIfEligible(
 
     if (packErr || !pack) {
       console.error('Failed to create referrer reward pack:', packErr);
+      // Release the claim so a later call can try again.
+      await supabaseAdmin
+        .from('invite_codes')
+        .update({ referrer_rewarded_at: null })
+        .eq('id', invite.id)
+        .is('referrer_reward_pack_id', null);
       return;
     }
 
-    // Mark the invite as rewarded
     await supabaseAdmin
       .from('invite_codes')
-      .update({
-        referrer_rewarded_at: new Date().toISOString(),
-        referrer_reward_pack_id: pack.id,
-      })
-      .eq('id', invite.id)
-      .is('referrer_rewarded_at', null); // idempotent guard
+      .update({ referrer_reward_pack_id: pack.id })
+      .eq('id', invite.id);
 
     // Notify the referrer (in-app + email)
     try {

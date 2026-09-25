@@ -1,52 +1,33 @@
 /**
  * POST /api/admin/consultation-packs
  *
- * Admin-only endpoint to create a consultation pack for a customer
- * via admin grant (no payment required). Used when fulfilling credit requests.
+ * Admin-only: give a customer free consultation credits (goodwill, refunds,
+ * testing, offline payments before L1). Paid UPI orders are granted from
+ * Credit requests instead, which records the price.
  *
- * Request body: { customerId: string, totalCount: number, source?: string }
+ * Request body: { customerId: string, totalCount: 1–50, source?: 'admin_grant' | 'promo' | 'refund', note?: string }
  * Response: { pack }
  */
 
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { verifyAdmin, logAdminAction } from '@/lib/admin/auth';
 import { withRoute } from '@/server/handler';
+
+const GRANT_SOURCES = ['admin_grant', 'promo', 'refund'] as const;
 
 interface CreatePackBody {
   customerId?: string;
   totalCount?: number;
   source?: string;
+  note?: string;
 }
 
 export const POST = withRoute(async function POST(request: Request) {
   try {
-    // Verify admin authentication
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized', code: 'AUTH_REQUIRED' },
-        { status: 401 }
-      );
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Admin access required', code: 'FORBIDDEN' },
-        { status: 403 }
-      );
-    }
+    const auth = await verifyAdmin();
+    if (auth.error) return auth.error;
+    const adminId = auth.user.id;
 
     const body = (await request.json().catch(() => ({}))) as CreatePackBody;
 
@@ -57,14 +38,22 @@ export const POST = withRoute(async function POST(request: Request) {
       );
     }
 
-    if (!body.totalCount || body.totalCount < 1 || body.totalCount > 50) {
+    if (!Number.isInteger(body.totalCount) || (body.totalCount as number) < 1 || (body.totalCount as number) > 50) {
       return NextResponse.json(
-        { error: 'totalCount must be between 1 and 50', code: 'VALIDATION_ERROR' },
+        { error: 'totalCount must be a whole number between 1 and 50', code: 'VALIDATION_ERROR' },
+        { status: 400 }
+      );
+    }
+    const totalCount = body.totalCount as number;
+
+    const source = body.source ?? 'admin_grant';
+    if (!(GRANT_SOURCES as readonly string[]).includes(source)) {
+      return NextResponse.json(
+        { error: `source must be one of: ${GRANT_SOURCES.join(', ')}`, code: 'VALIDATION_ERROR' },
         { status: 400 }
       );
     }
 
-    // Verify customer exists
     const { data: customer, error: customerError } = await supabaseAdmin
       .from('profiles')
       .select('id, role, full_name')
@@ -77,33 +66,47 @@ export const POST = withRoute(async function POST(request: Request) {
         { status: 404 }
       );
     }
+    if (customer.role !== 'customer') {
+      return NextResponse.json(
+        { error: 'Credits can only be given to customer accounts', code: 'NOT_A_CUSTOMER' },
+        { status: 400 }
+      );
+    }
 
-    const source = body.source || 'admin_grant';
+    const note = typeof body.note === 'string' ? body.note.trim().slice(0, 200) || null : null;
 
-    // Create the consultation pack
     const { data: pack, error: packError } = await supabaseAdmin
       .from('consultation_packs')
       .insert({
         customer_id: body.customerId,
-        pack_size: body.totalCount,
-        total_consultations: body.totalCount,
+        pack_size: totalCount,
+        total_consultations: totalCount,
         unit_price: 0,
         discount_percent: 100,
         total_price: 0,
         status: 'active',
         source,
-        granted_by_admin_id: user.id,
+        granted_by_admin_id: adminId,
+        admin_note: note,
       })
       .select('id, pack_size, total_consultations, remaining_count, status, purchased_at')
       .single();
 
-    if (packError) {
+    if (packError || !pack) {
       console.error('Failed to create admin pack:', packError);
       return NextResponse.json(
         { error: 'Failed to create pack', code: 'DB_ERROR' },
         { status: 500 }
       );
     }
+
+    await logAdminAction({
+      adminId,
+      action: 'grant_credits_free',
+      targetType: 'customer',
+      targetId: body.customerId,
+      details: { packId: pack.id, credits: totalCount, source, note },
+    });
 
     return NextResponse.json({ pack }, { status: 201 });
   } catch (err) {

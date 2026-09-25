@@ -1,85 +1,89 @@
 /**
- * /api/admin/consultation-requests
+ * /api/admin/consultation-requests — admin side of UPI purchases (L1).
  *
- * GET ?status=pending|contacted|fulfilled|cancelled
- *   List all credit requests, filterable by status. Admin-only.
+ * GET ?tab=claimed|awaiting|fulfilled|cancelled|all&q=…&ref=FP…
+ *   claimed   — customer says paid, waiting for us (default)
+ *   awaiting  — order created, not marked paid
+ *   ref       — just that order (the link in WhatsApp messages and ops emails)
+ *   q         — search reference, UPI transaction ID, name, email or phone
  *
- * PATCH
- *   Body: { requestId, action: 'contact'|'fulfill'|'cancel', packId?: string }
- *   Transition a request's status. Admin-only.
- *   - 'contact' → status='contacted'
- *   - 'fulfill' → status='fulfilled', requires packId (the admin assigns
- *      a pack via the existing Assign Pack modal first, then links it)
- *   - 'cancel' → status='cancelled'
+ * PATCH { requestId, action }
+ *   'grant'   — payment found: one transaction creates the pack at the real
+ *               price and closes the order (l1_fulfil_credit_request). The
+ *               amount must match the current price list. Double-click safe.
+ *               Body may carry bankReference. Customer gets an email + in-app
+ *               notification; the grant is audit-logged.
+ *   'cancel'  — payment not found / other reason. Body: reason,
+ *               notifyCustomer (email only for 'payment_not_found').
+ *   'contact' — legacy (pre-L1) requests only: mark contacted.
+ *
+ * Admin only (cookie session + profiles.role = 'admin').
  */
 
-import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { NextResponse, after } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { sendCreditsAddedEmail } from '@/lib/email';
+import { verifyAdmin, logAdminAction } from '@/lib/admin/auth';
+import { createNotification } from '@/lib/notifications/createNotification';
+import { sendCreditsReadyEmail, sendPaymentNotFoundEmail } from '@/lib/email';
+import { isPurchasablePackSize, packLabel, quotePack } from '@/lib/pricing/packs';
+import { APP_URL, PAYMENT_SUPPORT } from '@/lib/upi/config';
 import { withRoute } from '@/server/handler';
 
-async function verifyAdmin() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+const LIST_COLUMNS = `
+  id, customer_id, requested_quantity, preferred_contact, contact_phone, note, status,
+  pack_size, price_inr, gst_inr, amount_inr, reference_code, upi_vpa,
+  payment_claimed_at, payer_utr, bank_reference, payment_verified_at, cancel_reason,
+  fulfilled_pack_id, fulfilled_at, created_at, updated_at,
+  profiles!consultation_credit_requests_customer_id_fkey ( id, full_name, email, phone )
+`;
 
-  if (authError || !user) {
-    return {
-      error: NextResponse.json(
-        { error: 'Unauthorized', code: 'AUTH_REQUIRED' },
-        { status: 401 }
-      ),
-      user: null,
-    };
-  }
+const CANCEL_REASONS = ['payment_not_found', 'customer_asked', 'duplicate', 'other'] as const;
+type CancelReason = (typeof CANCEL_REASONS)[number];
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  if (!profile || profile.role !== 'admin') {
-    return {
-      error: NextResponse.json(
-        { error: 'Admin access required', code: 'FORBIDDEN' },
-        { status: 403 }
-      ),
-      user: null,
-    };
-  }
-
-  return { error: null, user };
+interface RequestRow {
+  id: string;
+  customer_id: string;
+  requested_quantity: number;
+  status: string;
+  pack_size: number | null;
+  price_inr: number | string | null;
+  gst_inr: number | string | null;
+  amount_inr: number | string | null;
+  reference_code: string | null;
+  payment_claimed_at: string | null;
+  payer_utr: string | null;
+  created_at: string;
+  profiles: { id: string; full_name: string | null; email: string | null; phone: string | null } | null;
+  [key: string]: unknown;
 }
 
 export const GET = withRoute(async function GET(request: Request) {
   try {
-    const { error: authErr, user } = await verifyAdmin();
-    if (authErr || !user) return authErr!;
+    const auth = await verifyAdmin();
+    if (auth.error) return auth.error;
 
     const { searchParams } = new URL(request.url);
-    const statusFilter = searchParams.get('status');
+    const tab = searchParams.get('tab') || 'claimed';
+    const ref = searchParams.get('ref')?.trim().toUpperCase() || null;
+    const q = searchParams.get('q')?.trim().toLowerCase() || null;
 
     let query = supabaseAdmin
       .from('consultation_credit_requests')
-      .select(`
-        *,
-        profiles!consultation_credit_requests_customer_id_fkey (
-          id, full_name, email, phone
-        )
-      `)
+      .select(LIST_COLUMNS)
       .order('created_at', { ascending: false })
-      .limit(100);
+      .limit(200);
 
-    if (statusFilter && ['pending', 'contacted', 'fulfilled', 'cancelled'].includes(statusFilter)) {
-      query = query.eq('status', statusFilter);
+    if (ref) {
+      query = query.eq('reference_code', ref);
+    } else if (tab === 'claimed') {
+      query = query.eq('status', 'pending').not('payment_claimed_at', 'is', null);
+    } else if (tab === 'awaiting') {
+      query = query.in('status', ['pending', 'contacted']).is('payment_claimed_at', null);
+    } else if (tab === 'fulfilled' || tab === 'cancelled') {
+      query = query.eq('status', tab);
     }
 
     const { data, error } = await query;
-
     if (error) {
       console.error('Admin credit requests fetch error:', error);
       return NextResponse.json(
@@ -88,7 +92,20 @@ export const GET = withRoute(async function GET(request: Request) {
       );
     }
 
-    return NextResponse.json({ requests: data || [] });
+    let rows = (data || []) as unknown as RequestRow[];
+    if (q) {
+      rows = rows.filter((r) =>
+        [r.reference_code, r.payer_utr, r.profiles?.full_name, r.profiles?.email, r.profiles?.phone]
+          .filter(Boolean)
+          .some((v) => String(v).toLowerCase().includes(q))
+      );
+    }
+    // Oldest claim first on the "customer says paid" tab: first come, first served.
+    if (tab === 'claimed' && !ref) {
+      rows.sort((a, b) => String(a.payment_claimed_at).localeCompare(String(b.payment_claimed_at)));
+    }
+
+    return NextResponse.json({ requests: rows });
   } catch (err) {
     console.error('GET /api/admin/consultation-requests error:', err);
     return NextResponse.json(
@@ -101,16 +118,18 @@ export const GET = withRoute(async function GET(request: Request) {
 interface PatchBody {
   requestId?: string;
   action?: string;
-  packId?: string;
+  bankReference?: string;
+  reason?: string;
+  notifyCustomer?: boolean;
 }
 
 export const PATCH = withRoute(async function PATCH(request: Request) {
   try {
-    const { error: authErr, user } = await verifyAdmin();
-    if (authErr || !user) return authErr!;
+    const auth = await verifyAdmin();
+    if (auth.error) return auth.error;
+    const adminId = auth.user.id;
 
     const body = (await request.json().catch(() => ({}))) as PatchBody;
-
     if (!body.requestId) {
       return NextResponse.json(
         { error: 'requestId is required', code: 'VALIDATION_ERROR' },
@@ -118,123 +137,192 @@ export const PATCH = withRoute(async function PATCH(request: Request) {
       );
     }
 
-    const validActions = ['contact', 'fulfill', 'cancel', 'revert'];
-    if (!body.action || !validActions.includes(body.action)) {
-      return NextResponse.json(
-        { error: 'action must be one of: contact, fulfill, cancel, revert', code: 'VALIDATION_ERROR' },
-        { status: 400 }
-      );
-    }
-
-    // Load the request
     const { data: req, error: fetchErr } = await supabaseAdmin
       .from('consultation_credit_requests')
-      .select('*')
+      .select(LIST_COLUMNS)
       .eq('id', body.requestId)
-      .single();
+      .maybeSingle();
 
     if (fetchErr || !req) {
-      return NextResponse.json(
-        { error: 'Request not found', code: 'NOT_FOUND' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Request not found', code: 'NOT_FOUND' }, { status: 404 });
     }
-
-    const updates: Record<string, unknown> = {};
+    const row = req as unknown as RequestRow;
+    const customer = row.profiles;
 
     switch (body.action) {
-      case 'contact':
-        if (req.status !== 'pending') {
+      case 'grant': {
+        if (!isPurchasablePackSize(row.pack_size) || !row.reference_code) {
           return NextResponse.json(
-            { error: 'Can only contact pending requests', code: 'INVALID_TRANSITION' },
+            {
+              error: 'This request was made before online payment. Use Users → Assign Pack if the customer paid.',
+              code: 'LEGACY_REQUEST',
+            },
             { status: 400 }
           );
         }
-        updates.status = 'contacted';
-        break;
+        const quote = quotePack(row.pack_size);
+        const bankReference =
+          typeof body.bankReference === 'string' ? body.bankReference.trim().slice(0, 100) : null;
 
-      case 'fulfill':
-        if (!body.packId) {
+        const { data: result, error: rpcError } = await supabaseAdmin.rpc('l1_fulfil_credit_request', {
+          p_request_id: row.id,
+          p_admin_id: adminId,
+          p_expected_pack_size: quote.size,
+          p_expected_price: quote.price,
+          p_expected_amount: quote.total,
+          p_unit_price: Math.round((quote.price / quote.size) * 100) / 100,
+          p_discount_percent: quote.discountPercent,
+          p_bank_reference: bankReference ?? undefined,
+        });
+
+        if (rpcError) {
+          console.error('l1_fulfil_credit_request failed:', rpcError);
           return NextResponse.json(
-            { error: 'packId is required to fulfill a request', code: 'VALIDATION_ERROR' },
-            { status: 400 }
+            { error: 'Could not grant. Nothing was changed. Please try again.', code: 'DB_ERROR' },
+            { status: 500 }
           );
         }
-        // Verify the pack exists and belongs to the same customer
-        const { data: pack } = await supabaseAdmin
-          .from('consultation_packs')
-          .select('id, customer_id')
-          .eq('id', body.packId)
-          .single();
 
-        if (!pack) {
+        const r = result as { ok: boolean; reason?: string; already?: boolean; pack_id?: string };
+        if (!r.ok) {
+          const messages: Record<string, string> = {
+            NOT_OPEN: 'This order is closed and cannot be granted.',
+            AMOUNT_MISMATCH:
+              "This order's amount doesn't match the current price list. Check the payment and use Users → Assign Pack instead.",
+            LEGACY_REQUEST: 'This request was made before online payment. Use Users → Assign Pack.',
+            NOT_FOUND: 'Request not found.',
+          };
           return NextResponse.json(
-            { error: 'Pack not found', code: 'PACK_NOT_FOUND' },
-            { status: 404 }
+            { error: messages[r.reason ?? ''] ?? 'Could not grant.', code: r.reason ?? 'GRANT_FAILED' },
+            { status: 409 }
           );
         }
-        if (pack.customer_id !== req.customer_id) {
-          return NextResponse.json(
-            { error: 'Pack does not belong to the requesting customer', code: 'PACK_CUSTOMER_MISMATCH' },
-            { status: 400 }
-          );
+
+        if (!r.already) {
+          after(async () => {
+            await logAdminAction({
+              adminId,
+              action: 'grant_credits_upi',
+              targetType: 'credit_request',
+              targetId: row.id,
+              details: {
+                reference: row.reference_code,
+                customerId: row.customer_id,
+                packSize: quote.size,
+                amount: quote.total,
+                packId: r.pack_id,
+                bankReference,
+                utr: row.payer_utr,
+              },
+            });
+            await createNotification({
+              user_id: row.customer_id,
+              type: 'credits_added',
+              title: 'Your consultations are ready',
+              body: `${packLabel(quote.size)} added to your account. You can book now.`,
+              channel: 'in_app',
+              data: { packId: r.pack_id, reference: row.reference_code },
+            });
+            if (customer?.email) {
+              const sent = await sendCreditsReadyEmail({
+                customerEmail: customer.email,
+                customerName: customer.full_name || 'there',
+                packSize: quote.size,
+                reference: row.reference_code as string,
+                bookUrl: `${APP_URL}/connect`,
+              });
+              if (!sent.success) console.error('[admin grant] credits email failed:', sent.error);
+            }
+          });
         }
-        updates.status = 'fulfilled';
-        updates.fulfilled_pack_id = body.packId;
-        updates.fulfilled_by_admin_id = user.id;
-        updates.fulfilled_at = new Date().toISOString();
-        break;
 
-      case 'cancel':
-        updates.status = 'cancelled';
-        break;
-
-      case 'revert':
-        if (req.status !== 'contacted') {
-          return NextResponse.json(
-            { error: 'Can only revert contacted requests back to pending', code: 'INVALID_TRANSITION' },
-            { status: 400 }
-          );
-        }
-        updates.status = 'pending';
-        break;
-    }
-
-    const { error: updateErr } = await supabaseAdmin
-      .from('consultation_credit_requests')
-      .update(updates)
-      .eq('id', body.requestId);
-
-    if (updateErr) {
-      console.error('Admin credit request update error:', updateErr);
-      return NextResponse.json(
-        { error: 'Failed to update request', code: 'DB_ERROR' },
-        { status: 500 }
-      );
-    }
-
-    // Send email notification when credits are fulfilled
-    if (body.action === 'fulfill') {
-      const { data: customerProfile } = await supabaseAdmin
-        .from('profiles')
-        .select('full_name, email')
-        .eq('id', req.customer_id)
-        .single();
-
-      if (customerProfile?.email) {
-        sendCreditsAddedEmail({
-          customerEmail: customerProfile.email,
-          customerName: customerProfile.full_name || 'Customer',
-          quantity: req.requested_quantity ?? 0,
-        }).catch((emailErr) => {
-          console.error('[EMAIL] Failed to send credits added email:', emailErr);
+        return NextResponse.json({
+          granted: true,
+          already: !!r.already,
+          packId: r.pack_id,
+          message: r.already
+            ? 'Already granted earlier — nothing changed.'
+            : `${packLabel(quote.size)} granted to ${customer?.full_name || 'the customer'}.`,
         });
       }
-    }
 
-    return NextResponse.json({
-      message: `Request ${body.action === 'fulfill' ? 'fulfilled' : body.action === 'contact' ? 'marked as contacted' : 'cancelled'} successfully`,
-    });
+      case 'cancel': {
+        if (!['pending', 'contacted'].includes(row.status)) {
+          return NextResponse.json(
+            { error: 'Only open requests can be cancelled', code: 'INVALID_TRANSITION' },
+            { status: 400 }
+          );
+        }
+        const reason: CancelReason = (CANCEL_REASONS as readonly string[]).includes(body.reason ?? '')
+          ? (body.reason as CancelReason)
+          : 'other';
+
+        const { data: cancelled, error: updateErr } = await supabaseAdmin
+          .from('consultation_credit_requests')
+          .update({ status: 'cancelled', cancel_reason: reason })
+          .eq('id', row.id)
+          .in('status', ['pending', 'contacted'])
+          .select('id')
+          .maybeSingle();
+
+        if (updateErr || !cancelled) {
+          return NextResponse.json(
+            { error: 'Could not cancel (it may have just been granted). Refresh and check.', code: 'DB_ERROR' },
+            { status: 409 }
+          );
+        }
+
+        const notify =
+          body.notifyCustomer === true &&
+          reason === 'payment_not_found' &&
+          !!row.reference_code &&
+          !!customer?.email;
+
+        after(async () => {
+          await logAdminAction({
+            adminId,
+            action: 'cancel_credit_request',
+            targetType: 'credit_request',
+            targetId: row.id,
+            details: { reference: row.reference_code, customerId: row.customer_id, reason, notified: notify },
+          });
+          if (notify && customer?.email) {
+            const sent = await sendPaymentNotFoundEmail({
+              customerEmail: customer.email,
+              customerName: customer.full_name || 'there',
+              reference: row.reference_code as string,
+              total: Number(row.amount_inr),
+              supportDisplay: PAYMENT_SUPPORT.display,
+              buyUrl: `${APP_URL}/buy`,
+            });
+            if (!sent.success) console.error('[admin cancel] email failed:', sent.error);
+          }
+        });
+
+        return NextResponse.json({ cancelled: true, notified: notify });
+      }
+
+      case 'contact': {
+        if (row.status !== 'pending' || row.reference_code) {
+          return NextResponse.json(
+            { error: 'Only legacy pending requests can be marked contacted', code: 'INVALID_TRANSITION' },
+            { status: 400 }
+          );
+        }
+        await supabaseAdmin
+          .from('consultation_credit_requests')
+          .update({ status: 'contacted' })
+          .eq('id', row.id)
+          .eq('status', 'pending');
+        return NextResponse.json({ contacted: true });
+      }
+
+      default:
+        return NextResponse.json(
+          { error: 'action must be one of: grant, cancel, contact', code: 'VALIDATION_ERROR' },
+          { status: 400 }
+        );
+    }
   } catch (err) {
     console.error('PATCH /api/admin/consultation-requests error:', err);
     return NextResponse.json(

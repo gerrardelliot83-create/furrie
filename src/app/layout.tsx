@@ -21,6 +21,10 @@ export const metadata: Metadata = {
     icon: '/favicon.ico',
     apple: '/apple-touch-icon.png',
   },
+  // Label under the home-screen icon on iPhone (otherwise it uses the page title).
+  appleWebApp: {
+    title: 'Furrie',
+  },
   openGraph: {
     type: 'website',
     locale: 'en_IN',
@@ -44,7 +48,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#1E5081', // Dusk Blue
+  themeColor: '#010f3a', // Navy (--color-navy); must match theme_color in public/manifest.json
 };
 
 export default async function RootLayout({

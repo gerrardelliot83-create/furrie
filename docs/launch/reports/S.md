@@ -9,7 +9,7 @@ Before S-1, anyone who had signed up could make themselves an admin with one dat
 
 - **The database refuses these on its own**, whatever the app does. Six SQL files lock it down: signed-out callers can't touch any table; users can't change their role; only the server can spend credits; vets can only complete, close or extend their consultations; consultation media is private. These files are safe with the code that's live now, so they can be applied before this PR merges.
 - **The app only accepts what the screens send.** A customer can cancel their consultation or edit its concern, and nothing else. An in-time cancel gives the credit back (Terms §7.3).
-- **"Deactivate" works.** A deactivated account is signed out and refused everywhere.
+- **"Deactivate" works in the app.** A deactivated account is signed out of every portal and refused by every API route (middleware, `getRequestUser()`, `verifyAdmin()`). It is **not yet enforced in the database or in Supabase Auth**: a deactivated user's still-valid token keeps its row-level rights on direct API calls until S-2 (backlog S-35: ban on deactivate, `is_active` inside `is_admin()`/`is_vet()`).
 - **The password "backdoor" route is gone**, and sign-in links can no longer bounce people to another website.
 - Nothing customers or vets use should change. The parked mobile app loses public links to its consultation media (4 test files).
 
@@ -29,6 +29,7 @@ Before S-1, anyone who had signed up could make themselves an admin with one dat
 | `cad6797` | S-06 (A-03), S-21 (A-04) | Role check beside every assigned-vet check (soap-notes, extend, capture-treatment, follow-up thread, join); join uses the canonical `furrie-<id>` room |
 | `a82471e` | **S-04 (SEC-3/A-01)**, S-05 (A-02) | Consultation PATCH: strict allowlist of the 3 real shapes; conditional writes; credit back on in-time cancel (seam 2); ratings embed normalised; unit tests |
 | `b7f238a` | — | CI: one step runs the unit tests after the build |
+| review fixes | S-19, S-16, S-17 | CTO review 2026-09-27: dot-segment redirect bypass closed; recovery fallback removed; login messages for `account_disabled` / `no_profile`; admin guard reasons; two caller-name reads folded; report wording (section below) |
 | merge | — | `main@0564463` (W-app #55) merged in; no overlap |
 | (this) | — | Report + backlog rows S-22…S-39 |
 
@@ -39,7 +40,7 @@ Before S-1, anyone who had signed up could make themselves an admin with one dat
 | Every critical/high fixed with migration + rollback + test | Critical: S-01, S-02, S-03, S-04. High: S-05…S-08, S-12, S-14…S-16, S-18. Each has a migration + paired rollback (DB) or code + unit test / probe (app). Mediums and one low bundled because they sat in the same statements or files: S-09, S-10, S-11 (low), S-13, S-17, S-19, S-21. | Yes |
 | Each confirmed exploit refused by a test | Tests: SEC-3 chain → `consultationPatch.test.ts`; SEC-4 → `s1_02`; SEC-5 → `s1_03`; SEC-6 → `s1_04`–`s1_08`; anonymous consultation-media listing → `s1_09`. **Control run:** each file *fails* against today's production structure (e.g. "customer makes self admin … it was allowed") and passes after the S files. | Yes (PGlite) |
 | CI green | Local: typecheck 0 errors · lint 0 errors (12 warnings, same as `main`) · build OK · unit tests 10/10 · `npm audit --audit-level=high` 0. GitHub CI: see the PR checks | Local yes; PR CI after push |
-| Security Advisor 0 errors and no SECURITY DEFINER function executable by `anon` | Migration 2 verification query (definer functions executable by anon → expect **0**) passes in PGlite. `validate_invite_code` is also server-only (approved Q3). | After the CTO applies the SQL (verification queries + advisor) |
+| Security Advisor 0 errors and no SECURITY DEFINER function executable by `anon` | Migration 2 verification query (definer functions executable by anon → expect **0**) passes in PGlite. `validate_invite_code` is also server-only (approved Q3). The CTO applied files 1–6 to production on 2026-09-27 and verified them with the files' queries and role tests: Security Advisor went from 25 to 13 WARN (`furrie-launch/approvals/S-review.md`). | Yes (production) |
 | Report written | This file + `furrie-launch/reports/S.md` | Yes |
 
 ### SQL evidence (PGlite, production structure of 2026-09-27)
@@ -66,14 +67,14 @@ Summary of the catalogue change: 249 facts removed and 27 added (mostly anon tab
 | `GET /auth/callback?next=/%5Cevil.com` signed out, no code | 307 to the route's own "link is incomplete" login message (middleware lets it through) |
 | `GET /dashboard`, `/admin-portal/dashboard` signed out | 307 `/login?redirectTo=…` |
 
-Unit tests: the redirect check refuses `//evil.com`, `/\evil.com`, `/<TAB>/evil.com`, `/<LF>/…`, absolute URLs and `javascript:`, and keeps `/set-password` and same-site paths with query and hash. The PATCH parser accepts exactly the 3 shapes the apps send, and refuses 13 smuggled fields, other statuses and outcomes, valid shapes with extra keys, and malformed values.
+Unit tests: the redirect check refuses `//evil.com`, `/\evil.com`, `/<TAB>/evil.com`, `/<LF>/…`, the dot-segment forms (`/.//evil.com`, `/..//evil.com/x`, `/%2e%2e//evil.com`, `/%2e//evil.com`, `/././/evil.com`), absolute URLs and `javascript:`. It keeps `/set-password` and same-site paths with query and hash, and a separate test asserts that for every input the final redirect resolves to our own origin. A brute-force run (scratch script, not in the repo) of 612,612 combinations found **0** that leave the site. The combinations mixed slashes, dots, `%2e`/`%2f`/`%5c`/`%09`, backslash, tab, `@`, `:`, `?`, `#` and scheme prefixes. The PATCH parser accepts exactly the 3 shapes the apps send, and refuses 13 smuggled fields, other statuses and outcomes, valid shapes with extra keys, and malformed values.
 
 Deactivation, the fail-closed middleware and the admin guard need a real database session. They are in the production click-through below.
 
 ### Query cost of `is_active` (approval item 6)
 
-- **No extra query:** page requests (middleware reads `is_active` in its role query) and admin API calls (`verifyAdmin`, same). The handlers in 11 of my route files now use the profile `getRequestUser()` loaded instead of reading it again (`profile` GET, flag POST, care-plans POST, generate-pdf, submissions GET/POST, treatment-plans GET/POST/PATCH/preview/finalize, join, email/welcome).
-- **One extra primary-key read per request:** the other 25 route files using `getRequestUser()`, plus care-plans GET, flag PATCH and profile PATCH.
+- **No extra query:** page requests (middleware reads `is_active` in its role query) and admin API calls (`verifyAdmin`, same). The handlers in 12 of my route files now use the profile `getRequestUser()` loaded instead of reading it again (`profile` GET, flag POST, care-plans POST (role and the vet's name), generate-pdf, submissions GET/POST, treatment-plans GET/POST/PATCH/preview/finalize, join, email/welcome, follow-up/thread POST (the vet's name)).
+- **One extra primary-key read per request:** the other 24 route files using `getRequestUser()`, plus care-plans GET, flag PATCH, profile PATCH and follow-up/thread GET.
 - **Two reads until the owners switch to `profile`:** 6 of V's routes (`vet/*`) and 3 of L1's (`book`, `consultation-requests`, `…/claim`). Filed as backlog S-38.
 - **Admin pages:** +1 read (layout guard). `getCurrentUser()` is unchanged (middleware already covers pages).
 
@@ -86,7 +87,7 @@ Deactivation, the fail-closed middleware and the admin guard need a real databas
 5. `20260927100400_s1_storage`. If it prints a WARNING about the bucket, the CTO does: Storage → consultation-media → Edit bucket → Public bucket off → Save.
 6. `20260927100500_s1_credit_requests_after_l1`
 
-All are safe **before** this PR merges. Run each file's verification queries after it. After the first real sign-up following file 2: `SELECT count(*) FROM auth.users u WHERE NOT EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = u.id)` → expect 0. Optional: paste any `supabase/tests/security/s1_*.sql` into the SQL Editor. Each one runs in a single statement and undoes itself; expected result `ERROR: S1 TEST PASSED …`. Rollbacks: `supabase/rollbacks/` (same names, reverse order; each re-opens its hole).
+**Applied to production and verified by the CTO on 2026-09-27.** All are safe **before** this PR merges. Run each file's verification queries after it. After the first real sign-up following file 2: `SELECT count(*) FROM auth.users u WHERE NOT EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = u.id)` → expect 0. Optional: paste any `supabase/tests/security/s1_*.sql` into the SQL Editor. Each one runs in a single statement and undoes itself; expected result `ERROR: S1 TEST PASSED …`. Rollbacks: `supabase/rollbacks/` (same names, reverse order; each re-opens its hole).
 
 ## Gerard's steps (the CTO relays)
 
@@ -130,12 +131,23 @@ All are safe **before** this PR merges. Run each file's verification queries aft
 - **`getCurrentUser()` unchanged** (the plan listed it). Middleware already enforces `is_active` for pages at no cost; changing it would add a second read to vet pages (approval item 6).
 - **More route files touched than planned:** 11 routes now use the profile `getRequestUser()` loaded, and `email/welcome` moved to `getRequestUser()`. Both were required by approval item 6.
 - **Approval item 5 (L1's admin routes → `verifyAdmin()`):** already done by L1 in #53 (`consultation-requests/route.ts:62,128`, `consultation-packs/route.ts:28`). Nothing to change.
-- **Middleware:** `/auth/callback` is explicitly public (approval item 3). On `vet.` hosts, a recovery link with no `next` lands on `/set-password` (optional approval item 2, one line).
+- **Middleware:** `/auth/callback` is explicitly public (approval item 3). The optional `vet.`-host recovery fallback to `/set-password` was added, then removed at the CTO review, so S-1 and V-1 stay independent of merge order. V passes `next=/set-password` explicitly.
 - **Seam 2:** the credit-back call is live, not a TODO (L1 merged first).
+
+## CTO review fixes (2026-09-27, `furrie-launch/approvals/S-review.md`)
+
+| # | Finding | Fix |
+|---|---|---|
+| 1 | HIGH: `safeNextPath` returned the parsed path after dot-segment resolution, so `/.//evil.com` and similar became `//evil.com` (a regression versus main) | Refuse a parsed path starting with `//`, and re-check that the exact returned string resolves to our origin. Five payloads and an every-case origin assertion added to the tests. Brute force: 612,612 inputs, 0 leaks |
+| 2 | MEDIUM: recovery fallback to `/set-password` would 404 if S-1 merged before V-1 | Removed; the default stays `/dashboard` |
+| 3 | LOW: the login forms showed `account_disabled` / `no_profile` as raw codes; the admin guard used `wrong_account` for every case | `src/lib/auth/loginErrors.ts` holds the two messages. `AuthForm.tsx` (ownership exception, mapping only) and `AdminLoginForm.tsx` use them, and V can import the same map in `VetLoginForm`. Admin guard: no profile → `no_profile`, deactivated → `account_disabled`, wrong role → `wrong_account`, database error → the portal's "Try again" error page |
+| 4 | LOW: the report overstated deactivation | Wording fixed in "In plain English"; S-30 and S-35 stay in the backlog |
+| 5 | LOW (optional): two caller-name reads | Folded into the loaded profile (`care-plans` POST, `follow-up/thread` POST) |
 
 ## For other sprints
 
 - **V:**
+  - `VetLoginForm`: show `ACCOUNT_ERROR_MESSAGES` from `src/lib/auth/loginErrors.ts` for `account_disabled` / `no_profile` (the CTO asked V).
   - Switch the six `vet/*` routes to `getRequestUser().profile` (S-38).
   - Vaccination approve/reject write 0 rows today; use a service-role write after a vet↔pet check (S-23).
   - `vet-portal/(app)/consultations/page.tsx:92-94` puts an unescaped `searchQuery` into `.or()`.

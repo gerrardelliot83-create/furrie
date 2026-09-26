@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactNode } from 'react';
+import { type ReactNode, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
@@ -31,8 +31,29 @@ const mobileNavRight = [
   { href: '/care-plans', label: 'Care Plans', icon: CarePlansIcon },
 ];
 
+// Must match the breakpoint in CustomerLayout.module.css (mobile header below, top bar at and above).
+const DESKTOP_QUERY = '(min-width: 768px)';
+
+function subscribeToDesktopQuery(onChange: () => void) {
+  const mql = window.matchMedia(DESKTOP_QUERY);
+  mql.addEventListener('change', onChange);
+  return () => mql.removeEventListener('change', onChange);
+}
+
+// null during server render and hydration, then true/false in the browser.
+function useIsDesktop(): boolean | null {
+  return useSyncExternalStore(
+    subscribeToDesktopQuery,
+    () => window.matchMedia(DESKTOP_QUERY).matches,
+    () => null
+  );
+}
+
 export function CustomerLayout({ children }: CustomerLayoutProps) {
   const pathname = usePathname();
+  // Mount the bell only in the visible slot: mounting both (one hidden by CSS)
+  // doubled its API calls, Realtime channel and poll.
+  const isDesktop = useIsDesktop();
 
   return (
     <div className={styles.layout}>
@@ -49,7 +70,7 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
           />
         </Link>
         <div className={styles.mobileHeaderRight}>
-          <NotificationBell />
+          {isDesktop === false && <NotificationBell />}
           <Link href="/profile" className={styles.mobileProfileButton} aria-label="Profile">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="8" r="5" />
@@ -104,7 +125,7 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
       <main className={styles.main}>
         {/* Desktop Top Bar */}
         <div className={styles.topBar}>
-          <NotificationBell />
+          {isDesktop === true && <NotificationBell />}
         </div>
         <div className={styles.content}>{children}</div>
       </main>

@@ -1,10 +1,31 @@
 {
+  "id": "/",
   "name": "Furrie",
   "short_name": "Furrie",
-  "description": "Veterinary Teleconsultation Platform",
+  "description": "Video consultations with a vet for your dog or cat.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#770002",
-  "icons": []
+  "background_color": "#fbfcee",
+  "theme_color": "#010f3a",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
 }

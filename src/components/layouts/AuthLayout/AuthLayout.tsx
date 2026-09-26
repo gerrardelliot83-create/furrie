@@ -22,7 +22,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
               priority
             />
           </Link>
-          <p className={styles.tagline}>Veterinary care, when you need it</p>
+          <p className={styles.tagline}>Video consultations with a vet, for dogs and cats.</p>
         </header>
         <main className={styles.main}>{children}</main>
         <footer className={styles.footer}>

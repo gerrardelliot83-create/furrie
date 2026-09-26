@@ -94,13 +94,12 @@ export function welcomeEmail(params: {
     html: wrapEmailBody(`
       <p style="${textStyle}">${emailGreeting(params.customerName)}</p>
       <p style="${textStyle}">
-        Welcome to Furrie. You now have a team of licensed veterinarians a video call away &mdash; anytime your pet needs care, guidance, or just a professional opinion.
+        Welcome to Furrie. You can book a video consultation with a vet for your dog or cat.
       </p>
       <p style="${textStyle}">Here's what you can do:</p>
       <ul style="font-size: 16px; color: #333; margin: 0 0 24px 0; padding-left: 20px; line-height: 1.8;">
-        <li><strong>Talk to a vet</strong> &mdash; Book a live video consultation with a licensed veterinarian. Available 24/7, anywhere in India.</li>
+        <li><strong>Talk to a vet</strong> &mdash; Book a video consultation at one of the open times, from anywhere in India.</li>
         <li><strong>Get a custom care plan</strong> &mdash; Every consultation ends with a plan built specifically for your pet: nutrition, recovery, special care &mdash; whatever they need.</li>
-        <li><strong>Ask a vet anything</strong> &mdash; Got a quick question? Our vets are available for async Q&amp;A. No consultation needed.</li>
       </ul>
       <p style="${textStyle}">
         The best place to start is adding your pet's profile. It takes about a minute and helps our vets give better, more personalised care from the very first call.
@@ -474,7 +473,7 @@ export function missedAppointmentEmail(params: {
         No worries at all. Things come up.
       </p>
       <p style="${textStyle}">
-        If ${params.petName} still needs to see a vet, you can book a new consultation whenever you're ready. Our vets are available 24/7.
+        If ${params.petName} still needs to see a vet, you can book a new consultation whenever you're ready.
       </p>
       <div style="text-align: center; margin: 32px 0;">
         <a href="${APP_URL}/connect" style="${btnPrimary}">Book New Consultation</a>

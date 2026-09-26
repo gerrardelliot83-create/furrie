@@ -122,7 +122,8 @@ export async function maybeClaimFoundingCredit(userId: string): Promise<void> {
  * For a brand-new account: redeem its invite code and claim a founding credit
  * BEFORE the dashboard reads the balance, so a new invitee sees their free
  * consultation on the first view instead of "0 available" (L1). Both steps
- * are idempotent; the dashboard's after() hook still covers older accounts.
+ * are idempotent; the dashboard's after() hook runs both again on every
+ * visit, which covers accounts whose first visit comes later.
  */
 export async function grantSignupCredits(supabase: SupabaseClient, user: User): Promise<void> {
   if (!isNewAccount(user.created_at)) return;

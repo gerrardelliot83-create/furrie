@@ -17,7 +17,7 @@ import { PackCtaCard } from '@/components/customer';
 import { ConsultationBalanceCard } from '@/components/customer/ConsultationBalanceCard';
 import { InviteCard } from '@/components/customer/InviteCard';
 import { getActiveCreditBalance, EMPTY_CREDIT_BALANCE } from '@/lib/credits/getActiveCreditBalance';
-import { maybeSendWelcomeEmail, maybeRedeemInvite, grantSignupCredits } from '@/lib/auth/postSignInTasks';
+import { maybeSendWelcomeEmail, maybeRedeemInvite, maybeClaimFoundingCredit, grantSignupCredits } from '@/lib/auth/postSignInTasks';
 import styles from './Dashboard.module.css';
 
 export const maxDuration = 30;
@@ -151,7 +151,9 @@ export default async function CustomerDashboard() {
   // Sign-in side-effects the user isn't waiting for. `after()` runs these once
   // the response has been streamed, so they cost the page nothing. They used to
   // be two fire-and-forget fetches racing the navigation out of the OTP form.
-  // Both are idempotent, so running them on every dashboard render is safe.
+  // All are idempotent, so running them on every dashboard render is safe.
+  // The founding claim is here too so a waitlist member whose first dashboard
+  // visit comes more than 30 minutes after sign-up still gets their credit.
   after(async () => {
     await Promise.allSettled([
       maybeSendWelcomeEmail({
@@ -160,6 +162,7 @@ export default async function CustomerDashboard() {
         createdAt: profile?.created_at,
       }),
       maybeRedeemInvite(supabase, user),
+      maybeClaimFoundingCredit(user.id),
     ]);
   });
 

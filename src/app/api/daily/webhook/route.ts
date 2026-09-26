@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { getRecordingLink } from '@/lib/daily';
 import { createHmac, timingSafeEqual } from 'crypto';
-import { checkPlusSubscriptionWithClient, calculateThreadExpiry } from '@/lib/utils/followUpHelpers';
+import { consultationIdFromRoom } from '@/lib/daily/rooms';
+import { meetingDurationMinutes, parseDailyWebhook, type DailyWebhookEvent } from '@/lib/daily/webhookEvents';
 import { withRoute } from '@/server/handler';
 
 const DAILY_WEBHOOK_SECRET = process.env.DAILY_WEBHOOK_SECRET;
@@ -56,11 +57,15 @@ export const GET = withRoute(async function GET() {
  * POST /api/daily/webhook
  * Handles Daily.co webhook events
  *
- * Events handled:
- * - recording.ready-to-download: Recording is ready, store URL
- * - meeting.ended: Meeting ended, update consultation status
- * - participant.joined: Track participant joins
- * - participant.left: Track participant leaves
+ * Events handled (field names as Daily documents them — see
+ * src/lib/daily/webhookEvents.ts; P0R-1):
+ * - recording.ready-to-download: store the recording on the consultation
+ * - meeting.ended: record the call length on an active consultation. It does
+ *   NOT close it: the vet finishes it (notes, then Finish), or the stale-call
+ *   cron closes it by the V rule set (A-07).
+ * - participant.joined: when the customer enters the room, tell the vet's
+ *   portal (Broadcast 'customer_joined' on vet:<id>:notifications)
+ * - participant.left: acknowledged, nothing to do
  *
  * Security: Verifies HMAC signature from Daily.co
  * See: https://docs.daily.co/reference/rest-api/webhooks
@@ -102,26 +107,27 @@ export const POST = withRoute(async function POST(request: NextRequest) {
       }
     }
 
-    const body = JSON.parse(rawBody);
-    const { event, payload } = body;
+    const event = parseDailyWebhook(JSON.parse(rawBody));
 
-    console.log('Daily.co webhook received:', event);
-
-    switch (event) {
+    switch (event.type) {
       case 'recording.ready-to-download':
-        await handleRecordingReady(payload);
+        await handleRecordingReady(event);
         break;
 
       case 'meeting.ended':
-        await handleMeetingEnded(payload);
+        await handleMeetingEnded(event);
         break;
 
       case 'participant.joined':
-        await handleParticipantJoined(payload);
+        await handleParticipantJoined(event);
+        break;
+
+      case 'participant.left':
+        // Subscribed by scripts/setup-daily-webhooks.ts; nothing to record.
         break;
 
       default:
-        console.log('Unhandled Daily.co event:', event);
+        console.log('[daily-webhook] unhandled event type:', event.rawType);
     }
 
     return NextResponse.json({ received: true });
@@ -135,167 +141,104 @@ export const POST = withRoute(async function POST(request: NextRequest) {
 });
 
 /**
- * Handle recording.ready-to-download event
- * Stores recording URL in the consultation record
+ * recording.ready-to-download — store the recording on the consultation.
+ * Daily's payload names the room `room_name` for this event.
  */
-async function handleRecordingReady(payload: {
-  recording_id: string;
-  room_name: string;
-  duration: number;
-}) {
-  const { recording_id, room_name } = payload;
-
-  console.log('Recording ready:', { recording_id, room_name });
-
-  // Extract consultation ID from room name (format: furrie-{consultationId})
-  const consultationId = extractConsultationId(room_name);
-  if (!consultationId) {
-    console.error('Could not extract consultation ID from room name:', room_name);
+async function handleRecordingReady(
+  event: Extract<DailyWebhookEvent, { type: 'recording.ready-to-download' }>
+) {
+  const consultationId = consultationIdFromRoom(event.roomName);
+  if (!consultationId || !event.recordingId) {
+    console.log('[daily-webhook] recording for a non-Furrie room or without id; ignored');
     return;
   }
 
-  // Get the recording download link
   let recordingUrl: string | null = null;
   try {
-    recordingUrl = await getRecordingLink(recording_id);
+    recordingUrl = await getRecordingLink(event.recordingId);
   } catch (error) {
-    console.error('Failed to get recording link:', error);
+    console.error('[daily-webhook] failed to get recording link:', error);
   }
 
-  // Update consultation with recording info
-  const { error } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from('consultations')
-    .update({
-      recording_id,
-      recording_url: recordingUrl,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', consultationId);
+    .update({ recording_id: event.recordingId, recording_url: recordingUrl })
+    .eq('id', consultationId)
+    .in('status', ['active', 'closed'])
+    .select('id')
+    .maybeSingle();
 
   if (error) {
-    console.error('Failed to update consultation with recording:', error);
+    console.error('[daily-webhook] failed to save recording:', error);
   } else {
-    console.log('Recording info saved for consultation:', consultationId);
+    console.log(`[daily-webhook] recording.ready-to-download ${data ? 'saved' : 'ignored (no active/closed consultation)'} consultation=${consultationId}`);
   }
 }
 
 /**
- * Handle meeting.ended event
- * Updates consultation status to completed if in_progress
+ * meeting.ended — record how long the call lasted, only while the
+ * consultation is still active (guarded update). It does not close it.
  */
-async function handleMeetingEnded(payload: {
-  room_name: string;
-  duration: number;
-}) {
-  const { room_name, duration } = payload;
-
-  console.log('Meeting ended:', { room_name, duration });
-
-  // Extract consultation ID
-  const consultationId = extractConsultationId(room_name);
+async function handleMeetingEnded(event: Extract<DailyWebhookEvent, { type: 'meeting.ended' }>) {
+  const consultationId = consultationIdFromRoom(event.room);
   if (!consultationId) {
-    console.error('Could not extract consultation ID from room name:', room_name);
+    console.log('[daily-webhook] meeting.ended for a non-Furrie room; ignored');
     return;
   }
 
-  // Fetch current consultation status
-  const { data: consultation, error: fetchError } = await supabaseAdmin
+  const minutes = meetingDurationMinutes(event.startTs, event.endTs);
+  if (minutes === null) {
+    console.warn(`[daily-webhook] meeting.ended without usable start/end consultation=${consultationId}`);
+    return;
+  }
+
+  const { data, error } = await supabaseAdmin
     .from('consultations')
-    .select('status, started_at, customer_id, pet_id')
+    .update({ duration_minutes: minutes })
     .eq('id', consultationId)
-    .single();
+    .eq('status', 'active')
+    .select('id')
+    .maybeSingle();
 
-  if (fetchError || !consultation) {
-    console.error('Failed to fetch consultation:', fetchError);
+  if (error) {
+    console.error('[daily-webhook] failed to record meeting length:', error);
     return;
   }
+  console.log(
+    `[daily-webhook] meeting.ended processed consultation=${consultationId} minutes=${minutes} ${data ? 'recorded' : 'not active, unchanged'}`
+  );
+}
 
-  // Only complete if currently active
-  if (consultation.status !== 'active') {
-    console.log('Consultation not active, skipping status update');
-    return;
-  }
+/**
+ * participant.joined — when the customer enters the room, tell the vet's
+ * portal so it can chime (VetAlerts). `user_id` is the id we put in the
+ * meeting token (POST /api/consultations/[id]/join).
+ */
+async function handleParticipantJoined(event: Extract<DailyWebhookEvent, { type: 'participant.joined' }>) {
+  const consultationId = consultationIdFromRoom(event.room);
+  if (!consultationId || !event.userId) return;
 
-  // Calculate actual duration in minutes
-  const actualDurationMinutes = Math.ceil(duration / 60);
-
-  // Update consultation status to closed with success outcome
-  const { error: updateError } = await supabaseAdmin
+  const { data: consultation, error } = await supabaseAdmin
     .from('consultations')
-    .update({
-      status: 'closed',
-      outcome: 'success',
-      ended_at: new Date().toISOString(),
-      duration_minutes: actualDurationMinutes,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', consultationId);
+    .select('id, customer_id, vet_id, status, pets!consultations_pet_id_fkey (name)')
+    .eq('id', consultationId)
+    .maybeSingle();
 
-  if (updateError) {
-    console.error('Failed to complete consultation:', updateError);
-  } else {
-    console.log('Consultation completed:', consultationId);
+  if (error || !consultation?.vet_id) return;
+  if (event.userId !== consultation.customer_id) return;
+  if (consultation.status !== 'scheduled' && consultation.status !== 'active') return;
 
-    // Check Plus subscription for follow-up expiry
-    // Plus users get indefinite follow-up, free users get 7 days
-    let isPlusUser = false;
-    if (consultation.customer_id && consultation.pet_id) {
-      try {
-        isPlusUser = await checkPlusSubscriptionWithClient(
-          supabaseAdmin,
-          consultation.customer_id,
-          consultation.pet_id
-        );
-      } catch (subErr) {
-        console.error('Failed to check Plus subscription:', subErr);
-      }
-    }
-
-    const followUpExpiry = calculateThreadExpiry(isPlusUser);
-
-    await supabaseAdmin
-      .from('consultations')
-      .update({
-        follow_up_expires_at: followUpExpiry,
-      })
-      .eq('id', consultationId);
-
-    console.log(`Follow-up expiry set for ${consultationId}: ${followUpExpiry ?? 'indefinite (Plus user)'}`);
+  const pet = consultation.pets as unknown as { name: string } | null;
+  try {
+    const channel = supabaseAdmin.channel(`vet:${consultation.vet_id}:notifications`);
+    await channel.send({
+      type: 'broadcast',
+      event: 'customer_joined',
+      payload: { consultationId, petName: pet?.name ?? null },
+    });
+    await supabaseAdmin.removeChannel(channel);
+    console.log(`[daily-webhook] participant.joined customer consultation=${consultationId}; vet notified`);
+  } catch (broadcastError) {
+    console.error('[daily-webhook] failed to notify vet of customer join:', broadcastError);
   }
-}
-
-/**
- * Handle participant-joined event
- * Updates consultation status to in_progress when both parties join
- */
-async function handleParticipantJoined(payload: {
-  room_name: string;
-  participant_id: string;
-  user_id: string;
-  joined_at: number;
-}) {
-  const { room_name, user_id } = payload;
-
-  console.log('Participant joined:', { room_name, user_id });
-
-  // Extract consultation ID
-  const consultationId = extractConsultationId(room_name);
-  if (!consultationId) {
-    return;
-  }
-
-  // Note: Status transitions are now handled by the /join endpoint
-  // This webhook is primarily for logging and monitoring
-  console.log(`Participant ${user_id} joined consultation ${consultationId}`);
-}
-
-/**
- * Extract consultation ID from room name
- * Room name format: furrie-{consultationId}
- */
-function extractConsultationId(roomName: string): string | null {
-  if (!roomName.startsWith('furrie-')) {
-    return null;
-  }
-  return roomName.replace('furrie-', '');
 }

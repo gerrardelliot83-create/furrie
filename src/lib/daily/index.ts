@@ -1,5 +1,9 @@
 // Daily.co video integration helpers for Furrie teleconsultations
 
+import { roomNameForConsultation } from './rooms';
+
+export { roomNameForConsultation, consultationIdFromRoom } from './rooms';
+
 export const DAILY_DOMAIN = process.env.NEXT_PUBLIC_DAILY_DOMAIN;
 const DAILY_API_KEY = process.env.DAILY_API_KEY;
 const DAILY_API_URL = 'https://api.daily.co/v1';
@@ -71,7 +75,7 @@ export async function createRoom(
   }
 
   // Room name: furrie-{consultation_id}
-  const roomName = `furrie-${consultationId}`;
+  const roomName = roomNameForConsultation(consultationId);
 
   // Expiry: current time + duration + 5 min buffer
   const expiresAt = Math.floor(Date.now() / 1000) + (durationMinutes + 5) * 60;

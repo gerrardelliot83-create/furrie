@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/Button';
+import { formatVetName } from '@/lib/utils';
 import styles from './page.module.css';
 
 // Lazy-load Daily SDK and VideoRoom — only fetched when user clicks "Join"
@@ -229,9 +230,9 @@ export default function CustomerVideoRoomPage() {
             <div className={styles.vetInfo}>
               <p className={styles.vetLabel}>Your Veterinarian</p>
               <h2 className={styles.vetName}>
-                {vetInfo?.name ? `Dr. ${vetInfo.name}` : 'Your vet'}
+                {vetInfo?.name ? formatVetName(vetInfo.name) : 'Your vet'}
               </h2>
-              <p className={styles.vetStatus}>is waiting for you</p>
+              <p className={styles.vetStatus}>will join you in this video call</p>
             </div>
           </div>
 

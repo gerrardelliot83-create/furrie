@@ -25,6 +25,8 @@ interface VetRow {
   is_active: boolean | null;
   created_at: string;
   vet_profiles: VetProfileRow[] | VetProfileRow | null;
+  /** Counted from consultations (closed + success). */
+  completed_consultations?: number;
 }
 
 function getInitials(name: string | null): string {
@@ -187,7 +189,7 @@ export function VetsManagement({ initialVets }: { initialVets: VetRow[] }) {
                       </div>
                     ) : '-'}
                   </td>
-                  <td>{vp?.consultation_count ?? 0}</td>
+                  <td>{vet.completed_consultations ?? 0}</td>
                   <td>{vp?.average_rating ? `${vp.average_rating.toFixed(1)}/5` : '-'}</td>
                   <td>{summarizeWeeklyHours(vp?.availability_schedule)}</td>
                   <td>

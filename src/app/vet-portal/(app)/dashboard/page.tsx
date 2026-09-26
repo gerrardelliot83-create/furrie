@@ -43,7 +43,7 @@ export default async function VetDashboard() {
     // [1] Vet profile
     supabase
       .from('vet_profiles')
-      .select('is_available, consultation_count, average_rating, availability_schedule')
+      .select('is_available, average_rating, availability_schedule')
       .eq('id', user.id)
       .single(),
     // [2] Today active count
@@ -108,10 +108,19 @@ export default async function VetDashboard() {
       .eq('status', 'active')
       .order('created_at', { ascending: false })
       .limit(5),
+    // [8] Completed consultations, all time (vet_profiles.consultation_count
+    //     is never incremented, so count the rows)
+    supabase
+      .from('consultations')
+      .select('id', { count: 'exact', head: true })
+      .eq('vet_id', user.id)
+      .eq('status', 'closed')
+      .eq('outcome', 'success'),
   ]);
 
   type QueryResult = Awaited<typeof allQueries>;
   const fallback = [
+    { data: null, error: null, count: null, status: 0, statusText: '' },
     { data: null, error: null, count: null, status: 0, statusText: '' },
     { data: null, error: null, count: null, status: 0, statusText: '' },
     { data: null, error: null, count: null, status: 0, statusText: '' },
@@ -133,6 +142,7 @@ export default async function VetDashboard() {
     { count: weekCompletedCount },
     { data: recentConsultations },
     { data: activeCarePlansData },
+    { count: completedCount },
   ] = results;
 
   // BRK-8: a timeout or a failed profile read is not a wrong account. Sending
@@ -189,7 +199,7 @@ export default async function VetDashboard() {
   const stats = {
     todayConsultations: todayCount || 0,
     weekConsultations: weekCount || 0,
-    totalConsultations: vetProfile?.consultation_count || 0,
+    totalConsultations: completedCount || 0,
     averageRating: vetProfile?.average_rating || 0,
   };
 

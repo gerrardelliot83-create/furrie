@@ -51,12 +51,20 @@ export const GET = withRoute(async function GET() {
       .lt('scheduled_at', week.end.toISOString())
       .in('status', ['closed', 'active']);
 
-    // Get vet profile for total count and rating
+    // Get vet profile for rating and availability
     const { data: vetProfile } = await supabase
       .from('vet_profiles')
-      .select('consultation_count, average_rating, is_available')
+      .select('average_rating, is_available')
       .eq('id', user.id)
       .single();
+
+    // Completed consultations, counted (vet_profiles.consultation_count is never incremented)
+    const { count: completedCount } = await supabase
+      .from('consultations')
+      .select('id', { count: 'exact', head: true })
+      .eq('vet_id', user.id)
+      .eq('status', 'closed')
+      .eq('outcome', 'success');
 
     // Fetch recent consultations with relations
     const { data: recentConsultations, error: consultationsError } = await supabase
@@ -122,7 +130,7 @@ export const GET = withRoute(async function GET() {
       stats: {
         todayConsultations: todayCount || 0,
         weekConsultations: weekCount || 0,
-        totalConsultations: vetProfile?.consultation_count || 0,
+        totalConsultations: completedCount || 0,
         averageRating: vetProfile?.average_rating || 0,
         isAvailable: vetProfile?.is_available || false,
       },

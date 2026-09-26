@@ -6,6 +6,7 @@ import { withRoute } from '@/server/handler';
 import { sendVetSetPasswordLink } from '@/app/api/vet/_lib/passwordLink';
 import { stripDoctorPrefix } from '@/app/api/vet/_lib/vetName';
 import { INVALID_PHONE_MESSAGE, normalizeIndianMobile } from '@/app/api/vet/_lib/phone';
+import { countCompletedConsultations } from '@/app/api/vet/_lib/consultationCounts';
 
 interface CreateVetBody {
   email: string;
@@ -233,7 +234,11 @@ export const GET = withRoute(async function GET() {
       );
     }
 
-    return NextResponse.json({ vets: vets || [] });
+    // Completed consultations per vet, counted (consultation_count is never incremented)
+    const counts = await countCompletedConsultations((vets || []).map((v) => v.id));
+    return NextResponse.json({
+      vets: (vets || []).map((v) => ({ ...v, completed_consultations: counts.get(v.id) ?? 0 })),
+    });
   } catch (error) {
     console.error('Unexpected error in GET /api/admin/vets:', error);
     return NextResponse.json(

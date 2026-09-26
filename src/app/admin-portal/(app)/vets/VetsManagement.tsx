@@ -320,8 +320,8 @@ function CreateVetModal({
         <form onSubmit={handleSubmit} className={styles.form}>
           <div className={styles.formRow}>
             <div className={styles.field}>
-              <label className={styles.label}>Full Name *</label>
-              <input name="fullName" className={styles.input} required placeholder="Dr. Priya Sharma" />
+              <label className={styles.label}>Full Name (without &ldquo;Dr.&rdquo;) *</label>
+              <input name="fullName" className={styles.input} required placeholder="Priya Sharma" />
             </div>
             <div className={styles.field}>
               <label className={styles.label}>Email *</label>
@@ -422,7 +422,7 @@ function EditVetModal({ vet, onClose, onSaved }: { vet: VetRow; onClose: () => v
         <form onSubmit={handleSubmit} className={styles.form}>
           <div className={styles.formRow}>
             <div className={styles.field}>
-              <label className={styles.label}>Full Name</label>
+              <label className={styles.label}>Full Name (without &ldquo;Dr.&rdquo;)</label>
               <input name="fullName" className={styles.input} defaultValue={vet.full_name || ''} />
             </div>
             <div className={styles.field}>

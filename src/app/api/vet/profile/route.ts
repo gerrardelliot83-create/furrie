@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { validateAvailabilitySchedule } from '@/lib/scheduling/validateAvailabilitySchedule';
+import { stripDoctorPrefix } from '@/app/api/vet/_lib/vetName';
 import { withRoute } from '@/server/handler';
 
 /**
@@ -103,7 +104,8 @@ export const PATCH = withRoute(async function PATCH(request: Request) {
     // Update profiles table (name, phone, avatar)
     const profileUpdate: Record<string, unknown> = {};
     if (body.fullName !== undefined) {
-      const trimmed = body.fullName?.trim();
+      // Stored without "Dr." — every screen and email adds it (C-09)
+      const trimmed = typeof body.fullName === 'string' ? stripDoctorPrefix(body.fullName) : '';
       if (!trimmed) {
         return NextResponse.json(
           { error: 'Full name cannot be empty', code: 'VALIDATION_ERROR' },

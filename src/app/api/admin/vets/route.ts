@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { verifyAdmin, logAdminAction } from '@/lib/admin/auth';
 import { withRoute } from '@/server/handler';
 import { sendVetSetPasswordLink } from '@/app/api/vet/_lib/passwordLink';
+import { stripDoctorPrefix } from '@/app/api/vet/_lib/vetName';
 
 interface CreateVetBody {
   email: string;
@@ -39,6 +40,8 @@ export const POST = withRoute(async function POST(request: Request) {
         { status: 400 }
       );
     }
+    // Stored without "Dr." — every screen and email adds it (C-09)
+    body.fullName = typeof body.fullName === 'string' ? stripDoctorPrefix(body.fullName) : '';
     if (!body.fullName) {
       return NextResponse.json(
         { error: 'fullName is required', code: 'VALIDATION_ERROR' },
@@ -286,7 +289,17 @@ export const PATCH = withRoute(async function PATCH(request: Request) {
 
     // Update profiles table fields
     const profileUpdates: Record<string, unknown> = {};
-    if (body.fullName !== undefined) profileUpdates.full_name = body.fullName;
+    if (body.fullName !== undefined) {
+      // Stored without "Dr." — every screen and email adds it (C-09)
+      const fullName = stripDoctorPrefix(String(body.fullName ?? ''));
+      if (!fullName) {
+        return NextResponse.json(
+          { error: 'Full name cannot be empty', code: 'VALIDATION_ERROR' },
+          { status: 400 }
+        );
+      }
+      profileUpdates.full_name = fullName;
+    }
     if (body.phone !== undefined) profileUpdates.phone = body.phone;
     if (body.isActive !== undefined) profileUpdates.is_active = body.isActive;
 

@@ -122,8 +122,10 @@ export default async function VetDashboard() {
     { data: null, error: null, count: null, status: 0, statusText: '' },
   ] as unknown as QueryResult;
 
+  const results = await withTimeout(allQueries, QUERY_TIMEOUT, fallback);
+  const timedOut = results === fallback;
   const [
-    { data: profile },
+    { data: profile, error: profileError },
     { data: vetProfile },
     { count: todayActiveCount },
     { count: todayCompletedCount },
@@ -131,10 +133,16 @@ export default async function VetDashboard() {
     { count: weekCompletedCount },
     { data: recentConsultations },
     { data: activeCarePlansData },
-  ] = await withTimeout(allQueries, QUERY_TIMEOUT, fallback);
+  ] = results;
 
-  // Verify user is a vet (after parallel batch)
-  if (!profile || profile.role !== 'vet') {
+  // BRK-8: a timeout or a failed profile read is not a wrong account. Sending
+  // the vet to /login?error=wrong_account made the middleware send a signed-in
+  // vet straight back here — a redirect loop. Show the retry state instead.
+  if (timedOut || profileError || !profile) {
+    return <DashboardUnavailable />;
+  }
+
+  if (profile.role !== 'vet') {
     redirect('/login?error=wrong_account');
   }
 
@@ -205,42 +213,10 @@ export default async function VetDashboard() {
     };
   });
 
-  // If all critical queries failed or timed out, show a connection error
+  // If all critical queries failed, show a connection error
   const allQueriesFailed = todayActiveCount === null && todayCompletedCount === null && !recentConsultations;
   if (allQueriesFailed) {
-    return (
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '60vh',
-        padding: '2rem',
-        textAlign: 'center',
-      }}>
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#1a1a1a', marginBottom: '0.5rem' }}>
-          Having trouble connecting
-        </h2>
-        <p style={{ color: '#666', marginBottom: '1.5rem', lineHeight: 1.5 }}>
-          We could not load your dashboard data. Please check your connection and try again.
-        </p>
-        <a
-          href="/dashboard"
-          style={{
-            padding: '0.625rem 1.5rem',
-            backgroundColor: '#770002',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '8px',
-            fontSize: '0.9375rem',
-            fontWeight: 500,
-            textDecoration: 'none',
-          }}
-        >
-          Reload page
-        </a>
-      </div>
-    );
+    return <DashboardUnavailable />;
   }
 
   return (
@@ -253,5 +229,42 @@ export default async function VetDashboard() {
       recentConsultations={mappedConsultations}
       activeCarePlans={activeCarePlans}
     />
+  );
+}
+
+/** "Having trouble connecting" with a reload link (used for timeouts and failures). */
+function DashboardUnavailable() {
+  return (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: '60vh',
+      padding: '2rem',
+      textAlign: 'center',
+    }}>
+      <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#1a1a1a', marginBottom: '0.5rem' }}>
+        Having trouble connecting
+      </h2>
+      <p style={{ color: '#666', marginBottom: '1.5rem', lineHeight: 1.5 }}>
+        We could not load your dashboard data. Please check your connection and try again.
+      </p>
+      <a
+        href="/dashboard"
+        style={{
+          padding: '0.625rem 1.5rem',
+          backgroundColor: '#770002',
+          color: '#fff',
+          border: 'none',
+          borderRadius: '8px',
+          fontSize: '0.9375rem',
+          fontWeight: 500,
+          textDecoration: 'none',
+        }}
+      >
+        Reload page
+      </a>
+    </div>
   );
 }

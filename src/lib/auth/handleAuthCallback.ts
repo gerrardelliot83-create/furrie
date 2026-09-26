@@ -71,11 +71,8 @@ export async function handleAuthCallback(request: Request): Promise<NextResponse
     );
   }
 
-  // Only ever redirect to a path on this origin (see safeNextPath). A vet's
-  // password-recovery link with no `next` lands on the set-password page.
-  const fallback =
-    params.get('type') === 'recovery' && url.hostname.startsWith('vet.') ? '/set-password' : '/dashboard';
-  const destination = safeNextPath(params.get('next'), url.origin, fallback);
+  // Only ever redirect to a path on this origin (see safeNextPath).
+  const destination = safeNextPath(params.get('next'), url.origin);
 
   return NextResponse.redirect(new URL(destination, url.origin));
 }

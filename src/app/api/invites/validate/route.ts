@@ -11,6 +11,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { FEATURES } from '@/lib/config/features';
+import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/utils/rate-limit';
 import { withRoute } from '@/server/handler';
 
 export const POST = withRoute(async function POST(request: Request) {
@@ -21,6 +22,14 @@ export const POST = withRoute(async function POST(request: Request) {
         { status: 200 }
       );
     }
+    const rateCheck = checkRateLimit(`invite-validate:${getClientIp(request)}`, RATE_LIMITS.auth);
+    if (!rateCheck.success) {
+      return NextResponse.json(
+        { valid: false, reason: 'Too many attempts. Please wait a minute and try again.' },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json().catch(() => ({}));
     const code = (body.code as string)?.trim()?.toUpperCase();
 

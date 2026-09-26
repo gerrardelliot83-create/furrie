@@ -162,9 +162,9 @@ export function UsersManagement({ initialUsers }: { initialUsers: UserRow[] }) {
                         className={styles.actionBtn}
                         onClick={() => setPackUser(user)}
                         disabled={isLoading}
-                        title="Assign consultation pack"
+                        title="Give free consultations"
                       >
-                        Assign Pack
+                        Give credits
                       </button>
                       <button
                         className={styles.actionBtn}
@@ -305,13 +305,12 @@ function CreateUserModal({ onClose, onCreated }: { onClose: () => void; onCreate
 function AssignPackModal({ user, onClose, onAssigned }: { user: UserRow; onClose: () => void; onAssigned: () => void }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [packSize, setPackSize] = useState<3 | 5 | 10>(3);
+  const [packSize, setPackSize] = useState<number>(1);
+  const [note, setNote] = useState('');
 
-  const packOptions = [
-    { size: 3 as const, price: 807, discount: '10%', perConsult: 269 },
-    { size: 5 as const, price: 1121, discount: '25%', perConsult: 224 },
-    { size: 10 as const, price: 1495, discount: '50%', perConsult: 150 },
-  ];
+  // Free grants only (goodwill, refunds, testing). Paid UPI orders are granted
+  // from Credit requests, which records the price (L1).
+  const packOptions = [1, 3, 5, 10].map((size) => ({ size }));
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -321,7 +320,7 @@ function AssignPackModal({ user, onClose, onAssigned }: { user: UserRow; onClose
     const res = await fetch('/api/admin/consultation-packs', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ customerId: user.id, totalCount: packSize }),
+      body: JSON.stringify({ customerId: user.id, totalCount: packSize, note: note.trim() || undefined }),
     });
 
     const data = await res.json();
@@ -337,7 +336,7 @@ function AssignPackModal({ user, onClose, onAssigned }: { user: UserRow; onClose
   return (
     <div className={styles.modalOverlay} onClick={onClose}>
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-        <h2 className={styles.modalTitle}>Assign Pack to {user.full_name}</h2>
+        <h2 className={styles.modalTitle}>Give free consultations to {user.full_name}</h2>
         <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)', margin: '0 0 var(--space-4) 0' }}>
           {user.email}
         </p>
@@ -357,13 +356,25 @@ function AssignPackModal({ user, onClose, onAssigned }: { user: UserRow; onClose
                   onChange={() => setPackSize(opt.size)}
                   style={{ display: 'none' }}
                 />
-                <span className={styles.packSize}>{opt.size} Consultations</span>
-                <span className={styles.packDiscount}>{opt.discount} off</span>
-                <span className={styles.packPrice}>&#8377;{opt.price}</span>
-                <span className={styles.packPerUnit}>&#8377;{opt.perConsult}/consultation</span>
+                <span className={styles.packSize}>
+                  {opt.size} consultation{opt.size === 1 ? '' : 's'}
+                </span>
+                <span className={styles.packPerUnit}>free</span>
               </label>
             ))}
           </div>
+
+          <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)', margin: 0 }}>
+            For goodwill, refunds or testing. Paid UPI orders are granted from Credit requests.
+          </p>
+          <input
+            type="text"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            maxLength={200}
+            placeholder="Reason (saved in the audit log)"
+            className={styles.input}
+          />
 
           {error && <div className={styles.formError}>{error}</div>}
 
@@ -372,7 +383,7 @@ function AssignPackModal({ user, onClose, onAssigned }: { user: UserRow; onClose
               Cancel
             </button>
             <button type="submit" className={styles.primaryBtn} disabled={loading}>
-              {loading ? 'Assigning...' : `Assign ${packSize}-Pack`}
+              {loading ? 'Giving...' : `Give ${packSize} free`}
             </button>
           </div>
         </form>

@@ -100,7 +100,9 @@ export const outcomeVariantMap: Record<NonNullable<ConsultationOutcome>, BadgeVa
  * Map status to display text
  */
 export const statusLabels: Record<ConsultationStatus, string> = {
-  pending: 'Awaiting Payment',
+  // After L1 a pending row lives only for the moment between insert and
+  // credit confirmation; customers never need to pay for it.
+  pending: 'Being confirmed',
   scheduled: 'Scheduled',
   active: 'In Progress',
   closed: 'Completed',

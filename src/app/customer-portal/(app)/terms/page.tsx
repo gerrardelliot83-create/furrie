@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { GST_RATE, PACK_QUOTES, formatInr, packLabel } from '@/lib/pricing/packs';
 
 export const dynamic = 'force-static';
 
@@ -26,7 +27,7 @@ export default function TermsPage() {
         <strong>Operated by:</strong> Pakta Technologies (OPC) Pvt. Ltd., operating under the trade name &quot;Furrie&quot;
       </p>
       <p style={{ color: '#888', fontSize: '0.875rem', marginBottom: '0.25rem' }}>Effective Date: 10 April 2026</p>
-      <p style={{ color: '#888', fontSize: '0.875rem', marginBottom: '2rem' }}>Last Updated: 10 April 2026</p>
+      <p style={{ color: '#888', fontSize: '0.875rem', marginBottom: '2rem' }}>Last Updated: 25 September 2026</p>
 
       {/* Emergency Warning Box */}
       <section style={{ marginBottom: '2rem', padding: '1rem', background: '#fff3cd', borderRadius: '8px', border: '1px solid #ffc107' }}>
@@ -250,18 +251,38 @@ export default function TermsPage() {
         </p>
         <ul style={ulSpacedStyle}>
           <li><strong>Non-refundable</strong> once activated, except where required by applicable consumer protection law or at Furrie&apos;s sole discretion.</li>
-          <li><strong>Valid as long as the Platform operates.</strong> Pack credits do not expire.</li>
+          <li><strong>Valid as long as the Platform operates.</strong> Purchased pack credits do not expire. Free credits (invite, referral and founding-member credits) expire as set out in sections 8.5 and 9.</li>
           <li><strong>Non-transferable</strong> between accounts.</li>
-          <li>Consumed on a first-in-first-out (FIFO) basis — the oldest active pack&apos;s credits are used first.</li>
+          <li>Used one per booking. The credit that expires soonest is used first; after that, the oldest.</li>
         </ul>
         <p style={pSpacedStyle}>
-          8.3. <strong>Offline Purchase Flow.</strong> During certain periods, pack purchases may be processed
-          offline. You may submit a request via the Platform specifying the number of consultations desired.
-          Our team will coordinate payment with you, after which credits will be added to your account.
+          8.3. <strong>Buying Consultations.</strong> You can buy packs of 1, 3, 5 or 10 consultations on the
+          Platform. The price and GST are shown before you pay. You pay by UPI to the account shown on the
+          payment screen, which is currently our founder&apos;s personal UPI account, using the payment
+          reference shown. Credits are added to your account after we have verified your payment, and we will
+          email you when they are ready. If we cannot find your payment, we will tell you; you can then send us
+          proof of payment (for example a screenshot) and we will look again.
+        </p>
+        <p style={pSpacedStyle}>
+          8.4. <strong>Pricing.</strong> All prices are in Indian Rupees (INR). GST at {Math.round(GST_RATE * 100)}%
+          is added to the prices below. Current prices:
+        </p>
+        <ul style={ulSpacedStyle}>
+          {PACK_QUOTES.map((q) => (
+            <li key={q.size}>
+              {packLabel(q.size)}: {formatInr(q.price)} + GST ({formatInr(q.total)} in total)
+            </li>
+          ))}
+        </ul>
+        <p style={pSpacedStyle}>
+          Prices are subject to change; changes will not affect packs already purchased or credits already
+          granted.
         </p>
         <p style={pStyle}>
-          8.4. <strong>Pricing.</strong> All prices are in Indian Rupees (INR). Prices are subject to change;
-          however, changes will not affect packs already purchased or credits already granted.
+          8.5. <strong>Founding Members.</strong> If you joined the furrie.in waitlist before we opened sign-up,
+          one (1) free consultation credit is added to your account when you sign up, or to your existing
+          account, with the same email address. It is valid for sixty (60) days from the date it is added.
+          One founding credit per email address.
         </p>
       </section>
 
@@ -295,8 +316,10 @@ export default function TermsPage() {
       <section style={sectionStyle}>
         <h2 style={h2Style}>10. Payments</h2>
         <p style={pSpacedStyle}>
-          10.1. Where payment is required, it is processed through our authorised payment partners. Furrie does
-          not store your credit card, debit card, or UPI details directly.
+          10.1. Payments are made by UPI directly to the Furrie payment account shown on the payment screen
+          (see section 8.3). We do not use a payment gateway at present. Furrie does not store your card or
+          UPI PIN details; we keep the payment reference and, if you give it to us, the UPI transaction ID, so
+          that we can match your payment.
         </p>
         <p style={pSpacedStyle}>10.2. All completed and delivered consultations are non-refundable unless:</p>
         <div style={indentStyle}>

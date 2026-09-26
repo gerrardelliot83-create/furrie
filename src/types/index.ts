@@ -1,3 +1,5 @@
+import { quotePack, SINGLE_CONSULTATION_PRICE_INR } from '@/lib/pricing/packs';
+
 // Furrie Type Definitions
 // Export all types from this index file
 
@@ -252,13 +254,15 @@ export interface CarePlanStepResponse {
 export type PackSize = 3 | 5 | 10;
 export type PackStatus = 'active' | 'exhausted' | 'expired' | 'cancelled';
 
+// Derived from the single price list (L1, 2026-09-25) so any legacy screen
+// still reading these shows current, pre-GST prices.
 export const PACK_PRICING: Record<PackSize, { discount: number; totalPrice: number }> = {
-  3: { discount: 10, totalPrice: 807 },
-  5: { discount: 25, totalPrice: 1121 },
-  10: { discount: 50, totalPrice: 1495 },
+  3: { discount: quotePack(3).discountPercent, totalPrice: quotePack(3).price },
+  5: { discount: quotePack(5).discountPercent, totalPrice: quotePack(5).price },
+  10: { discount: quotePack(10).discountPercent, totalPrice: quotePack(10).price },
 };
 
-export const PACK_UNIT_PRICE = 299;
+export const PACK_UNIT_PRICE = SINGLE_CONSULTATION_PRICE_INR;
 
 export interface ConsultationPack {
   id: string;

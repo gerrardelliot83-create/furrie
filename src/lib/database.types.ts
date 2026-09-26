@@ -231,46 +231,79 @@ export type Database = {
       }
       consultation_credit_requests: {
         Row: {
+          amount_inr: number | null
+          bank_reference: string | null
+          cancel_reason: string | null
           contact_phone: string | null
           created_at: string
           customer_id: string
           fulfilled_at: string | null
           fulfilled_by_admin_id: string | null
           fulfilled_pack_id: string | null
+          gst_inr: number | null
           id: string
           note: string | null
+          pack_size: number | null
+          payer_utr: string | null
+          payment_claimed_at: string | null
+          payment_verified_at: string | null
           preferred_contact: string | null
+          price_inr: number | null
+          reference_code: string | null
           requested_quantity: number
           status: string
           updated_at: string
+          upi_vpa: string | null
         }
         Insert: {
+          amount_inr?: number | null
+          bank_reference?: string | null
+          cancel_reason?: string | null
           contact_phone?: string | null
           created_at?: string
           customer_id: string
           fulfilled_at?: string | null
           fulfilled_by_admin_id?: string | null
           fulfilled_pack_id?: string | null
+          gst_inr?: number | null
           id?: string
           note?: string | null
+          pack_size?: number | null
+          payer_utr?: string | null
+          payment_claimed_at?: string | null
+          payment_verified_at?: string | null
           preferred_contact?: string | null
+          price_inr?: number | null
+          reference_code?: string | null
           requested_quantity: number
           status?: string
           updated_at?: string
+          upi_vpa?: string | null
         }
         Update: {
+          amount_inr?: number | null
+          bank_reference?: string | null
+          cancel_reason?: string | null
           contact_phone?: string | null
           created_at?: string
           customer_id?: string
           fulfilled_at?: string | null
           fulfilled_by_admin_id?: string | null
           fulfilled_pack_id?: string | null
+          gst_inr?: number | null
           id?: string
           note?: string | null
+          pack_size?: number | null
+          payer_utr?: string | null
+          payment_claimed_at?: string | null
+          payment_verified_at?: string | null
           preferred_contact?: string | null
+          price_inr?: number | null
+          reference_code?: string | null
           requested_quantity?: number
           status?: string
           updated_at?: string
+          upi_vpa?: string | null
         }
         Relationships: [
           {
@@ -837,6 +870,51 @@ export type Database = {
             columns: ["vet_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      founding_members: {
+        Row: {
+          email: string
+          granted_at: string | null
+          granted_customer_id: string | null
+          granted_pack_id: string | null
+          imported_at: string
+          listed_at: string | null
+          source: string
+        }
+        Insert: {
+          email: string
+          granted_at?: string | null
+          granted_customer_id?: string | null
+          granted_pack_id?: string | null
+          imported_at?: string
+          listed_at?: string | null
+          source?: string
+        }
+        Update: {
+          email?: string
+          granted_at?: string | null
+          granted_customer_id?: string | null
+          granted_pack_id?: string | null
+          imported_at?: string
+          listed_at?: string | null
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "founding_members_granted_customer_id_fkey"
+            columns: ["granted_customer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "founding_members_granted_pack_id_fkey"
+            columns: ["granted_pack_id"]
+            isOneToOne: false
+            referencedRelation: "consultation_packs"
             referencedColumns: ["id"]
           },
         ]
@@ -2099,6 +2177,28 @@ export type Database = {
       generate_prescription_number: { Args: never; Returns: string }
       is_admin: { Args: never; Returns: boolean }
       is_vet: { Args: never; Returns: boolean }
+      l1_claim_founding_credit: { Args: { p_user_id: string }; Returns: string }
+      l1_fulfil_credit_request: {
+        Args: {
+          p_admin_id: string
+          p_bank_reference?: string
+          p_discount_percent: number
+          p_expected_amount: number
+          p_expected_pack_size: number
+          p_expected_price: number
+          p_request_id: string
+          p_unit_price: number
+        }
+        Returns: Json
+      }
+      l1_release_consultation_credit: {
+        Args: { p_consultation_id: string }
+        Returns: string
+      }
+      l1_schedule_with_credit: {
+        Args: { p_consultation_id: string; p_customer_id: string }
+        Returns: string
+      }
       redeem_invite_code: { Args: { p_code: string }; Returns: Json }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }

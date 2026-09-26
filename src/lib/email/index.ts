@@ -1,5 +1,7 @@
 import { Resend } from 'resend';
 import * as templates from './templates';
+import * as Sentry from '@sentry/nextjs';
+import { formatInr, packLabel } from '@/lib/pricing/packs';
 
 // Lazy initialization to avoid build-time errors when env var is not available
 let resend: Resend | null = null;
@@ -540,6 +542,218 @@ export async function sendCreditsAddedEmail(params: {
   return sendEmail({
     to: params.customerEmail,
     subject: `${params.quantity} consultation${params.quantity === 1 ? '' : 's'} added to your account`,
+    html,
+  });
+}
+
+// ---- L1 ----
+// Credits sprint L1 (2026-09-25): UPI purchase, payment claims, grants and
+// booking alerts. Every value a customer typed is HTML-escaped here.
+
+function escapeHtml(value: string | null | undefined): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function istDateTime(iso: string): string {
+  try {
+    return (
+      new Date(iso).toLocaleString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      }) + ' IST'
+    );
+  } catch {
+    return iso;
+  }
+}
+
+function l1Frame(bodyHtml: string): string {
+  return `
+    <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: #1E5081; padding: 24px; text-align: center;">
+        <img src="https://app.furrie.in/assets/logo/furrie-logo-dark-blue.png" alt="Furrie" style="height: 40px; width: auto;" />
+      </div>
+      <div style="height: 4px; background: #c8d69b;"></div>
+      <div style="padding: 32px 24px; background: #ffffff;">${bodyHtml}
+        <p style="font-size: 15px; color: #0E1A2B; margin: 24px 0 0;"><strong>Team Furrie</strong></p>
+      </div>
+      <div style="background: #F1F3F8; padding: 16px 24px; text-align: center;">
+        <p style="margin: 0; font-size: 12px; color: #8892A5;">Furrie — Veterinary Teleconsultation — India</p>
+      </div>
+    </div>`;
+}
+
+const l1Row = (label: string, value: string) =>
+  `<tr><td style="padding: 6px 0; color: #55637A; width: 150px; vertical-align: top;">${label}</td><td style="padding: 6px 0; color: #0E1A2B;">${value}</td></tr>`;
+
+const l1Button = (href: string, text: string) =>
+  `<div style="text-align: center; margin: 24px 0;"><a href="${escapeHtml(href)}" style="display: inline-block; padding: 12px 28px; background: #1E5081; color: #fff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;">${text}</a></div>`;
+
+function opsAddress(kind: string): string | null {
+  const opsEmail = process.env.OPS_NOTIFICATION_EMAIL;
+  if (!opsEmail) {
+    console.warn(`[EMAIL] OPS_NOTIFICATION_EMAIL not set — skipping ${kind}`);
+    Sentry.captureMessage(`OPS_NOTIFICATION_EMAIL not set (${kind} not sent)`, 'warning');
+    return null;
+  }
+  return opsEmail;
+}
+
+/** Customer: the order they just created, with everything needed to pay later. */
+export async function sendPaymentRequestEmail(params: {
+  customerEmail: string;
+  customerName: string;
+  reference: string;
+  packSize: number;
+  price: number;
+  gst: number;
+  total: number;
+  vpa: string;
+  payUrl: string;
+}) {
+  const html = l1Frame(`
+        <p style="font-size: 16px; color: #0E1A2B; margin: 0 0 16px;">Dear ${escapeHtml(params.customerName)},</p>
+        <p style="font-size: 15px; color: #0E1A2B; line-height: 1.65; margin: 0 0 16px;">
+          Here are the details for your order of <strong>${packLabel(params.packSize)}</strong>.
+          Pay by UPI from any app, then tap <strong>I&#39;ve paid</strong> on the Furrie payment page.
+        </p>
+        <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
+          ${l1Row('Reference', `<strong>${escapeHtml(params.reference)}</strong> (please add it to the UPI note)`)}
+          ${l1Row('Pack price', formatInr(params.price))}
+          ${l1Row('GST', formatInr(params.gst))}
+          ${l1Row('Total to pay', `<strong>${formatInr(params.total)}</strong>`)}
+          ${l1Row('UPI ID', `${escapeHtml(params.vpa)} (our founder&#39;s personal UPI)`)}
+        </table>
+        ${l1Button(params.payUrl, 'Open the payment page')}
+        <p style="font-size: 14px; color: #55637A; line-height: 1.5; margin: 0;">
+          We add your consultations after we have checked the payment. You will get an email when they are ready.
+        </p>`);
+  return sendEmail({
+    to: params.customerEmail,
+    subject: `Your Furrie order ${params.reference}: pay ${formatInr(params.total)} by UPI`,
+    html,
+  });
+}
+
+/** Ops: a customer says they have paid. */
+export async function sendPaymentClaimedOpsEmail(params: {
+  reference: string;
+  packSize: number;
+  total: number;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string | null;
+  utr: string | null;
+  requestedAt: string;
+  claimedAt: string;
+  adminUrl: string;
+}) {
+  const to = opsAddress('payment-claimed alert');
+  if (!to) return { success: false, error: 'OPS_NOTIFICATION_EMAIL not configured' };
+  const html = l1Frame(`
+        <p style="font-size: 16px; color: #0E1A2B; margin: 0 0 16px;"><strong>A customer says they have paid.</strong> Check the bank or UPI app for this amount, then grant in the admin portal.</p>
+        <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
+          ${l1Row('Reference', `<strong>${escapeHtml(params.reference)}</strong>`)}
+          ${l1Row('Amount', `<strong>${formatInr(params.total)}</strong>`)}
+          ${l1Row('Pack', packLabel(params.packSize))}
+          ${l1Row('UPI transaction ID', escapeHtml(params.utr) || '—')}
+          ${l1Row('Customer', escapeHtml(params.customerName))}
+          ${l1Row('Email', escapeHtml(params.customerEmail))}
+          ${l1Row('Phone', escapeHtml(params.customerPhone) || '—')}
+          ${l1Row('Ordered', istDateTime(params.requestedAt))}
+          ${l1Row('Marked paid', istDateTime(params.claimedAt))}
+        </table>
+        ${l1Button(params.adminUrl, 'Open this request')}`);
+  return sendEmail({
+    to,
+    subject: `[Payment claimed] ${params.reference} · ${formatInr(params.total)} · ${params.customerName}`,
+    html,
+  });
+}
+
+/** Customer: their consultations are ready. */
+export async function sendCreditsReadyEmail(params: {
+  customerEmail: string;
+  customerName: string;
+  packSize: number;
+  reference: string;
+  bookUrl: string;
+}) {
+  const html = l1Frame(`
+        <p style="font-size: 16px; color: #0E1A2B; margin: 0 0 16px;">Dear ${escapeHtml(params.customerName)},</p>
+        <p style="font-size: 15px; color: #0E1A2B; line-height: 1.65; margin: 0 0 8px;">
+          We have received your payment for order <strong>${escapeHtml(params.reference)}</strong>.
+          <strong>${packLabel(params.packSize)}</strong> ${params.packSize === 1 ? 'has' : 'have'} been added to your account.
+        </p>
+        ${l1Button(params.bookUrl, 'Book a consultation')}`);
+  return sendEmail({
+    to: params.customerEmail,
+    subject: `${packLabel(params.packSize)} added to your Furrie account`,
+    html,
+  });
+}
+
+/** Customer: we could not find their payment. */
+export async function sendPaymentNotFoundEmail(params: {
+  customerEmail: string;
+  customerName: string;
+  reference: string;
+  total: number;
+  supportDisplay: string;
+  buyUrl: string;
+}) {
+  const html = l1Frame(`
+        <p style="font-size: 16px; color: #0E1A2B; margin: 0 0 16px;">Dear ${escapeHtml(params.customerName)},</p>
+        <p style="font-size: 15px; color: #0E1A2B; line-height: 1.65; margin: 0 0 16px;">
+          We could not find a payment of <strong>${formatInr(params.total)}</strong> for order
+          <strong>${escapeHtml(params.reference)}</strong>, so we have closed it.
+        </p>
+        <p style="font-size: 15px; color: #0E1A2B; line-height: 1.65; margin: 0 0 16px;">
+          If money left your account, message us on WhatsApp or call ${escapeHtml(params.supportDisplay)} with a screenshot
+          of the payment and we will sort it out. You can also start a new order.
+        </p>
+        ${l1Button(params.buyUrl, 'Buy consultations')}`);
+  return sendEmail({
+    to: params.customerEmail,
+    subject: `We could not find your payment for order ${params.reference}`,
+    html,
+  });
+}
+
+/** Ops: every successful booking (one vet at launch, so ops should know). */
+export async function sendOpsBookingAlert(params: {
+  consultationNumber: string;
+  scheduledAt: string;
+  petName: string;
+  petSpecies: string;
+  customerName: string;
+  customerEmail: string | null;
+  vetName: string;
+}) {
+  const to = opsAddress('booking alert');
+  if (!to) return { success: false, error: 'OPS_NOTIFICATION_EMAIL not configured' };
+  const html = l1Frame(`
+        <p style="font-size: 16px; color: #0E1A2B; margin: 0 0 16px;"><strong>New booking.</strong></p>
+        <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
+          ${l1Row('When', `<strong>${istDateTime(params.scheduledAt)}</strong>`)}
+          ${l1Row('Consultation', escapeHtml(params.consultationNumber))}
+          ${l1Row('Pet', `${escapeHtml(params.petName)} (${escapeHtml(params.petSpecies)})`)}
+          ${l1Row('Customer', `${escapeHtml(params.customerName)}${params.customerEmail ? ` · ${escapeHtml(params.customerEmail)}` : ''}`)}
+          ${l1Row('Vet', escapeHtml(params.vetName))}
+        </table>`);
+  return sendEmail({
+    to,
+    subject: `[Booking] ${istDateTime(params.scheduledAt)} · ${params.petName} · ${params.consultationNumber}`,
     html,
   });
 }

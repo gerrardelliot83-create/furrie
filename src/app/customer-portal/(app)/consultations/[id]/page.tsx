@@ -264,7 +264,7 @@ export default async function ConsultationDetailPage({ params }: ConsultationDet
           </div>
         )}
 
-        {consultation.amountPaid !== null && consultation.amountPaid > 0 && (
+        {FEATURES.ENABLE_PAYMENTS && consultation.amountPaid !== null && consultation.amountPaid > 0 && (
           <div className={styles.detailRow}>
             <span className={styles.detailLabel}>Amount Paid</span>
             <span className={styles.detailValue}>{formatCurrency(consultation.amountPaid)}</span>
@@ -275,7 +275,7 @@ export default async function ConsultationDetailPage({ params }: ConsultationDet
           <div className={styles.detailRow}>
             <span className={styles.detailLabel}>Payment</span>
             <span className={styles.detailValue}>
-              <Badge variant="success" size="sm">{FEATURES.ENABLE_SUBSCRIPTIONS ? 'Included in Furrie Plus' : 'Pack Credit'}</Badge>
+              <Badge variant="success" size="sm">{FEATURES.ENABLE_SUBSCRIPTIONS && consultation.isPriority ? 'Included in Furrie Plus' : '1 consultation credit'}</Badge>
             </span>
           </div>
         )}

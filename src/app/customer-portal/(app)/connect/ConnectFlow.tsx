@@ -1,11 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import type { Pet } from '@/types';
 import { hasSevereSymptoms } from '@/lib/data/symptoms';
-import { FEATURES } from '@/lib/config/features';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { Textarea } from '@/components/ui/Textarea';
@@ -20,7 +20,6 @@ import {
   TimeSlotSelector,
   BookingConfirmation,
 } from '@/components/consultation';
-import { ConsultationRequestModal } from '@/components/customer/ConsultationRequestModal';
 import styles from './ConnectFlow.module.css';
 
 type FlowStep = 'select-pet' | 'describe-concern' | 'select-time' | 'review' | 'confirmation';
@@ -39,24 +38,16 @@ interface BookedConsultation {
   vetName: string | null;
 }
 
-interface PendingConsultation {
-  id: string;
-  consultationNumber: string;
-  petId: string;
-  scheduledAt: string;
-}
-
 interface ConnectFlowProps {
   initialPets: Pet[];
   plusPetIds?: string[];
   hasPackCredit?: boolean;
+  /** Total usable credits across all packs. */
   packCreditsRemaining?: number;
-  pendingConsultation?: PendingConsultation;
   preselectedPetId?: string | null;
-  openCreditRequestModal?: boolean;
 }
 
-export function ConnectFlow({ initialPets, plusPetIds = [], hasPackCredit = false, packCreditsRemaining = 0, pendingConsultation, preselectedPetId, openCreditRequestModal = false }: ConnectFlowProps) {
+export function ConnectFlow({ initialPets, plusPetIds = [], hasPackCredit = false, packCreditsRemaining = 0, preselectedPetId }: ConnectFlowProps) {
   const tCommon = useTranslations('common');
   const router = useRouter();
 
@@ -78,11 +69,11 @@ export function ConnectFlow({ initialPets, plusPetIds = [], hasPackCredit = fals
   // UI state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [outOfCredits, setOutOfCredits] = useState(false);
   const [bookedConsultation, setBookedConsultation] = useState<BookedConsultation | null>(null);
 
   const selectedPet = pets.find((p) => p.id === selectedPetId);
   const isPlusUser = selectedPetId ? plusPetIds.includes(selectedPetId) : false;
-  const isFreeBooking = isPlusUser || hasPackCredit;
   const showEmergencyWarning = hasSevereSymptoms(symptoms);
 
   // Step number for indicator (5 steps now)
@@ -94,7 +85,7 @@ export function ConnectFlow({ initialPets, plusPetIds = [], hasPackCredit = fals
     'confirmation': 5,
   }[currentStep];
 
-  const stepLabels = ['Pet', 'Concern', 'Time', (!FEATURES.ENABLE_PAYMENTS || isFreeBooking) ? 'Review' : 'Pay', 'Done'];
+  const stepLabels = ['Pet', 'Concern', 'Time', 'Review', 'Done'];
 
   // Navigation handlers
   const goToStep = (step: FlowStep) => {
@@ -131,14 +122,15 @@ export function ConnectFlow({ initialPets, plusPetIds = [], hasPackCredit = fals
     goToStep('review');
   };
 
-  const handleBookAndPay = async () => {
+  const handleBook = async () => {
     if (!selectedPetId || !selectedTimeSlot) return;
 
     setLoading(true);
     setError(null);
+    setOutOfCredits(false);
 
     try {
-      // Step 1: Book the consultation slot
+      // Booking takes one credit and confirms the slot in one step (L1).
       const bookResponse = await fetch('/api/consultations/book', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -154,60 +146,21 @@ export function ConnectFlow({ initialPets, plusPetIds = [], hasPackCredit = fals
       const bookData = await bookResponse.json();
 
       if (!bookResponse.ok) {
+        if (bookData.code === 'NO_CREDITS') {
+          setOutOfCredits(true);
+        }
         throw new Error(bookData.error || 'Failed to book consultation');
       }
 
-      // Server response is authoritative for subscription/pack status
-      if (bookData.isPlusUser || bookData.hasPackCredit) {
-        // Plus user or pack credit: consultation is already status='scheduled', skip payment
-        setBookedConsultation({
-          id: bookData.consultation.id,
-          consultationNumber: bookData.consultation.consultationNumber,
-          scheduledAt: bookData.consultation.scheduledAt,
-          petName: bookData.consultation.pet.name,
-          vetName: bookData.consultation.vet?.name || null,
-        });
-        goToStep('confirmation');
-      } else {
-        // Step 2: Create payment order for non-Plus users
-        const paymentResponse = await fetch('/api/payments/create-order', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            consultationId: bookData.consultation.id,
-            amount: bookData.payment.amount,
-            currency: bookData.payment.currency,
-            description: bookData.payment.description,
-          }),
-        });
-
-        const paymentData = await paymentResponse.json();
-
-        if (!paymentResponse.ok) {
-          throw new Error(paymentData.error || 'Failed to create payment order');
-        }
-
-        // In dev mode (SKIP_PAYMENTS=true), payment is auto-completed
-        // The create-order API already updates the consultation status to 'scheduled'
-        if (paymentData.devMode) {
-          // Show confirmation - status was already updated server-side
-          setBookedConsultation({
-            id: bookData.consultation.id,
-            consultationNumber: bookData.consultation.consultationNumber,
-            scheduledAt: bookData.consultation.scheduledAt,
-            petName: bookData.consultation.pet.name,
-            vetName: bookData.consultation.vet?.name || null,
-          });
-          goToStep('confirmation');
-        } else {
-          // In production, redirect to payment gateway
-          if (paymentData.redirectUrl) {
-            window.location.href = paymentData.redirectUrl;
-          } else {
-            throw new Error('No payment redirect URL received');
-          }
-        }
-      }
+      setBookedConsultation({
+        id: bookData.consultation.id,
+        consultationNumber: bookData.consultation.consultationNumber,
+        scheduledAt: bookData.consultation.scheduledAt,
+        petName: bookData.consultation.pet.name,
+        vetName: bookData.consultation.vet?.name || null,
+      });
+      goToStep('confirmation');
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
@@ -221,6 +174,7 @@ export function ConnectFlow({ initialPets, plusPetIds = [], hasPackCredit = fals
 
     const date = new Date(selectedTimeSlot.datetime);
     const dateStr = date.toLocaleDateString('en-IN', {
+      timeZone: 'Asia/Kolkata',
       weekday: 'short',
       month: 'short',
       day: 'numeric',
@@ -407,11 +361,16 @@ export function ConnectFlow({ initialPets, plusPetIds = [], hasPackCredit = fals
               isPlusUser={isPlusUser}
               hasPackCredit={hasPackCredit}
               packCreditsRemaining={packCreditsRemaining}
-              onSubmit={handleBookAndPay}
+              onSubmit={handleBook}
               onBack={() => goToStep('select-time')}
               loading={loading}
             />
             {error && <p className={styles.error}>{error}</p>}
+            {outOfCredits && (
+              <Link href="/buy" className={styles.error}>
+                Buy consultations →
+              </Link>
+            )}
           </div>
         );
 
@@ -432,72 +391,8 @@ export function ConnectFlow({ initialPets, plusPetIds = [], hasPackCredit = fals
     }
   };
 
-  const [showPendingBanner, setShowPendingBanner] = useState(!!pendingConsultation);
-  const [showCreditRequestModal, setShowCreditRequestModal] = useState(openCreditRequestModal);
-
-  const handleRetryPayment = async () => {
-    if (!pendingConsultation) return;
-    setLoading(true);
-    setError(null);
-
-    try {
-      const paymentResponse = await fetch('/api/payments/create-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          consultationId: pendingConsultation.id,
-          amount: 499,
-          currency: 'INR',
-          description: 'Consultation payment retry',
-        }),
-      });
-
-      const paymentData = await paymentResponse.json();
-
-      if (!paymentResponse.ok) {
-        throw new Error(paymentData.error || 'Failed to create payment');
-      }
-
-      if (paymentData.devMode) {
-        // Dev mode - auto-complete
-        router.push(`/consultations/${pendingConsultation.id}`);
-      } else if (paymentData.redirectUrl) {
-        window.location.href = paymentData.redirectUrl;
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Payment failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div className={styles.container}>
-      {showCreditRequestModal && (
-        <ConsultationRequestModal
-          onClose={() => setShowCreditRequestModal(false)}
-        />
-      )}
-
-      {FEATURES.ENABLE_PAYMENTS && showPendingBanner && pendingConsultation && (
-        <div className={styles.pendingBanner}>
-          <div className={styles.pendingBannerContent}>
-            <h3 className={styles.pendingBannerTitle}>You have a pending consultation</h3>
-            <p className={styles.pendingBannerText}>
-              Consultation {pendingConsultation.consultationNumber} is awaiting payment.
-            </p>
-          </div>
-          <div className={styles.pendingBannerActions}>
-            <Button variant="primary" size="sm" onClick={handleRetryPayment} loading={loading}>
-              Retry Payment
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => setShowPendingBanner(false)}>
-              Start New
-            </Button>
-          </div>
-        </div>
-      )}
-
       {currentStep !== 'confirmation' && (
         <StepIndicator
           currentStep={stepNumber}

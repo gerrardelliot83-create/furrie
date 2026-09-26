@@ -5,9 +5,8 @@ import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import type { Pet } from '@/types';
 import { FEATURES } from '@/lib/config/features';
-import { formatCurrency, cn } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
-import { SKIP_PAYMENTS } from '@/lib/payments';
 import styles from './ConsultationSummary.module.css';
 
 interface ConsultationSummaryProps {
@@ -35,21 +34,16 @@ export function ConsultationSummary({
   loading = false,
   className,
 }: ConsultationSummaryProps) {
-  const t = useTranslations('consultation');
   const tSymptoms = useTranslations('symptoms');
   const tCommon = useTranslations('common');
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
-  // TODO: Phase 5 - Replace with actual pricing calculation
-  const consultationFee = 499;
-  const taxAmount = Math.round(consultationFee * 0.18);
-  const totalAmount = consultationFee + taxAmount;
-
   const primaryPhoto = pet.photoUrls?.[0];
+  const includedInPlus = FEATURES.ENABLE_SUBSCRIPTIONS && isPlusUser;
 
   return (
     <div className={cn(styles.container, className)}>
-      <h2 className={styles.title}>{FEATURES.ENABLE_PAYMENTS ? t('reviewAndPay') : 'Review Your Booking'}</h2>
+      <h2 className={styles.title}>Review Your Booking</h2>
       <p className={styles.subtitle}>Please review your consultation request</p>
 
       {/* Pet Summary Card */}
@@ -124,10 +118,10 @@ export function ConsultationSummary({
         )}
       </div>
 
-      {/* Pricing Card — hidden when payments are disabled */}
-      {FEATURES.ENABLE_PAYMENTS && (
+      {/* What this booking costs: one credit (L1: booking always needs one). */}
+      {(includedInPlus || hasPackCredit) && (
         <div className={styles.pricingCard}>
-          {(FEATURES.ENABLE_SUBSCRIPTIONS && isPlusUser) ? (
+          {includedInPlus ? (
             <div className={styles.plusBadge}>
               <svg
                 width="20"
@@ -143,7 +137,7 @@ export function ConsultationSummary({
               </svg>
               <span>Included in your Furrie Plus plan</span>
             </div>
-          ) : hasPackCredit ? (
+          ) : (
             <div className={styles.plusBadge}>
               <svg
                 width="20"
@@ -157,24 +151,10 @@ export function ConsultationSummary({
               >
                 <polyline points="20 6 9 17 4 12" />
               </svg>
-              <span>Using pack credit ({packCreditsRemaining} remaining after this)</span>
+              <span>
+                Uses 1 consultation credit · {Math.max(0, packCreditsRemaining - 1)} left after this
+              </span>
             </div>
-          ) : (
-            <>
-              <div className={styles.priceRow}>
-                <span>Consultation Fee</span>
-                <span>{formatCurrency(consultationFee)}</span>
-              </div>
-              <div className={styles.priceRow}>
-                <span>GST (18%)</span>
-                <span>{formatCurrency(taxAmount)}</span>
-              </div>
-              <div className={styles.divider} />
-              <div className={cn(styles.priceRow, styles.total)}>
-                <span>Total</span>
-                <span>{formatCurrency(totalAmount)}</span>
-              </div>
-            </>
           )}
         </div>
       )}
@@ -212,7 +192,7 @@ export function ConsultationSummary({
           disabled={!agreedToTerms || loading}
           loading={loading}
         >
-          {!FEATURES.ENABLE_PAYMENTS ? 'Book Consultation' : (FEATURES.ENABLE_SUBSCRIPTIONS && isPlusUser) || hasPackCredit ? 'Connect Now' : 'Pay & Connect'}
+          Book Consultation
         </Button>
       </div>
     </div>

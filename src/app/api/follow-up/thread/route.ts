@@ -135,12 +135,6 @@ export const POST = withRoute(async function POST(request: NextRequest) {
         .eq('id', consultation.customer_id)
         .single();
 
-      const { data: vetProfile } = await supabaseAdmin
-        .from('profiles')
-        .select('full_name')
-        .eq('id', consultation.vet_id)
-        .single();
-
       const { data: petData } = await supabaseAdmin
         .from('pets')
         .select('name')
@@ -151,7 +145,7 @@ export const POST = withRoute(async function POST(request: NextRequest) {
         const emailResult = await sendFollowUpAvailableEmail(customerProfile.email, {
           customerName: customerProfile.full_name || 'there',
           petName: petData?.name || 'your pet',
-          vetName: vetProfile?.full_name || 'your vet',
+          vetName: profile.full_name || 'your vet', // the caller is the assigned vet
           expiresAt: expiresAt || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
           consultationId,
         });

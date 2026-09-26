@@ -753,3 +753,89 @@ export function opsConsultationProblemEmail(params: {
     `),
   };
 }
+
+/** "Dr. Name" without doubling a prefix the stored name already has (C-09). */
+function vVetName(name: string | null | undefined): string {
+  const trimmed = (name ?? '').trim();
+  if (!trimmed) return 'your vet';
+  return /^dr\.?\s/i.test(trimmed) ? trimmed : `Dr. ${trimmed}`;
+}
+
+/** "4:00 pm" in India time. */
+function vTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
+
+function vJoinLine(params: { scheduledAt: string; canJoinNow: boolean }): string {
+  const joinFrom = vTime(new Date(new Date(params.scheduledAt).getTime() - 5 * 60 * 1000).toISOString());
+  return params.canJoinNow
+    ? 'You can join the video call now.'
+    : `You can join the video call from ${joinFrom} IST, 5 minutes before the start.`;
+}
+
+/**
+ * 15-minute reminder (customer). Replaces customerFifteenMinReminderEmail in
+ * the cron: that one linked to /consultations/<id>/video, a page that does
+ * not exist, and said the vet "will be waiting".
+ */
+export function customerStartingSoonEmail(params: {
+  customerName: string;
+  petName: string;
+  vetName: string;
+  consultationId: string;
+  scheduledAt: string;
+  canJoinNow: boolean;
+}): { subject: string; html: string } {
+  const pet = vEscape(params.petName);
+  return {
+    subject: `${params.petName}'s consultation starts at ${vTime(params.scheduledAt)} IST`,
+    html: wrapEmailBody(`
+      <p style="${textStyle}">${vEscape(emailGreeting(params.customerName))}</p>
+      <p style="${textStyle}">
+        ${pet}'s consultation with ${vEscape(vVetName(params.vetName))} starts at <strong>${vTime(params.scheduledAt)} IST</strong>.
+        ${vJoinLine(params)}
+      </p>
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="${APP_URL}/consultations/${encodeURIComponent(params.consultationId)}" style="${btnPrimary}">Open your consultation</a>
+      </div>
+      <p style="${textStyle}">
+        Have ${pet} with you and find a quiet spot with a steady internet connection.
+      </p>
+      <p style="${textStyle}">
+        <strong>Team Furrie</strong>
+      </p>
+    `),
+  };
+}
+
+/** 15-minute reminder (vet). Replaces vetFifteenMinReminderEmail in the cron. */
+export function vetStartingSoonEmail(params: {
+  vetName: string;
+  petName: string;
+  customerName: string;
+  consultationId: string;
+  scheduledAt: string;
+  canJoinNow: boolean;
+}): { subject: string; html: string } {
+  return {
+    subject: `Starts at ${vTime(params.scheduledAt)} IST: consultation for ${params.petName}`,
+    html: wrapEmailBody(`
+      <p style="${textStyle}">Dear ${vEscape(vVetName(params.vetName))},</p>
+      <p style="${textStyle}">
+        Your consultation for ${vEscape(params.petName)} (${vEscape(params.customerName)}) starts at <strong>${vTime(params.scheduledAt)} IST</strong>.
+        ${vJoinLine(params)}
+      </p>
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="${VET_URL}/consultations/${encodeURIComponent(params.consultationId)}" style="${btnPrimary}">Open consultation</a>
+      </div>
+      <p style="${textStyle}">
+        <strong>Team Furrie</strong>
+      </p>
+    `),
+  };
+}

@@ -782,3 +782,19 @@ export async function sendOpsConsultationProblemEmail(
   const { subject, html } = templates.opsConsultationProblemEmail(params);
   return sendEmail({ to, subject, html });
 }
+
+export async function sendCustomerStartingSoonEmail(
+  to: string,
+  params: Parameters<typeof templates.customerStartingSoonEmail>[0]
+) {
+  const { subject, html } = templates.customerStartingSoonEmail(params);
+  return sendEmail({ to, subject, html });
+}
+
+export async function sendVetStartingSoonEmail(
+  to: string,
+  params: Parameters<typeof templates.vetStartingSoonEmail>[0]
+) {
+  const { subject, html } = templates.vetStartingSoonEmail(params);
+  return sendEmail({ to, subject, html });
+}

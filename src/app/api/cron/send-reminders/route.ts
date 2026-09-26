@@ -1,295 +1,298 @@
 import { NextResponse } from 'next/server';
+import * as Sentry from '@sentry/nextjs';
 import { verifyCronRequest } from '@/lib/cron/auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { createNotification } from '@/lib/notifications/createNotification';
 import {
   sendCustomerOneHourReminderEmail,
   sendVetOneHourReminderEmail,
-  sendCustomerFifteenMinReminderEmail,
-  sendVetFifteenMinReminderEmail,
+  sendCustomerStartingSoonEmail,
+  sendVetStartingSoonEmail,
 } from '@/lib/email';
+import { SCHEDULING_CONSTANTS } from '@/lib/scheduling';
+import { reminderDue, ONE_HOUR_REMINDER_WINDOW } from '@/lib/scheduling/reminders';
+import { formatIstTime } from '@/lib/time/ist';
 import { withRoute } from '@/server/handler';
 
+type ReminderFlag = 'reminder_1h_sent' | 'reminder_15m_sent';
+
+interface Candidate {
+  id: string;
+  customer_id: string;
+  vet_id: string | null;
+  scheduled_at: string;
+  reminder_1h_sent: boolean | null;
+  reminder_15m_sent: boolean | null;
+  pets: { name: string } | null;
+  profiles: { full_name: string | null; email: string | null } | null;
+}
+
+interface Delivery {
+  /** At least one channel (in-app or email) reached the customer. */
+  customerReached: boolean;
+}
+
 /**
- * GET /api/cron/send-reminders
+ * GET /api/cron/send-reminders   (every 5 minutes, vercel.json)
  *
- * Vercel Cron job that runs every 5 minutes to send consultation reminders.
- * Sends reminders at:
- * - 1 hour before scheduled time
- * - 15 minutes before scheduled time
+ * 1-hour and 15-minute reminders to the customer and the vet, in-app and
+ * email. Which one is due: src/lib/scheduling/reminders.ts.
  *
- * Cron schedule: Every 5 minutes (see vercel.json)
+ * Each reminder is CLAIMED before it is sent: a guarded update flips its
+ * flag, and only the run that flipped it sends — so two overlapping runs
+ * can't send twice. If nothing reached the customer, the flag is released
+ * so the next run retries, and the failure goes to Sentry.
+ *
+ * Times are India time. The join window opens 5 minutes before the start,
+ * and the 15-minute texts say so. Fails closed without CRON_SECRET
+ * (lib/cron/auth.ts).
  */
 export const GET = withRoute(async function GET(request: Request) {
-  // Verify cron secret (set in Vercel environment)
   const denied = verifyCronRequest(request);
   if (denied) return denied;
 
   const now = new Date();
-  const results: Array<{
-    consultationId: string;
-    reminderType: '1h' | '15m';
-    userId: string;
-    userType: 'customer' | 'vet';
-  }> = [];
+  const horizon = new Date(now.getTime() + ONE_HOUR_REMINDER_WINDOW.upToMinutes * 60 * 1000);
 
-  // Calculate time windows
-  // 1 hour reminder: scheduled_at between 55-65 minutes from now
-  const oneHourWindowStart = new Date(now.getTime() + 55 * 60 * 1000);
-  const oneHourWindowEnd = new Date(now.getTime() + 65 * 60 * 1000);
-
-  // 15 minute reminder: scheduled_at between 10-20 minutes from now
-  const fifteenMinWindowStart = new Date(now.getTime() + 10 * 60 * 1000);
-  const fifteenMinWindowEnd = new Date(now.getTime() + 20 * 60 * 1000);
-
-  // Find consultations needing 1-hour reminder
-  const { data: oneHourConsultations, error: error1h } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from('consultations')
     .select(`
       id,
       customer_id,
       vet_id,
       scheduled_at,
+      reminder_1h_sent,
+      reminder_15m_sent,
       pets!consultations_pet_id_fkey (name),
       profiles!consultations_customer_id_fkey (full_name, email)
     `)
     .eq('status', 'scheduled')
-    .eq('reminder_1h_sent', false)
-    .gte('scheduled_at', oneHourWindowStart.toISOString())
-    .lte('scheduled_at', oneHourWindowEnd.toISOString());
+    .gt('scheduled_at', now.toISOString())
+    .lte('scheduled_at', horizon.toISOString())
+    .or('reminder_1h_sent.not.is.true,reminder_15m_sent.not.is.true');
 
-  if (error1h) {
-    console.error('Failed to fetch 1h reminder consultations:', error1h);
+  if (error) {
+    console.error('[send-reminders] failed to fetch consultations:', error);
+    return NextResponse.json({ error: 'Query failed' }, { status: 500 });
   }
 
-  // Send 1-hour reminders
-  for (const consultation of oneHourConsultations || []) {
-    const scheduledTime = new Date(consultation.scheduled_at);
-    const timeStr = scheduledTime.toLocaleTimeString('en-IN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
-    // Supabase returns joined data as objects (not arrays) for !fkey syntax
-    const petData = consultation.pets as unknown as { name: string } | null;
-    const profileData = consultation.profiles as unknown as { full_name: string; email: string } | null;
-    const petName = petData?.name || 'your pet';
-    const customerName = profileData?.full_name || 'Pet parent';
+  const results: Array<{ consultationId: string; reminderType: '1h' | '15m'; customerReached: boolean }> = [];
 
-    // Send in-app notification to customer
-    await createNotification({
+  for (const consultation of (data ?? []) as unknown as Candidate[]) {
+    if (!consultation.scheduled_at) continue;
+    const minutesUntil = (new Date(consultation.scheduled_at).getTime() - now.getTime()) / 60000;
+    const decision = reminderDue(minutesUntil, {
+      oneHour: consultation.reminder_1h_sent === true,
+      fifteenMin: consultation.reminder_15m_sent === true,
+    });
+    if (decision.send === 'none') continue;
+
+    const flag: ReminderFlag = decision.send === '1h' ? 'reminder_1h_sent' : 'reminder_15m_sent';
+    const flagsToSet: ReminderFlag[] =
+      decision.send === '15m' && decision.alsoMarkOneHour ? ['reminder_15m_sent', 'reminder_1h_sent'] : [flag];
+
+    const claimed = await setFlags(consultation.id, flagsToSet, true, flag);
+    if (!claimed) continue; // another run claimed it, or it is no longer scheduled
+
+    let delivery: Delivery;
+    try {
+      delivery =
+        decision.send === '1h'
+          ? await sendOneHourReminders(consultation)
+          : await sendStartingSoonReminders(consultation, now);
+    } catch (err) {
+      console.error(`[send-reminders] ${decision.send} reminder threw for ${consultation.id}:`, err);
+      delivery = { customerReached: false };
+    }
+
+    if (!delivery.customerReached) {
+      await setFlags(consultation.id, flagsToSet, false);
+      Sentry.captureMessage(`[send-reminders] ${decision.send} reminder reached nobody; released for retry`, {
+        level: 'error',
+        extra: { consultationId: consultation.id },
+      });
+    }
+
+    results.push({
+      consultationId: consultation.id,
+      reminderType: decision.send,
+      customerReached: delivery.customerReached,
+    });
+  }
+
+  console.log(`[send-reminders] processed ${results.length} reminder(s)`);
+  return NextResponse.json({ processed: results.length, results });
+});
+
+/**
+ * Set reminder flags. With `onlyIfUnset`, this is the claim: the update only
+ * matches while that flag is not yet true and the consultation is still
+ * scheduled, and it returns whether this call made the change.
+ */
+async function setFlags(
+  consultationId: string,
+  flags: ReminderFlag[],
+  value: boolean,
+  onlyIfUnset?: ReminderFlag
+): Promise<boolean> {
+  const update = Object.fromEntries(flags.map((f) => [f, value])) as Partial<Record<ReminderFlag, boolean>>;
+  let query = supabaseAdmin.from('consultations').update(update).eq('id', consultationId);
+  if (onlyIfUnset) {
+    query = query.eq('status', 'scheduled').not(onlyIfUnset, 'is', true);
+  }
+  const { data, error } = await query.select('id').maybeSingle();
+  if (error) {
+    console.error(`[send-reminders] failed to set ${flags.join(', ')} for ${consultationId}:`, error);
+    return false;
+  }
+  return !!data;
+}
+
+async function loadVet(vetId: string | null) {
+  if (!vetId) return null;
+  const { data } = await supabaseAdmin.from('profiles').select('email, full_name').eq('id', vetId).maybeSingle();
+  return data;
+}
+
+async function attempt(what: string, consultationId: string, fn: () => Promise<boolean>): Promise<boolean> {
+  try {
+    const ok = await fn();
+    if (!ok) console.error(`[send-reminders] ${what} failed for ${consultationId}`);
+    return ok;
+  } catch (err) {
+    console.error(`[send-reminders] ${what} threw for ${consultationId}:`, err);
+    return false;
+  }
+}
+
+async function sendOneHourReminders(consultation: Candidate): Promise<Delivery> {
+  const petName = consultation.pets?.name || 'your pet';
+  const customerName = consultation.profiles?.full_name || 'Pet parent';
+  const time = formatIstTime(consultation.scheduled_at);
+  const data = { consultationId: consultation.id, scheduledAt: consultation.scheduled_at, petName };
+  const vet = await loadVet(consultation.vet_id);
+
+  const inApp = await attempt('customer 1h in-app', consultation.id, async () => {
+    const { error } = await createNotification({
       user_id: consultation.customer_id,
       type: 'consultation_reminder_1h',
-      title: 'Appointment in 1 hour',
-      body: `Your consultation for ${petName} is scheduled at ${timeStr}. Make sure you have a stable internet connection.`,
+      title: 'Consultation in about an hour',
+      body: `Your consultation for ${petName} is at ${time} (India time). Find a quiet spot with a steady internet connection.`,
       channel: 'in_app',
-      data: {
-        consultationId: consultation.id,
-        scheduledAt: consultation.scheduled_at,
-        petName,
-      },
+      data,
     });
-    results.push({
-      consultationId: consultation.id,
-      reminderType: '1h',
-      userId: consultation.customer_id,
-      userType: 'customer',
-    });
+    return !error;
+  });
 
-    // Send email reminder to customer
-    if (profileData?.email) {
-      // Fetch vet name for email
-      const { data: vetProfile } = consultation.vet_id
-        ? await supabaseAdmin.from('profiles').select('full_name').eq('id', consultation.vet_id).single()
-        : { data: null };
-
-      const emailResult1hCustomer = await sendCustomerOneHourReminderEmail(profileData.email, {
-        customerName,
-        petName,
-        vetName: vetProfile?.full_name || 'your vet',
-        scheduledAt: consultation.scheduled_at,
-      });
-      if (!emailResult1hCustomer.success) {
-        console.error('1h customer email failed:', emailResult1hCustomer.error);
-      }
-    }
-
-    // Send to vet if assigned
-    if (consultation.vet_id) {
-      await createNotification({
-        user_id: consultation.vet_id,
-        type: 'consultation_reminder_1h',
-        title: 'Appointment in 1 hour',
-        body: `Consultation with ${customerName} for ${petName} at ${timeStr}.`,
-        channel: 'in_app',
-        data: {
-          consultationId: consultation.id,
-          scheduledAt: consultation.scheduled_at,
-          petName,
+  const email = consultation.profiles?.email
+    ? await attempt('customer 1h email', consultation.id, async () => {
+        const result = await sendCustomerOneHourReminderEmail(consultation.profiles!.email!, {
           customerName,
-        },
-      });
-      results.push({
-        consultationId: consultation.id,
-        reminderType: '1h',
-        userId: consultation.vet_id,
-        userType: 'vet',
-      });
+          petName,
+          vetName: vet?.full_name || 'your vet',
+          scheduledAt: consultation.scheduled_at,
+        });
+        return result.success;
+      })
+    : false;
 
-      // Send email reminder to vet
-      const { data: vetUser } = await supabaseAdmin
-        .from('profiles')
-        .select('email, full_name')
-        .eq('id', consultation.vet_id)
-        .single();
-
-      if (vetUser?.email) {
-        const emailResult1hVet = await sendVetOneHourReminderEmail(vetUser.email, {
-          vetName: vetUser.full_name || 'Doctor',
+  if (consultation.vet_id) {
+    await attempt('vet 1h in-app', consultation.id, async () => {
+      const { error } = await createNotification({
+        user_id: consultation.vet_id!,
+        type: 'consultation_reminder_1h',
+        title: 'Consultation in about an hour',
+        body: `Consultation with ${customerName} for ${petName} at ${time} (India time).`,
+        channel: 'in_app',
+        data: { ...data, customerName },
+      });
+      return !error;
+    });
+    if (vet?.email) {
+      await attempt('vet 1h email', consultation.id, async () => {
+        const result = await sendVetOneHourReminderEmail(vet.email!, {
+          vetName: vet.full_name || 'Doctor',
           petName,
           customerName,
           scheduledAt: consultation.scheduled_at,
         });
-        if (!emailResult1hVet.success) {
-          console.error('1h vet email failed:', emailResult1hVet.error);
-        }
-      }
+        return result.success;
+      });
     }
-
-    // Mark reminder as sent
-    await supabaseAdmin
-      .from('consultations')
-      .update({ reminder_1h_sent: true })
-      .eq('id', consultation.id);
   }
 
-  // Find consultations needing 15-minute reminder
-  const { data: fifteenMinConsultations, error: error15m } = await supabaseAdmin
-    .from('consultations')
-    .select(`
-      id,
-      customer_id,
-      vet_id,
-      scheduled_at,
-      daily_room_url,
-      pets!consultations_pet_id_fkey (name),
-      profiles!consultations_customer_id_fkey (full_name, email)
-    `)
-    .eq('status', 'scheduled')
-    .eq('reminder_15m_sent', false)
-    .gte('scheduled_at', fifteenMinWindowStart.toISOString())
-    .lte('scheduled_at', fifteenMinWindowEnd.toISOString());
+  return { customerReached: inApp || email };
+}
 
-  if (error15m) {
-    console.error('Failed to fetch 15m reminder consultations:', error15m);
-  }
+async function sendStartingSoonReminders(consultation: Candidate, now: Date): Promise<Delivery> {
+  const petName = consultation.pets?.name || 'your pet';
+  const customerName = consultation.profiles?.full_name || 'Pet parent';
+  const scheduledAt = new Date(consultation.scheduled_at);
+  const joinOpensAt = new Date(scheduledAt.getTime() - SCHEDULING_CONSTANTS.JOIN_WINDOW_BEFORE_MS);
+  const canJoinNow = now >= joinOpensAt;
+  const time = formatIstTime(scheduledAt);
+  const joinText = canJoinNow ? 'You can join now.' : `You can join from ${formatIstTime(joinOpensAt)}.`;
+  const data = {
+    consultationId: consultation.id,
+    scheduledAt: consultation.scheduled_at,
+    petName,
+    canJoinNow,
+    joinOpensAt: joinOpensAt.toISOString(),
+  };
+  const vet = await loadVet(consultation.vet_id);
 
-  // Send 15-minute reminders
-  for (const consultation of fifteenMinConsultations || []) {
-    const scheduledTime = new Date(consultation.scheduled_at);
-    const timeStr = scheduledTime.toLocaleTimeString('en-IN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
-    // Supabase returns joined data as objects (not arrays) for !fkey syntax
-    const petData15m = consultation.pets as unknown as { name: string } | null;
-    const profileData15m = consultation.profiles as unknown as { full_name: string; email: string } | null;
-    const petName = petData15m?.name || 'your pet';
-    const customerName15m = profileData15m?.full_name || 'Pet parent';
-
-    // Send in-app notification to customer
-    await createNotification({
+  const inApp = await attempt('customer 15m in-app', consultation.id, async () => {
+    const { error } = await createNotification({
       user_id: consultation.customer_id,
       type: 'consultation_reminder_15m',
-      title: 'Appointment starting soon',
-      body: `Your consultation for ${petName} starts in 15 minutes at ${timeStr}. You can join the waiting room now.`,
+      title: 'Consultation starting soon',
+      body: `Your consultation for ${petName} starts at ${time} (India time). ${joinText}`,
       channel: 'in_app',
-      data: {
-        consultationId: consultation.id,
-        scheduledAt: consultation.scheduled_at,
-        petName,
-        canJoinNow: true,
-      },
+      data,
     });
-    results.push({
-      consultationId: consultation.id,
-      reminderType: '15m',
-      userId: consultation.customer_id,
-      userType: 'customer',
-    });
+    return !error;
+  });
 
-    // Send email with join link to customer
-    if (profileData15m?.email) {
-      const { data: vetProfile15m } = consultation.vet_id
-        ? await supabaseAdmin.from('profiles').select('full_name').eq('id', consultation.vet_id).single()
-        : { data: null };
-
-      const emailResult15mCustomer = await sendCustomerFifteenMinReminderEmail(profileData15m.email, {
-        customerName: customerName15m,
-        petName,
-        vetName: vetProfile15m?.full_name || 'your vet',
-        consultationId: consultation.id,
-      });
-      if (!emailResult15mCustomer.success) {
-        console.error('15m customer email failed:', emailResult15mCustomer.error);
-      }
-    }
-
-    // Send to vet if assigned
-    if (consultation.vet_id) {
-      await createNotification({
-        user_id: consultation.vet_id,
-        type: 'consultation_reminder_15m',
-        title: 'Appointment starting soon',
-        body: `Consultation with ${customerName15m} for ${petName} starts in 15 minutes.`,
-        channel: 'in_app',
-        data: {
+  const email = consultation.profiles?.email
+    ? await attempt('customer 15m email', consultation.id, async () => {
+        const result = await sendCustomerStartingSoonEmail(consultation.profiles!.email!, {
+          customerName,
+          petName,
+          vetName: vet?.full_name || '',
           consultationId: consultation.id,
           scheduledAt: consultation.scheduled_at,
-          petName,
-          customerName: customerName15m,
-          canJoinNow: true,
-        },
-      });
-      results.push({
-        consultationId: consultation.id,
-        reminderType: '15m',
-        userId: consultation.vet_id,
-        userType: 'vet',
-      });
-
-      // Send email with join link to vet
-      const { data: vetUser15m } = await supabaseAdmin
-        .from('profiles')
-        .select('email, full_name')
-        .eq('id', consultation.vet_id)
-        .single();
-
-      if (vetUser15m?.email) {
-        const emailResult15mVet = await sendVetFifteenMinReminderEmail(vetUser15m.email, {
-          vetName: vetUser15m.full_name || 'Doctor',
-          petName,
-          customerName: customerName15m,
-          consultationId: consultation.id,
+          canJoinNow,
         });
-        if (!emailResult15mVet.success) {
-          console.error('15m vet email failed:', emailResult15mVet.error);
-        }
-      }
-    }
+        return result.success;
+      })
+    : false;
 
-    // Mark reminder as sent
-    await supabaseAdmin
-      .from('consultations')
-      .update({ reminder_15m_sent: true })
-      .eq('id', consultation.id);
+  if (consultation.vet_id) {
+    await attempt('vet 15m in-app', consultation.id, async () => {
+      const { error } = await createNotification({
+        user_id: consultation.vet_id!,
+        type: 'consultation_reminder_15m',
+        title: 'Consultation starting soon',
+        body: `Consultation with ${customerName} for ${petName} starts at ${time} (India time). ${joinText}`,
+        channel: 'in_app',
+        data: { ...data, customerName },
+      });
+      return !error;
+    });
+    if (vet?.email) {
+      await attempt('vet 15m email', consultation.id, async () => {
+        const result = await sendVetStartingSoonEmail(vet.email!, {
+          vetName: vet.full_name || '',
+          petName,
+          customerName,
+          consultationId: consultation.id,
+          scheduledAt: consultation.scheduled_at,
+          canJoinNow,
+        });
+        return result.success;
+      });
+    }
   }
 
-  console.log(`Sent ${results.length} reminders`);
-
-  return NextResponse.json({
-    processed: results.length,
-    results,
-  });
-});
+  return { customerReached: inApp || email };
+}

@@ -29,6 +29,11 @@ export function noteIsComplete(
   return !!note?.chief_complaint?.trim() && !!note?.provisional_diagnosis?.trim();
 }
 
+/** createNotification returns its error instead of throwing; make it throw so it is reported. */
+function notified(result: { error: { message: string } | null }): void {
+  if (result.error) throw new Error(`in-app notification: ${result.error.message}`);
+}
+
 async function step(name: string, consultationId: string, fn: () => Promise<void>): Promise<void> {
   try {
     await fn();
@@ -162,7 +167,7 @@ export async function runCompletionSideEffects(
   }
 
   await step('customer_notification', consultationId, async () => {
-    await createNotification({
+    notified(await createNotification({
       user_id: customerId,
       type: 'consultation_completed',
       title: 'Consultation completed',
@@ -171,20 +176,20 @@ export async function runCompletionSideEffects(
         : `Your consultation for ${petName} with ${vetDisplayName} has ended. The vet's notes will appear here once they are written.`,
       channel: 'in_app',
       data: { consultationId },
-    });
+    }));
   });
 
   // Closed by the cron without notes: ask the vet to write them.
   if (trigger === 'system' && !hasNotes && vetId) {
     await step('vet_notes_reminder', consultationId, async () => {
-      await createNotification({
+      notified(await createNotification({
         user_id: vetId,
         type: 'consultation_closed',
         title: 'Please add your notes',
         body: `The consultation for ${petName} was closed automatically after the call. Please add your notes.`,
         channel: 'in_app',
         data: { consultationId },
-      });
+      }));
     });
   }
 

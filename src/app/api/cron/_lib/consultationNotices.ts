@@ -17,6 +17,11 @@ export interface ClosedConsultation {
   petName: string;
 }
 
+/** createNotification returns its error instead of throwing; make it throw so it is reported. */
+function notified(result: { error: { message: string } | null }): void {
+  if (result.error) throw new Error(`in-app notification: ${result.error.message}`);
+}
+
 async function notice(name: string, consultationId: string, fn: () => Promise<void>): Promise<void> {
   try {
     await fn();
@@ -39,14 +44,14 @@ export async function sendMissedNotices(consultation: ClosedConsultation, vetJoi
   const data = { consultationId: consultation.id, scheduledAt: consultation.scheduled_at, petName: pet };
 
   await notice('customer_in_app', consultation.id, async () => {
-    await createNotification({
+    notified(await createNotification({
       user_id: consultation.customer_id,
       type: 'consultation_missed',
       title: 'Consultation missed',
       body: `You didn't join the video call for ${pet}'s consultation on ${when}, so it has been marked as missed. You can book a new time from your dashboard.`,
       channel: 'in_app',
       data,
-    });
+    }));
   });
 
   await notice('customer_email', consultation.id, async () => {
@@ -67,7 +72,7 @@ export async function sendMissedNotices(consultation: ClosedConsultation, vetJoi
   if (consultation.vet_id) {
     const vetId = consultation.vet_id;
     await notice('vet_in_app', consultation.id, async () => {
-      await createNotification({
+      notified(await createNotification({
         user_id: vetId,
         type: 'consultation_missed',
         title: 'Consultation missed',
@@ -76,7 +81,7 @@ export async function sendMissedNotices(consultation: ClosedConsultation, vetJoi
           : `Nobody joined the video call for ${pet} on ${when}. It has been marked as missed.`,
         channel: 'in_app',
         data,
-      });
+      }));
     });
   }
 }
@@ -122,27 +127,27 @@ export async function sendFailedNotices(
   });
 
   await notice('customer_in_app', consultation.id, async () => {
-    await createNotification({
+    notified(await createNotification({
       user_id: consultation.customer_id,
       type: 'consultation_closed',
       title: 'Your consultation did not go ahead',
       body: `We're sorry: ${pet}'s consultation on ${when} did not go ahead. Our team has been told and will be in touch.`,
       channel: 'in_app',
       data,
-    });
+    }));
   });
 
   if (consultation.vet_id) {
     const vetId = consultation.vet_id;
     await notice('vet_in_app', consultation.id, async () => {
-      await createNotification({
+      notified(await createNotification({
         user_id: vetId,
         type: 'consultation_closed',
         title: 'Consultation closed as failed',
         body: `${pet}'s consultation on ${when} was closed as failed. ${reasonText}`,
         channel: 'in_app',
         data,
-      });
+      }));
     });
   }
 }

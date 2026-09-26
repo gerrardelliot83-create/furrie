@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { OTPInput } from './OTPInput';
 import { OTP_LENGTH } from '@/lib/auth/otpConfig';
+import { ACCOUNT_ERROR_MESSAGES } from '@/lib/auth/loginErrors';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/components/ui/Toast';
 import styles from './AuthForm.module.css';
@@ -155,7 +156,7 @@ export function AuthForm() {
         if (errorParam === 'wrong_account') {
           toast(t('wrongAccount'), 'error');
         } else {
-          toast(errorParam, 'error');
+          toast(ACCOUNT_ERROR_MESSAGES[errorParam] ?? errorParam, 'error');
         }
       }, 150);
       return () => clearTimeout(timer);

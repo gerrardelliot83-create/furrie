@@ -17,15 +17,18 @@ export default async function AdminAppLayout({
   const { user, supabase } = await getCurrentUser();
   if (!user) redirect('/login');
 
-  const { data: profile } = await supabase
+  const { data: profile, error } = await supabase
     .from('profiles')
     .select('role, is_active')
     .eq('id', user.id)
     .maybeSingle();
 
-  if (!profile || profile.role !== 'admin' || profile.is_active === false) {
-    redirect('/login?error=wrong_account');
-  }
+  // A database error shows the portal's error page ("Try again"), not a wrong
+  // reason on the login page.
+  if (error) throw new Error(`Admin layout: could not read the profile (${error.code})`);
+  if (!profile) redirect('/login?error=no_profile');
+  if (profile.is_active === false) redirect('/login?error=account_disabled');
+  if (profile.role !== 'admin') redirect('/login?error=wrong_account');
 
   return <AdminLayout>{children}</AdminLayout>;
 }

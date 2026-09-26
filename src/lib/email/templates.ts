@@ -676,3 +676,80 @@ export function carePlanCreatedEmail(params: {
     `),
   };
 }
+
+// ---- V ----
+// Agent V (vets, reminders, the consultation), 2026-09-27. Times are India
+// time. Names and other values people typed are HTML-escaped here.
+
+function vEscape(value: string | null | undefined): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/** Customer did not join (V rule set): replaces missedAppointmentEmail for the crons. */
+export function customerMissedConsultationEmail(params: {
+  customerName: string;
+  petName: string;
+  scheduledAt: string;
+}): { subject: string; html: string } {
+  const pet = vEscape(params.petName);
+  return {
+    subject: `${params.petName}'s consultation was missed`,
+    html: wrapEmailBody(`
+      <p style="${textStyle}">${vEscape(emailGreeting(params.customerName))}</p>
+      <p style="${textStyle}">
+        You didn't join the video call for ${pet}'s consultation on ${formatDateTime(params.scheduledAt)} IST, so it has been marked as missed.
+      </p>
+      <p style="${textStyle}">
+        If ${pet} still needs a vet, you can book a new time from your dashboard.
+      </p>
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="${APP_URL}/connect" style="${btnPrimary}">Book a consultation</a>
+      </div>
+      <p style="${textStyle}">
+        If something went wrong on our side, reply to this email and tell us what happened.
+      </p>
+      <p style="${textStyle}">
+        <strong>Team Furrie</strong>
+      </p>
+    `),
+  };
+}
+
+/** Ops: a consultation did not happen and a person needs to follow up (V rule set: 'failed'). */
+export function opsConsultationProblemEmail(params: {
+  consultationNumber: string;
+  scheduledAt: string;
+  petName: string;
+  customerName: string;
+  customerEmail: string | null;
+  vetName: string;
+  reason: string;
+}): { subject: string; html: string } {
+  const row = (label: string, value: string) =>
+    `<p style="${labelStyle}">${label}</p><p style="${valueStyle}">${value}</p>`;
+  return {
+    subject: `[Action needed] ${params.consultationNumber} did not happen`,
+    html: wrapEmailBody(`
+      <p style="${textStyle}"><strong>A consultation was closed as failed.</strong></p>
+      <p style="${textStyle}">${vEscape(params.reason)}</p>
+      <div style="${infoBox}">
+        ${row('When', `${formatDateTime(params.scheduledAt)} IST`)}
+        ${row('Consultation', vEscape(params.consultationNumber))}
+        ${row('Pet', vEscape(params.petName))}
+        ${row('Customer', `${vEscape(params.customerName)}${params.customerEmail ? ` · ${vEscape(params.customerEmail)}` : ''}`)}
+        ${row('Vet', vEscape(params.vetName))}
+      </div>
+      <p style="${textStyle}">
+        What to do: check with the vet and the customer. If the customer should not lose the consultation, grant them a replacement credit in the admin portal (Users). The customer has been told that our team will be in touch.
+      </p>
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="https://admin.furrie.in/consultations" style="${btnPrimary}">Open admin consultations</a>
+      </div>
+    `),
+  };
+}

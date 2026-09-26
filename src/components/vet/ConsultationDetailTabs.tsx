@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
-import { createClient } from '@/lib/supabase/client';
-import { SOAPForm } from './SOAPForm';
+import { SOAPForm, type SOAPFormHandle } from './SOAPForm';
+import { finishConsultation } from './finishConsultation';
 import { TreatmentPlanBuilder } from './treatment-plan/TreatmentPlanBuilder';
 import type { SoapNote } from '@/types';
 import styles from './ConsultationDetailTabs.module.css';
@@ -61,61 +61,46 @@ export function ConsultationDetailTabs({
     window.history.replaceState({}, '', url.toString());
   }, []);
 
+  const soapFormRef = useRef<SOAPFormHandle>(null);
+
+  // One finish path for both buttons (C-02): the notes are already saved when
+  // this runs; the server checks status, start time and notes, closes the
+  // consultation once, and sends the follow-up chat, emails and invite reward.
+  const completeConsultation = useCallback(
+    async (options: { isDiagnosisFromList: boolean }) => {
+      setIsFinishing(true);
+      try {
+        const result = await finishConsultation(consultationId, options);
+        if (result.ok) {
+          setIsCompleted(true);
+          toast(
+            result.alreadyCompleted ? 'This consultation was already completed' : 'Consultation completed',
+            'success'
+          );
+          router.push('/consultations');
+          router.refresh();
+          return;
+        }
+        if (result.code === 'NOTES_REQUIRED') {
+          handleTabChange('soap');
+        }
+        toast(result.message, 'error');
+      } finally {
+        setIsFinishing(false);
+      }
+    },
+    [consultationId, handleTabChange, router, toast]
+  );
+
+  // Treatment Plan tab: save whatever is in the SOAP form first.
   const handleFinishConsultation = async () => {
-    setIsFinishing(true);
-    try {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from('consultations')
-        .update({
-          status: 'closed',
-          outcome: 'success',
-          ended_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', consultationId);
-
-      if (error) throw new Error('Failed to complete consultation');
-
-      // Non-blocking follow-up, analytics, and email
-      fetch('/api/follow-up/thread', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ consultationId }),
-      }).catch(() => {});
-
-      fetch('/api/analytics/capture-treatment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ consultationId }),
-      }).catch(() => {});
-
-      fetch('/api/email/consultation-completed', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ consultationId }),
-      }).catch(() => {});
-
-      // Check if this consultation's customer was an invitee completing
-      // their first consultation — if so, grant the referrer a reward.
-      fetch('/api/invites/check-referrer-reward', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ consultationId }),
-      }).catch(() => {});
-
-      setIsCompleted(true);
-      toast('Consultation completed successfully', 'success');
-      router.push('/consultations');
-    } catch (error) {
-      console.error('Error finishing consultation:', error);
-      toast(
-        error instanceof Error ? error.message : 'Failed to complete consultation',
-        'error'
-      );
-    } finally {
-      setIsFinishing(false);
+    if (isFinishing) return;
+    const soapForm = soapFormRef.current;
+    if (soapForm) {
+      const saved = await soapForm.saveBeforeFinish();
+      if (!saved) return;
     }
+    await completeConsultation({ isDiagnosisFromList: soapForm?.isDiagnosisFromList() ?? false });
   };
 
   const tabs: { key: TabKey; label: string }[] = [
@@ -160,9 +145,13 @@ export function ConsultationDetailTabs({
         role="tabpanel"
       >
         <SOAPForm
+          ref={soapFormRef}
           consultationId={consultationId}
           petSpecies={petSpecies}
           initialData={initialSoapData}
+          isCompleted={isCompleted}
+          isFinishing={isFinishing}
+          onComplete={completeConsultation}
         />
       </div>
 

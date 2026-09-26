@@ -1,11 +1,10 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useImperativeHandle, useRef, type Ref } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
-import { createClient } from '@/lib/supabase/client';
 import { revalidateConsultationPath } from '@/app/actions/revalidate';
 import { formatIstTime } from '@/lib/time/ist';
 import { buildSoapDelta, hasSoapChanges, type SoapValues } from './soapDelta';
@@ -16,11 +15,24 @@ import { PlanSection } from './PlanSection';
 import type { SoapNote, PrescribedMedication, VitalSigns } from '@/types';
 import styles from './SOAPForm.module.css';
 
+/** Lets the Treatment Plan tab save these notes before it finishes the consultation. */
+export interface SOAPFormHandle {
+  saveBeforeFinish: () => Promise<boolean>;
+  isDiagnosisFromList: () => boolean;
+}
+
 interface SOAPFormProps {
   consultationId: string;
   petSpecies: 'dog' | 'cat';
   initialData?: Partial<SoapNote>;
+  isCompleted: boolean;
+  isFinishing: boolean;
+  /** Called after the notes are saved; finishes the consultation (ConsultationDetailTabs). */
+  onComplete: (options: { isDiagnosisFromList: boolean }) => Promise<void>;
+  ref?: Ref<SOAPFormHandle>;
 }
+
+type SaveMode = 'auto' | 'manual' | 'before-finish';
 
 interface FormData {
   // Subjective
@@ -62,7 +74,15 @@ interface FormData {
 
 const AUTOSAVE_INTERVAL = 30000; // 30 seconds
 
-export function SOAPForm({ consultationId, petSpecies, initialData }: SOAPFormProps) {
+export function SOAPForm({
+  consultationId,
+  petSpecies,
+  initialData,
+  isCompleted,
+  isFinishing,
+  onComplete,
+  ref,
+}: SOAPFormProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -145,7 +165,8 @@ export function SOAPForm({ consultationId, petSpecies, initialData }: SOAPFormPr
     }
   }, []);
 
-  const performSave = useCallback(async (isAutoSave: boolean): Promise<boolean> => {
+  const performSave = useCallback(async (mode: SaveMode): Promise<boolean> => {
+    const isAutoSave = mode === 'auto';
     const { delta } = buildSoapDelta(formData, baselineRef.current, { autosave: isAutoSave });
     const hasDelta = Object.keys(delta).length > 0;
 
@@ -183,18 +204,18 @@ export function SOAPForm({ consultationId, petSpecies, initialData }: SOAPFormPr
     // Typing during the request, or a clear held back by autosave, stays unsaved.
     setHasUnsavedChanges(hasSoapChanges(formDataRef.current, baselineRef.current));
 
-    if (!isAutoSave) {
-      if (hasDelta) {
-        await revalidateConsultationPath(consultationId);
-      }
+    if (!isAutoSave && hasDelta) {
+      await revalidateConsultationPath(consultationId);
+    }
+    if (mode === 'manual') {
       toast('Notes saved successfully', 'success');
     }
     return true;
   }, [consultationId, formData, toast]);
 
-  const saveNotes = useCallback(async (isAutoSave = false): Promise<boolean> => {
+  const saveNotes = useCallback(async (mode: SaveMode = 'manual'): Promise<boolean> => {
     // For manual saves: cancel any pending autosave and wait for in-flight save
-    if (!isAutoSave) {
+    if (mode !== 'auto') {
       cancelAutosave();
 
       if (savePromiseRef.current) {
@@ -209,7 +230,7 @@ export function SOAPForm({ consultationId, petSpecies, initialData }: SOAPFormPr
     }
 
     setIsSaving(true);
-    const promise = performSave(isAutoSave);
+    const promise = performSave(mode);
     savePromiseRef.current = promise;
 
     try {
@@ -225,7 +246,7 @@ export function SOAPForm({ consultationId, petSpecies, initialData }: SOAPFormPr
   useEffect(() => {
     if (hasUnsavedChanges) {
       autosaveTimerRef.current = setTimeout(() => {
-        saveNotes(true);
+        saveNotes('auto');
       }, AUTOSAVE_INTERVAL);
     }
 
@@ -236,19 +257,24 @@ export function SOAPForm({ consultationId, petSpecies, initialData }: SOAPFormPr
     };
   }, [hasUnsavedChanges, saveNotes]);
 
+  useImperativeHandle(
+    ref,
+    () => ({
+      saveBeforeFinish: () => saveNotes('before-finish'),
+      isDiagnosisFromList: () => formDataRef.current.isDiagnosisFromList,
+    }),
+    [saveNotes]
+  );
+
   const handleGeneratePrescription = async () => {
     cancelAutosave();
-    const saved = await saveNotes(false);
+    const saved = await saveNotes('manual');
     if (!saved) {
       toast('Please save your notes before generating a treatment plan', 'error');
       return;
     }
     router.push(`/consultations/${consultationId}/prescription`);
   };
-
-  // Maximum consultation duration cap (in minutes)
-  // Consultations are 15-30 min slots; 60 min is a generous safety margin
-  const MAX_DURATION_MINUTES = 60;
 
   const handleComplete = async () => {
     // Validate required fields
@@ -285,117 +311,12 @@ export function SOAPForm({ consultationId, petSpecies, initialData }: SOAPFormPr
   const executeComplete = async () => {
     setShowConfirmDialog(false);
 
-    // Cancel autosave and save notes first
+    // Notes first, then the server closes the consultation (one path, C-02).
     cancelAutosave();
-    const saved = await saveNotes(false);
-    if (!saved) {
-      toast('Failed to save notes. Please try again.', 'error');
-      return;
-    }
+    const saved = await saveNotes('before-finish');
+    if (!saved) return; // performSave already told the vet why
 
-    // Calculate duration with a safety cap to prevent absurd values
-    // (e.g., 13935 min when a stale 'active' consultation is completed days later)
-    const now = new Date();
-    const endedAt = now.toISOString();
-
-    // Update consultation status to closed with success outcome
-    const supabase = createClient();
-
-    // First, fetch the consultation to get started_at for duration calculation
-    const { data: consultation } = await supabase
-      .from('consultations')
-      .select('started_at, duration_minutes')
-      .eq('id', consultationId)
-      .single();
-
-    let durationMinutes: number | null = null;
-    if (consultation?.started_at) {
-      const rawDuration = Math.ceil(
-        (now.getTime() - new Date(consultation.started_at).getTime()) / 60000
-      );
-      // Cap duration — if it exceeds MAX_DURATION_MINUTES, something went wrong
-      // (webhook failure, browser crash, etc.)
-      durationMinutes = Math.min(rawDuration, MAX_DURATION_MINUTES);
-    }
-
-    // Only set duration if not already set by Daily.co webhook
-    const updateData: Record<string, unknown> = {
-      status: 'closed',
-      outcome: 'success',
-      ended_at: endedAt,
-      updated_at: endedAt,
-    };
-
-    // Only override duration if it wasn't set by the webhook or if it's clearly wrong
-    if (!consultation?.duration_minutes || consultation.duration_minutes > MAX_DURATION_MINUTES) {
-      updateData.duration_minutes = durationMinutes;
-    }
-
-    const { error } = await supabase
-      .from('consultations')
-      .update(updateData)
-      .eq('id', consultationId);
-
-    if (error) {
-      console.error('Error completing consultation:', error);
-      toast('Failed to complete consultation', 'error');
-      return;
-    }
-
-    // Revalidate the consultation detail page cache
-    await revalidateConsultationPath(consultationId);
-
-    // Create follow-up thread (non-blocking, don't fail if this fails)
-    try {
-      const threadRes = await fetch('/api/follow-up/thread', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ consultationId }),
-      });
-      if (!threadRes.ok) {
-        const errData = await threadRes.json().catch(() => ({}));
-        console.error('Follow-up thread creation failed:', threadRes.status, errData);
-      }
-    } catch (threadError) {
-      // Log but don't block consultation completion
-      console.error('Failed to create follow-up thread:', threadError);
-    }
-
-    // Capture treatment analytics for intelligent autocomplete + AI/ML training
-    try {
-      const analyticsRes = await fetch('/api/analytics/capture-treatment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          consultationId,
-          isDiagnosisFromList: formData.isDiagnosisFromList,
-        }),
-      });
-      if (!analyticsRes.ok) {
-        const errData = await analyticsRes.json().catch(() => ({}));
-        console.error('Treatment analytics capture failed:', analyticsRes.status, errData);
-      }
-    } catch (analyticsError) {
-      console.error('Failed to capture treatment analytics:', analyticsError);
-    }
-
-    // Send consultation completed email (non-blocking)
-    try {
-      const emailRes = await fetch('/api/email/consultation-completed', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ consultationId }),
-      });
-      if (!emailRes.ok) {
-        const errData = await emailRes.json().catch(() => ({}));
-        console.error('Consultation completed email failed:', emailRes.status, errData);
-      }
-    } catch (emailError) {
-      console.error('Failed to send completed email:', emailError);
-    }
-
-    toast('Consultation completed', 'success');
-    router.push('/consultations');
+    await onComplete({ isDiagnosisFromList: formData.isDiagnosisFromList });
   };
 
   return (
@@ -413,7 +334,7 @@ export function SOAPForm({ consultationId, petSpecies, initialData }: SOAPFormPr
           )}
         </div>
         <div className={styles.headerActions}>
-          <Button variant="secondary" onClick={() => saveNotes(false)} loading={isSaving}>
+          <Button variant="secondary" onClick={() => saveNotes('manual')} loading={isSaving}>
             Save Draft
           </Button>
         </div>
@@ -552,9 +473,15 @@ export function SOAPForm({ consultationId, petSpecies, initialData }: SOAPFormPr
         <Button variant="secondary" onClick={handleGeneratePrescription}>
           Generate Treatment Plan
         </Button>
-        <Button variant="primary" onClick={handleComplete}>
-          Complete Consultation
-        </Button>
+        {isCompleted ? (
+          <Button variant="secondary" disabled>
+            Consultation Completed
+          </Button>
+        ) : (
+          <Button variant="primary" onClick={handleComplete} loading={isFinishing}>
+            Complete Consultation
+          </Button>
+        )}
       </div>
 
       {/* Confirmation modal for incomplete optional sections */}
@@ -573,7 +500,7 @@ export function SOAPForm({ consultationId, petSpecies, initialData }: SOAPFormPr
             <Button variant="ghost" onClick={() => setShowConfirmDialog(false)}>
               Go Back
             </Button>
-            <Button variant="primary" onClick={executeComplete}>
+            <Button variant="primary" onClick={executeComplete} loading={isFinishing}>
               Continue Anyway
             </Button>
           </div>

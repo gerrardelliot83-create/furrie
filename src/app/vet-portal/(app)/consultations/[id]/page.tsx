@@ -182,7 +182,9 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
       .from('follow_up_threads')
       .select('id, is_active, expires_at')
       .eq('consultation_id', consultationId)
-      .single(),
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle(),
     // Consultation media
     supabase
       .from('consultation_media')
@@ -232,6 +234,11 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
   const flag = consultation.consultation_flags?.[0];
   const isActive = ['scheduled', 'active'].includes(consultation.status);
   const isCompleted = consultation.status === 'closed';
+  const closedAsSuccess = isCompleted && consultation.outcome === 'success';
+  // The follow-up thread is created when the notes are sent to the pet parent,
+  // so a success without one still has notes to send (e.g. the cron closed it
+  // before they were written).
+  const awaitingNotesDelivery = closedAsSuccess && !followUpThread;
 
   // Map SOAP note for the SOAPForm initial data
   const soapNoteData: Partial<SoapNote> | undefined = soapNoteRaw
@@ -713,6 +720,8 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
               initialSoapData={soapNoteData}
               hasSoapNotes={hasSoapNotes}
               isCompleted={isCompleted}
+              awaitingNotesDelivery={awaitingNotesDelivery}
+              closedWithoutSuccess={isCompleted && !closedAsSuccess}
               overviewContent={overviewContent}
             />
           </div>

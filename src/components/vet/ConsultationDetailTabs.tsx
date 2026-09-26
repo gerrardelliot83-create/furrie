@@ -18,6 +18,10 @@ interface ConsultationDetailTabsProps {
   initialSoapData?: Partial<SoapNote>;
   hasSoapNotes: boolean;
   isCompleted: boolean;
+  /** Closed as a success, but the notes haven't been sent to the pet parent yet (no follow-up thread). */
+  awaitingNotesDelivery: boolean;
+  /** Closed with another outcome (missed, failed, cancelled): nothing to finish or send. */
+  closedWithoutSuccess: boolean;
   /* Overview content passed as children */
   overviewContent: React.ReactNode;
 }
@@ -28,6 +32,8 @@ export function ConsultationDetailTabs({
   initialSoapData,
   hasSoapNotes: initialHasSoapNotes,
   isCompleted: initialIsCompleted,
+  awaitingNotesDelivery: initialAwaitingNotes,
+  closedWithoutSuccess,
   overviewContent,
 }: ConsultationDetailTabsProps) {
   const router = useRouter();
@@ -44,6 +50,16 @@ export function ConsultationDetailTabs({
   // the consultation-completion state and finishing spinner here.
   const [isFinishing, setIsFinishing] = useState(false);
   const [isCompleted, setIsCompleted] = useState(initialIsCompleted);
+  const [awaitingNotes, setAwaitingNotes] = useState(initialAwaitingNotes);
+
+  // What the finish buttons do: finish the consultation, send late notes
+  // (closed by the cron before the notes were written), or nothing.
+  const finishAction: 'finish' | 'send_notes' | 'none' = !isCompleted
+    ? 'finish'
+    : awaitingNotes && !closedWithoutSuccess
+      ? 'send_notes'
+      : 'none';
+  const closedLabel = closedWithoutSuccess ? 'Consultation Closed' : 'Consultation Completed';
 
   // Lazy-mount: only render TreatmentPlanBuilder once the rx tab has been
   // activated. This prevents it from firing its load useEffect at page mount
@@ -73,10 +89,16 @@ export function ConsultationDetailTabs({
         const result = await finishConsultation(consultationId, options);
         if (result.ok) {
           setIsCompleted(true);
-          toast(
-            result.alreadyCompleted ? 'This consultation was already completed' : 'Consultation completed',
-            'success'
-          );
+          setAwaitingNotes(false);
+          if (result.alreadyCompleted) {
+            toast(
+              result.notesSent ? 'Notes sent to the pet parent' : 'This consultation was already completed',
+              'success'
+            );
+            router.refresh();
+            return;
+          }
+          toast('Consultation completed', 'success');
           router.push('/consultations');
           router.refresh();
           return;
@@ -149,7 +171,8 @@ export function ConsultationDetailTabs({
           consultationId={consultationId}
           petSpecies={petSpecies}
           initialData={initialSoapData}
-          isCompleted={isCompleted}
+          finishAction={finishAction}
+          closedLabel={closedLabel}
           isFinishing={isFinishing}
           onComplete={completeConsultation}
         />
@@ -173,9 +196,9 @@ export function ConsultationDetailTabs({
             >
               Back to SOAP Notes
             </Button>
-            {isCompleted ? (
+            {finishAction === 'none' ? (
               <Button variant="secondary" disabled>
-                Consultation Completed
+                {closedLabel}
               </Button>
             ) : (
               <Button
@@ -183,7 +206,11 @@ export function ConsultationDetailTabs({
                 onClick={handleFinishConsultation}
                 loading={isFinishing}
               >
-                {isFinishing ? 'Finishing...' : 'Finish Consultation'}
+                {finishAction === 'send_notes'
+                  ? 'Send notes to the pet parent'
+                  : isFinishing
+                    ? 'Finishing...'
+                    : 'Finish Consultation'}
               </Button>
             )}
           </div>

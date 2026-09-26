@@ -3,7 +3,11 @@ import { getRequestUser } from '@/lib/auth/withAuth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { formatIstTime } from '@/lib/time/ist';
 import { withRoute } from '@/server/handler';
-import { noteIsComplete, runCompletionSideEffects } from '@/app/api/vet/_lib/completeConsultation';
+import {
+  deliverLateNotes,
+  noteIsComplete,
+  runCompletionSideEffects,
+} from '@/app/api/vet/_lib/completeConsultation';
 
 // Same cap the web form used: a slot is 30 minutes, so anything longer means
 // the start time is stale (e.g. a browser crash left the call "active").
@@ -22,6 +26,10 @@ const MAX_DURATION_MINUTES = 60;
  *   - the saved note must have a chief complaint and a provisional diagnosis;
  *   - the status change is guarded and read back, so only one request can
  *     close it; a repeat returns { alreadyCompleted: true } and sends nothing.
+ *   - on a consultation already closed as a success (e.g. by the stale-call
+ *     cron before the vet wrote notes), the same call is "Send notes to the
+ *     pet parent": if the notes now exist and haven't been sent (no
+ *     follow-up thread yet), it sends them once ({ notesSent: true }).
  *
  * Writes use the service role after these checks. Follow-up chat, emails and
  * the invite reward run once, after the response (runCompletionSideEffects).
@@ -69,7 +77,19 @@ export const POST = withRoute(async function POST(
 
   if (consultation.status === 'closed') {
     if (consultation.outcome === 'success') {
-      return NextResponse.json({ completed: true, alreadyCompleted: true });
+      // Late notes (CTO review item 1): send them now if they exist and
+      // haven't been sent; otherwise this is a harmless repeat.
+      const late = await deliverLateNotes(id);
+      if (late === 'notes_missing') {
+        return NextResponse.json(
+          {
+            error: 'Add the chief complaint and a provisional diagnosis, save, then send the notes.',
+            code: 'NOTES_REQUIRED',
+          },
+          { status: 422 }
+        );
+      }
+      return NextResponse.json({ completed: true, alreadyCompleted: true, notesSent: late === 'sent' });
     }
     return NextResponse.json(
       {

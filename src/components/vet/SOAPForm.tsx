@@ -25,7 +25,10 @@ interface SOAPFormProps {
   consultationId: string;
   petSpecies: 'dog' | 'cat';
   initialData?: Partial<SoapNote>;
-  isCompleted: boolean;
+  /** 'finish' the consultation, 'send_notes' after a cron close, or 'none'. */
+  finishAction: 'finish' | 'send_notes' | 'none';
+  /** Shown on the disabled button when finishAction is 'none'. */
+  closedLabel: string;
   isFinishing: boolean;
   /** Called after the notes are saved; finishes the consultation (ConsultationDetailTabs). */
   onComplete: (options: { isDiagnosisFromList: boolean }) => Promise<void>;
@@ -78,7 +81,8 @@ export function SOAPForm({
   consultationId,
   petSpecies,
   initialData,
-  isCompleted,
+  finishAction,
+  closedLabel,
   isFinishing,
   onComplete,
   ref,
@@ -473,13 +477,13 @@ export function SOAPForm({
         <Button variant="secondary" onClick={handleGeneratePrescription}>
           Generate Treatment Plan
         </Button>
-        {isCompleted ? (
+        {finishAction === 'none' ? (
           <Button variant="secondary" disabled>
-            Consultation Completed
+            {closedLabel}
           </Button>
         ) : (
           <Button variant="primary" onClick={handleComplete} loading={isFinishing}>
-            Complete Consultation
+            {finishAction === 'send_notes' ? 'Send notes to the pet parent' : 'Complete Consultation'}
           </Button>
         )}
       </div>

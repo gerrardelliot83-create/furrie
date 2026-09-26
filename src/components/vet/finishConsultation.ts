@@ -5,7 +5,7 @@
  */
 
 export type FinishResult =
-  | { ok: true; alreadyCompleted: boolean }
+  | { ok: true; alreadyCompleted: boolean; notesSent: boolean }
   | { ok: false; code: string; message: string };
 
 export async function finishConsultation(
@@ -34,9 +34,10 @@ export async function finishConsultation(
   }
 
   const alreadyCompleted = data.alreadyCompleted === true;
+  const notesSent = data.notesSent === true;
 
-  // Autocomplete analytics only when this call finished it. Best effort.
-  if (!alreadyCompleted) {
+  // Autocomplete analytics when this call finished it or sent late notes. Best effort.
+  if (!alreadyCompleted || notesSent) {
     fetch('/api/analytics/capture-treatment', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -47,5 +48,5 @@ export async function finishConsultation(
     }).catch((err) => console.error('Treatment analytics capture failed:', err));
   }
 
-  return { ok: true, alreadyCompleted };
+  return { ok: true, alreadyCompleted, notesSent };
 }

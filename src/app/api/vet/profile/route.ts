@@ -3,6 +3,7 @@ import { getRequestUser } from '@/lib/auth/withAuth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { validateAvailabilitySchedule } from '@/lib/scheduling/validateAvailabilitySchedule';
 import { stripDoctorPrefix } from '@/app/api/vet/_lib/vetName';
+import { INVALID_PHONE_MESSAGE, normalizeIndianMobile } from '@/app/api/vet/_lib/phone';
 import { withRoute } from '@/server/handler';
 
 /**
@@ -115,10 +116,12 @@ export const PATCH = withRoute(async function PATCH(request: Request) {
       profileUpdate.full_name = trimmed;
     }
     if (body.phone !== undefined) {
-      const phone = body.phone?.trim() || null;
-      if (phone && !/^[6-9]\d{9}$/.test(phone.replace(/[\s-]/g, ''))) {
+      // One phone format (C-12): +91 / spaces accepted, 10 digits stored
+      const raw = typeof body.phone === 'string' ? body.phone.trim() : '';
+      const phone = raw ? normalizeIndianMobile(raw) : null;
+      if (raw && !phone) {
         return NextResponse.json(
-          { error: 'Please enter a valid 10-digit Indian mobile number', code: 'VALIDATION_ERROR' },
+          { error: INVALID_PHONE_MESSAGE, code: 'VALIDATION_ERROR' },
           { status: 400 }
         );
       }

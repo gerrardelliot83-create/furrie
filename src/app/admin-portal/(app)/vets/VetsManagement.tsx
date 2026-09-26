@@ -334,7 +334,7 @@ function CreateVetModal({
           <div className={styles.formRow}>
             <div className={styles.field}>
               <label className={styles.label}>Phone</label>
-              <input name="phone" className={styles.input} placeholder="+919876543210" />
+              <input name="phone" className={styles.input} placeholder="98765 43210 (10-digit mobile)" />
             </div>
           </div>
           <div className={styles.formRow}>

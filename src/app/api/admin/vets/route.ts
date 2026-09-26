@@ -5,6 +5,7 @@ import { verifyAdmin, logAdminAction } from '@/lib/admin/auth';
 import { withRoute } from '@/server/handler';
 import { sendVetSetPasswordLink } from '@/app/api/vet/_lib/passwordLink';
 import { stripDoctorPrefix } from '@/app/api/vet/_lib/vetName';
+import { INVALID_PHONE_MESSAGE, normalizeIndianMobile } from '@/app/api/vet/_lib/phone';
 
 interface CreateVetBody {
   email: string;
@@ -47,6 +48,14 @@ export const POST = withRoute(async function POST(request: Request) {
         { error: 'fullName is required', code: 'VALIDATION_ERROR' },
         { status: 400 }
       );
+    }
+    // One phone format (C-12): stored as the 10-digit mobile number
+    if (body.phone) {
+      const phone = normalizeIndianMobile(String(body.phone));
+      if (!phone) {
+        return NextResponse.json({ error: INVALID_PHONE_MESSAGE, code: 'VALIDATION_ERROR' }, { status: 400 });
+      }
+      body.phone = phone;
     }
     if (!body.qualifications) {
       return NextResponse.json(
@@ -300,7 +309,15 @@ export const PATCH = withRoute(async function PATCH(request: Request) {
       }
       profileUpdates.full_name = fullName;
     }
-    if (body.phone !== undefined) profileUpdates.phone = body.phone;
+    if (body.phone !== undefined) {
+      // One phone format (C-12): stored as the 10-digit mobile number; empty clears it
+      const raw = String(body.phone ?? '').trim();
+      const phone = raw ? normalizeIndianMobile(raw) : null;
+      if (raw && !phone) {
+        return NextResponse.json({ error: INVALID_PHONE_MESSAGE, code: 'VALIDATION_ERROR' }, { status: 400 });
+      }
+      profileUpdates.phone = phone;
+    }
     if (body.isActive !== undefined) profileUpdates.is_active = body.isActive;
 
     if (Object.keys(profileUpdates).length > 0) {

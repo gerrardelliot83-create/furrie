@@ -460,6 +460,8 @@ export async function getRoomAttendance(roomName: string): Promise<RoomAttendanc
     response = await fetch(`${DAILY_API_URL}/meetings?room=${encodeURIComponent(roomName)}&limit=10`, {
       method: 'GET',
       headers: { Authorization: `Bearer ${DAILY_API_KEY}` },
+      // The vet's Finish waits on this; a slow Daily must not hold it up.
+      signal: AbortSignal.timeout(5000),
     });
   } catch (error) {
     console.error(`Daily meetings request failed for room ${roomName}:`, error);

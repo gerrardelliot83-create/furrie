@@ -1,6 +1,7 @@
 import { NextResponse, after } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { getRoomAttendance, roomNameForConsultation } from '@/lib/daily';
 import { formatIstTime } from '@/lib/time/ist';
 import { withRoute } from '@/server/handler';
 import {
@@ -12,6 +13,10 @@ import {
 // Same cap the web form used: a slot is 30 minutes, so anything longer means
 // the start time is stale (e.g. a browser crash left the call "active").
 const MAX_DURATION_MINUTES = 60;
+
+function capMinutes(minutes: number): number {
+  return Math.min(Math.max(1, Math.ceil(minutes)), MAX_DURATION_MINUTES);
+}
 
 /**
  * POST /api/vet/consultations/[id]/complete
@@ -49,7 +54,7 @@ export const POST = withRoute(async function POST(
     supabaseAdmin.from('profiles').select('role, is_active').eq('id', user.id).maybeSingle(),
     supabaseAdmin
       .from('consultations')
-      .select('id, vet_id, status, outcome, scheduled_at, started_at, duration_minutes')
+      .select('id, vet_id, status, outcome, scheduled_at, started_at, duration_minutes, daily_room_name')
       .eq('id', id)
       .maybeSingle(),
   ]);
@@ -150,16 +155,16 @@ export const POST = withRoute(async function POST(
     );
   }
 
-  // Keep a plausible recorded length (Daily's meeting.ended writes the real
-  // call length); otherwise measure from the first join, capped.
+  // The real call length (CTO review item 2; the booking stores the allotted
+  // 30): Daily's meeting records for this room when available, otherwise
+  // first join to now; both capped at 60. With no join at all (e.g. the call
+  // happened by phone) the allotted length is kept.
   let durationMinutes = consultation.duration_minutes;
-  if (!durationMinutes || durationMinutes > MAX_DURATION_MINUTES) {
-    durationMinutes = consultation.started_at
-      ? Math.min(
-          Math.max(1, Math.ceil((now.getTime() - new Date(consultation.started_at).getTime()) / 60000)),
-          MAX_DURATION_MINUTES
-        )
-      : null;
+  const attendance = await getRoomAttendance(consultation.daily_room_name || roomNameForConsultation(id));
+  if (attendance && attendance.totalSeconds > 0) {
+    durationMinutes = capMinutes(attendance.totalSeconds / 60);
+  } else if (consultation.started_at) {
+    durationMinutes = capMinutes((now.getTime() - new Date(consultation.started_at).getTime()) / 60000);
   }
 
   const { data: updated, error: updateError } = await supabaseAdmin

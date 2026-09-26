@@ -11,9 +11,10 @@ import styles from './SetPasswordForm.module.css';
 const MIN_LENGTH = 8;
 
 /**
- * Set or change the signed-in vet's password (C-04, P0-2). Reached from the
- * welcome / reset email link (via /auth/callback?…&next=/set-password) or
- * from Profile → Change password.
+ * Set or change the signed-in user's password (C-04, P0-2, A-12). Used by the
+ * vet portal's and the admin portal's /set-password pages, reached from a
+ * welcome / reset email link (via /auth/callback?…&next=/set-password) or,
+ * for vets, from Profile → Change password.
  */
 export function SetPasswordForm() {
   const router = useRouter();
@@ -47,7 +48,7 @@ export function SetPasswordForm() {
         setError('Choose a password different from your current one.');
       } else if (code === 'reauthentication_needed' || /reauth/i.test(updateError.message)) {
         setError(
-          'For your security, sign out, choose “Forgot your password?” on the login page, and set your password from the link we email you.'
+          'For your security, set your password from a fresh link: vets choose “Forgot your password?” on the login page; admins ask another admin to send one.'
         );
       } else if (code === 'weak_password') {
         setError(updateError.message || 'That password is too weak. Try a longer one.');

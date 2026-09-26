@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react';
 import styles from './page.module.css';
 
 export default function AdminSettingsPage() {
+  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -13,8 +14,13 @@ export default function AdminSettingsPage() {
     e.preventDefault();
     setMessage(null);
 
-    if (newPassword.length < 6) {
-      setMessage({ type: 'error', text: 'Password must be at least 6 characters' });
+    if (!currentPassword) {
+      setMessage({ type: 'error', text: 'Enter your current password' });
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setMessage({ type: 'error', text: 'Password must be at least 8 characters' });
       return;
     }
 
@@ -29,7 +35,7 @@ export default function AdminSettingsPage() {
       const res = await fetch('/api/admin/password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'change', newPassword }),
+        body: JSON.stringify({ action: 'change', currentPassword, newPassword }),
       });
 
       const data = await res.json();
@@ -38,6 +44,7 @@ export default function AdminSettingsPage() {
         setMessage({ type: 'error', text: data.error || 'Failed to change password' });
       } else {
         setMessage({ type: 'success', text: 'Password changed successfully' });
+        setCurrentPassword('');
         setNewPassword('');
         setConfirmPassword('');
       }
@@ -56,9 +63,25 @@ export default function AdminSettingsPage() {
         <h2 className={styles.sectionTitle}>Change Password</h2>
         <p className={styles.sectionDesc}>
           Update your admin account password. You will remain logged in after changing.
+          Forgot your current password? Ask another admin to send you a set-password link.
         </p>
 
         <form onSubmit={handlePasswordChange} className={styles.form}>
+          <div className={styles.field}>
+            <label htmlFor="currentPassword" className={styles.label}>
+              Current Password
+            </label>
+            <input
+              id="currentPassword"
+              type="password"
+              className={styles.input}
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              required
+              autoComplete="current-password"
+            />
+          </div>
+
           <div className={styles.field}>
             <label htmlFor="newPassword" className={styles.label}>
               New Password
@@ -69,9 +92,9 @@ export default function AdminSettingsPage() {
               className={styles.input}
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Minimum 6 characters"
+              placeholder="Minimum 8 characters"
               required
-              minLength={6}
+              minLength={8}
               autoComplete="new-password"
             />
           </div>
@@ -88,7 +111,7 @@ export default function AdminSettingsPage() {
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Re-enter new password"
               required
-              minLength={6}
+              minLength={8}
               autoComplete="new-password"
             />
           </div>

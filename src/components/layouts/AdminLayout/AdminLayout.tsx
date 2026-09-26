@@ -1,10 +1,11 @@
 'use client';
 
-import { type ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { createClient } from '@/lib/supabase/client';
 import styles from './AdminLayout.module.css';
 
 interface AdminLayoutProps {
@@ -23,6 +24,21 @@ const navItems = [
 
 export function AdminLayout({ children }: AdminLayoutProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  // The top bar names the page you're on (it always said "Admin Dashboard").
+  const pageTitle =
+    navItems.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))?.label ?? 'Admin';
+
+  // There was no way to sign out of the admin portal (C-10).
+  const handleLogout = async () => {
+    if (!window.confirm('Sign out of the admin portal?')) return;
+    setIsLoggingOut(true);
+    await createClient().auth.signOut();
+    router.push('/login');
+    router.refresh();
+  };
 
   return (
     <div className={styles.layout}>
@@ -56,16 +72,37 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             );
           })}
         </nav>
+        <div className={styles.sidebarFooter}>
+          <button
+            type="button"
+            className={styles.logoutButton}
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+          >
+            <LogoutIcon />
+            <span>{isLoggingOut ? 'Signing out...' : 'Sign out'}</span>
+          </button>
+        </div>
       </aside>
 
       {/* Main Content */}
       <main className={styles.main}>
         <header className={styles.topBar}>
-          <h1 className={styles.pageTitle}>Admin Dashboard</h1>
+          <h1 className={styles.pageTitle}>{pageTitle}</h1>
         </header>
         <div className={styles.content}>{children}</div>
       </main>
     </div>
+  );
+}
+
+function LogoutIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
+    </svg>
   );
 }
 

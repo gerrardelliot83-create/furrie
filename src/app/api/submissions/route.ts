@@ -16,7 +16,7 @@ interface SubmissionBody {
  */
 export const POST = withRoute(async function POST(request: NextRequest) {
   try {
-    const { user, error: authError, supabase } = await getRequestUser();
+    const { user, error: authError, supabase, profile } = await getRequestUser();
 
     if (authError || !user) {
       return NextResponse.json(
@@ -26,11 +26,6 @@ export const POST = withRoute(async function POST(request: NextRequest) {
     }
 
     // Verify user is a vet
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
 
     if (profile?.role !== 'vet') {
       return NextResponse.json(
@@ -108,7 +103,7 @@ export const POST = withRoute(async function POST(request: NextRequest) {
  */
 export const GET = withRoute(async function GET(request: NextRequest) {
   try {
-    const { user, error: authError, supabase } = await getRequestUser();
+    const { user, error: authError, supabase, profile } = await getRequestUser();
 
     if (authError || !user) {
       return NextResponse.json(
@@ -117,11 +112,6 @@ export const GET = withRoute(async function GET(request: NextRequest) {
       );
     }
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') || 'pending';

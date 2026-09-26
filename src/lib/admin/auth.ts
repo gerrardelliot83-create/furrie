@@ -26,13 +26,14 @@ export async function verifyAdmin(): Promise<
     };
   }
 
+  // is_active rides on the same query: a deactivated admin is refused (C-03).
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, is_active')
     .eq('id', user.id)
     .single();
 
-  if (!profile || profile.role !== 'admin') {
+  if (!profile || profile.role !== 'admin' || profile.is_active === false) {
     return {
       error: NextResponse.json(
         { error: 'Forbidden: admin access required', code: 'FORBIDDEN' },

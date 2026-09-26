@@ -37,8 +37,10 @@
  */
 import { cache } from 'react';
 import { createServerClient } from '@supabase/ssr';
+import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
+import type { Database } from '@/lib/database.types';
 
 // Same env-var fallback chain as `src/lib/supabase/server.ts` so we
 // honour both the new publishable-key naming and the legacy anon-key
@@ -48,7 +50,54 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_PUBLISHABLE_KEY =
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-export const getRequestUser = cache(async () => {
+export type RequestProfile = Database['public']['Tables']['profiles']['Row'];
+
+type RequestUserResult = {
+  user: User | null;
+  error: { message: string; code?: string } | null;
+  supabase: SupabaseClient;
+  /** The caller's own profile row; null whenever `user` is null. */
+  profile: RequestProfile | null;
+};
+
+/**
+ * Loads the signed-in caller's own profile row, once per request, with their
+ * own session (RLS: "Users can read own profile"). Routes use `profile.role`
+ * instead of querying profiles again.
+ *
+ * C-03: an account the admin deactivated (`profiles.is_active = false`) or one
+ * with no profile row is treated as signed out, so every route that checks
+ * `authError || !user` answers 401. A database error throws instead (the route
+ * answers 500), so a blip never signs anyone out.
+ */
+async function withProfile(
+  supabase: SupabaseClient,
+  user: User | null,
+  authError: { message: string } | null
+): Promise<RequestUserResult> {
+  if (authError || !user) {
+    return { user: null, error: authError ?? { message: 'Not signed in' }, supabase, profile: null };
+  }
+
+  const { data: profile, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`getRequestUser: could not load the caller's profile (${error.code}): ${error.message}`);
+  }
+  if (!profile) {
+    return { user: null, error: { message: 'No profile for this account', code: 'NO_PROFILE' }, supabase, profile: null };
+  }
+  if (profile.is_active === false) {
+    return { user: null, error: { message: 'This account has been deactivated', code: 'ACCOUNT_DISABLED' }, supabase, profile: null };
+  }
+  return { user, error: null, supabase, profile: profile as RequestProfile };
+}
+
+export const getRequestUser = cache(async (): Promise<RequestUserResult> => {
   const headersList = await headers();
   const authHeader = headersList.get('authorization');
 
@@ -59,7 +108,7 @@ export const getRequestUser = cache(async () => {
       // Return a cookie-bound client so callers don't crash on `supabase`
       // method access; the caller's null-user check fires first.
       const fallback = await createClient();
-      return { user: null, error: { message: 'Empty bearer token' }, supabase: fallback };
+      return { user: null, error: { message: 'Empty bearer token' }, supabase: fallback, profile: null };
     }
 
     // Bearer-aware server client: no cookie store (mobile has none), and
@@ -78,11 +127,11 @@ export const getRequestUser = cache(async () => {
     });
 
     const { data, error } = await supabase.auth.getUser(token);
-    return { user: data.user, error, supabase };
+    return withProfile(supabase, data.user, error);
   }
 
-  // Fall back to cookie-based auth (existing web behaviour). Unchanged.
+  // Fall back to cookie-based auth (existing web behaviour).
   const supabase = await createClient();
   const { data, error } = await supabase.auth.getUser();
-  return { user: data.user, error, supabase };
+  return withProfile(supabase, data.user, error);
 });

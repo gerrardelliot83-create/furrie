@@ -88,7 +88,7 @@ export const GET = withRoute(async function GET(request: Request) {
 // POST /api/care-plans — Create a care plan with steps
 export const POST = withRoute(async function POST(request: Request) {
   try {
-    const { user, error: authError, supabase } = await getRequestUser();
+    const { user, error: authError, supabase, profile } = await getRequestUser();
 
     if (authError || !user) {
       return NextResponse.json(
@@ -98,12 +98,6 @@ export const POST = withRoute(async function POST(request: Request) {
     }
 
     // Verify user is a vet
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
     if (!profile || profile.role !== 'vet') {
       return NextResponse.json(
         { error: 'Only vets can create care plans', code: 'VET_REQUIRED' },
@@ -220,10 +214,10 @@ export const POST = withRoute(async function POST(request: Request) {
     if (plan.status === 'active') {
       const stepCount = steps?.length || 0;
 
-      // Get customer and vet profile info for notification/email
-      const [customerResult, vetResult, petResult2] = await Promise.all([
+      // Customer and pet info for notification/email; the vet is the caller
+      // (profile already loaded by getRequestUser).
+      const [customerResult, petResult2] = await Promise.all([
         supabaseAdmin.from('profiles').select('email, full_name').eq('id', pet.owner_id).single(),
-        supabaseAdmin.from('profiles').select('full_name').eq('id', user.id).single(),
         supabaseAdmin.from('pets').select('name').eq('id', petId).single(),
       ]);
 
@@ -233,7 +227,7 @@ export const POST = withRoute(async function POST(request: Request) {
           user_id: pet.owner_id,
           type: 'care_plan_created',
           title: 'New Care Plan',
-          body: `Dr. ${vetResult.data?.full_name || 'Your vet'} has created a care plan "${title}" for ${petResult2.data?.name || 'your pet'}.`,
+          body: `Dr. ${profile.full_name || 'Your vet'} has created a care plan "${title}" for ${petResult2.data?.name || 'your pet'}.`,
           channel: 'in_app',
           data: { carePlanId: plan.id, petId },
         });
@@ -247,7 +241,7 @@ export const POST = withRoute(async function POST(request: Request) {
           await sendCarePlanCreatedEmail(customerResult.data.email, {
             customerName: customerResult.data.full_name || 'Pet Parent',
             petName: petResult2.data?.name || 'your pet',
-            vetName: vetResult.data?.full_name || 'Your Veterinarian',
+            vetName: profile.full_name || 'Your Veterinarian',
             planTitle: title,
             planCategory: category,
             stepCount,

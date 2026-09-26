@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { verifyAdmin } from '@/lib/admin/auth';
 import { withRoute } from '@/server/handler';
 
 /**
@@ -13,33 +14,12 @@ export const PATCH = withRoute(async function PATCH(
 ) {
   try {
     const { id } = await params;
+
+    // Shared admin check (role + is_active, C-03).
+    const auth = await verifyAdmin();
+    if (auth.error) return auth.error;
+    const user = auth.user;
     const supabase = await createClient();
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized', code: 'AUTH_REQUIRED' },
-        { status: 401 }
-      );
-    }
-
-    // Verify admin role
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (profile?.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Admin access required', code: 'ADMIN_REQUIRED' },
-        { status: 403 }
-      );
-    }
 
     const body = await request.json();
     const { status } = body as { status: string };

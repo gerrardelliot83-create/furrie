@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
+import { ACCOUNT_ERROR_MESSAGES } from '@/lib/auth/loginErrors';
 import { useToast } from '@/components/ui/Toast';
 import styles from './AdminLoginForm.module.css';
 
@@ -29,7 +30,7 @@ export function AdminLoginForm() {
     if (errorParam === 'wrong_account') {
       toast(t('wrongAccount'), 'error');
     } else if (errorParam) {
-      toast(errorParam, 'error');
+      toast(ACCOUNT_ERROR_MESSAGES[errorParam] ?? errorParam, 'error');
     }
   }, [searchParams, toast, t]);
 

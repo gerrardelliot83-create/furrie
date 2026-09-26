@@ -9,7 +9,7 @@ export const POST = withRoute(async function POST(
 ) {
   try {
     const { id: consultationId } = await params;
-    const { user, error: authError, supabase } = await getRequestUser();
+    const { user, error: authError, supabase, profile } = await getRequestUser();
 
     if (authError || !user) {
       return NextResponse.json(
@@ -19,12 +19,6 @@ export const POST = withRoute(async function POST(
     }
 
     // Verify user is a vet
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
     if (!profile || profile.role !== 'vet') {
       return NextResponse.json(
         { error: 'Unauthorized - Vet access required', code: 'VET_REQUIRED' },

@@ -1,23 +1,13 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { safeNextPath } from '@/lib/auth/safeRedirect';
 import { withRoute } from '@/server/handler';
-
-/**
- * Only ever redirect to a path on this origin. Rejects absolute URLs,
- * protocol-relative `//evil.com` and backslash variants that browsers
- * normalise to `//` (SEC-10 open redirect). Mirrors handleAuthCallback.ts.
- */
-function safeNextPath(raw: string | null): string {
-  if (!raw) return '/dashboard';
-  const candidate = raw.startsWith('/') ? raw : `/${raw}`;
-  // A single leading slash followed by anything except another slash or a backslash.
-  return /^\/(?![\/\\])/.test(candidate) ? candidate : '/dashboard';
-}
 
 export const GET = withRoute(async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get('code');
-  const next = safeNextPath(requestUrl.searchParams.get('next'));
+  // Only ever a path on this origin (P0R-2); same check as handleAuthCallback.ts.
+  const next = safeNextPath(requestUrl.searchParams.get('next'), requestUrl.origin);
 
   if (code) {
     const supabase = await createClient();

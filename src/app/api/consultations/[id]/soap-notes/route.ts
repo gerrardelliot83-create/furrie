@@ -32,13 +32,24 @@ import { withRoute } from '@/server/handler';
 async function authorizeAssignedVet(
   consultationId: string
 ): Promise<{ userId: string } | { errorResponse: NextResponse }> {
-  const { user, error: authError } = await getRequestUser();
+  const { user, error: authError, profile } = await getRequestUser();
 
   if (authError || !user) {
     return {
       errorResponse: NextResponse.json(
         { error: 'Unauthorized', code: 'AUTH_REQUIRED' },
         { status: 401 }
+      ),
+    };
+  }
+
+  // A-03: being `vet_id` on the row is not enough on its own; the caller must
+  // be a vet.
+  if (profile?.role !== 'vet') {
+    return {
+      errorResponse: NextResponse.json(
+        { error: 'Vet access required', code: 'VET_REQUIRED' },
+        { status: 403 }
       ),
     };
   }

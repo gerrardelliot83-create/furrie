@@ -36,33 +36,13 @@ function mapProfileFromDB(row: {
 // GET /api/profile - Get current user's profile
 export const GET = withRoute(async function GET() {
   try {
-    const { user, error: authError, supabase } = await getRequestUser();
+    // getRequestUser() already loaded the caller's profile row.
+    const { user, error: authError, profile } = await getRequestUser();
 
-    if (authError || !user) {
+    if (authError || !user || !profile) {
       return NextResponse.json(
         { error: 'Unauthorized', code: 'AUTH_REQUIRED' },
         { status: 401 }
-      );
-    }
-
-    // Fetch profile
-    const { data: profile, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
-
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return NextResponse.json(
-          { error: 'Profile not found', code: 'NOT_FOUND' },
-          { status: 404 }
-        );
-      }
-      console.error('Error fetching profile:', error);
-      return NextResponse.json(
-        { error: 'Failed to fetch profile', code: 'FETCH_ERROR' },
-        { status: 500 }
       );
     }
 

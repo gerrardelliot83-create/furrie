@@ -46,5 +46,8 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Unit tests
+        run: npx tsx --test "src/**/__tests__/*.test.ts"
+
       - name: Audit (high and critical only)
         run: npm audit --audit-level=high

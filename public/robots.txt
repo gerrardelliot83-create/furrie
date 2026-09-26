@@ -1,13 +1,9 @@
-# Furrie - Veterinary Teleconsultation Platform
-# https://furrie.in
+# Furrie web app. This one file is served on app., vet. and admin.furrie.in.
+# The public website (and its sitemap) is https://www.furrie.in
 
 User-agent: *
-Allow: /
-
-# Disallow internal portals and API routes
-Disallow: /admin-portal
-Disallow: /vet-portal
-Disallow: /api
-Disallow: /_next
-
-Sitemap: https://furrie.in/sitemap.xml
+# The sign-in page may be indexed; its CSS/JS must be readable to render it.
+Allow: /login
+Allow: /_next/static/
+# Everything else is behind sign-in.
+Disallow: /

@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     template: '%s | Furrie',
   },
   description:
-    'Connect with licensed veterinarians via on-demand video consultations for your pets.',
+    'Book a video consultation with a vet for your dog or cat.',
   keywords: ['veterinary', 'pet care', 'teleconsultation', 'dog', 'cat', 'vet', 'online vet', 'pet health', 'India'],
   authors: [{ name: 'Furrie' }],
   creator: 'Furrie',
@@ -21,18 +21,22 @@ export const metadata: Metadata = {
     icon: '/favicon.ico',
     apple: '/apple-touch-icon.png',
   },
+  // Label under the home-screen icon on iPhone (otherwise it uses the page title).
+  appleWebApp: {
+    title: 'Furrie',
+  },
   openGraph: {
     type: 'website',
     locale: 'en_IN',
     siteName: 'Furrie',
     title: 'Furrie - Veterinary Teleconsultation',
-    description: 'Connect with licensed veterinarians via on-demand video consultations for your pets. Available for dogs and cats across India.',
+    description: 'Book a video consultation with a vet for your dog or cat, from anywhere in India.',
     url: 'https://furrie.in',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Furrie - Veterinary Teleconsultation',
-    description: 'Connect with licensed veterinarians via on-demand video consultations for your pets.',
+    description: 'Book a video consultation with a vet for your dog or cat.',
   },
   robots: {
     index: true,
@@ -44,7 +48,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#1E5081', // Dusk Blue
+  themeColor: '#010f3a', // Navy (--color-navy); must match theme_color in public/manifest.json
 };
 
 export default async function RootLayout({

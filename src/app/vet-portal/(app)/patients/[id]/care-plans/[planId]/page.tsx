@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { useToast } from '@/components/ui/Toast';
 import { Spinner } from '@/components/ui/Spinner';
 import { StepResponseViewer } from '@/components/vet/StepResponseViewer';
+import { formatIstDate } from '@/lib/time/ist';
 import type { CarePlanStepType } from '@/types';
 import styles from './page.module.css';
 
@@ -257,7 +258,7 @@ export default function VetCarePlanDetailPage({ params }: PageProps) {
                       </Badge>
                       {step.due_date && (
                         <span className={styles.stepDueDate}>
-                          Due: {new Date(step.due_date).toLocaleDateString('en-IN')}
+                          Due: {formatIstDate(step.due_date)}
                         </span>
                       )}
                       {step.requires_response && (

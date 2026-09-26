@@ -756,3 +756,53 @@ export async function sendOpsBookingAlert(params: {
     html,
   });
 }
+
+// ---- V ----
+// Agent V (vets, reminders, the consultation), 2026-09-27. Templates live in
+// the V block of templates.ts.
+
+export async function sendCustomerMissedConsultationEmail(
+  to: string,
+  params: Parameters<typeof templates.customerMissedConsultationEmail>[0]
+) {
+  const { subject, html } = templates.customerMissedConsultationEmail(params);
+  return sendEmail({ to, subject, html });
+}
+
+/** To OPS_NOTIFICATION_EMAIL; reports to Sentry and returns a failure if it isn't set. */
+export async function sendOpsConsultationProblemEmail(
+  params: Parameters<typeof templates.opsConsultationProblemEmail>[0]
+) {
+  const to = process.env.OPS_NOTIFICATION_EMAIL;
+  if (!to) {
+    console.warn('[EMAIL] OPS_NOTIFICATION_EMAIL not set — consultation problem alert not sent');
+    Sentry.captureMessage('OPS_NOTIFICATION_EMAIL not set (consultation problem alert not sent)', 'warning');
+    return { success: false as const, error: 'OPS_NOTIFICATION_EMAIL not configured' };
+  }
+  const { subject, html } = templates.opsConsultationProblemEmail(params);
+  return sendEmail({ to, subject, html });
+}
+
+export async function sendCustomerStartingSoonEmail(
+  to: string,
+  params: Parameters<typeof templates.customerStartingSoonEmail>[0]
+) {
+  const { subject, html } = templates.customerStartingSoonEmail(params);
+  return sendEmail({ to, subject, html });
+}
+
+export async function sendVetStartingSoonEmail(
+  to: string,
+  params: Parameters<typeof templates.vetStartingSoonEmail>[0]
+) {
+  const { subject, html } = templates.vetStartingSoonEmail(params);
+  return sendEmail({ to, subject, html });
+}
+
+export async function sendVetSetPasswordEmail(
+  to: string,
+  params: Parameters<typeof templates.vetSetPasswordEmail>[0]
+) {
+  const { subject, html } = templates.vetSetPasswordEmail(params);
+  return sendEmail({ to, subject, html });
+}

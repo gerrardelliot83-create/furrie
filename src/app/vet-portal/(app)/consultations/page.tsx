@@ -200,7 +200,10 @@ export default async function VetConsultationsPage({ searchParams }: PageProps) 
               {consultations.map((consultation) => {
                 const pet = Array.isArray(consultation.pets) ? consultation.pets[0] : consultation.pets;
                 const customer = Array.isArray(consultation.profiles) ? consultation.profiles[0] : consultation.profiles;
-                const rating = consultation.consultation_ratings?.[0]?.rating;
+                const ratingRow = Array.isArray(consultation.consultation_ratings)
+                  ? consultation.consultation_ratings[0]
+                  : consultation.consultation_ratings;
+                const rating = ratingRow?.rating;
                 // Use scheduled_at for scheduled consultations, fall back to created_at
                 const displayDate = consultation.scheduled_at
                   ? new Date(consultation.scheduled_at)

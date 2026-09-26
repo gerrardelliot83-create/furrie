@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react';
 import { useToast } from '@/components/ui/Toast';
 import { Button } from '@/components/ui/Button';
-import { createClient } from '@/lib/supabase/client';
+import { dayBlocksError } from '@/lib/scheduling/summary';
 import { TimeBlockEditor } from './TimeBlockEditor';
 import type { AvailabilitySchedule, TimeSlot } from '@/types';
 import styles from './WeeklyScheduleEditor.module.css';
@@ -29,11 +29,10 @@ const DAY_LABELS: Record<typeof DAYS_OF_WEEK[number], string> = {
 };
 
 interface WeeklyScheduleEditorProps {
-  vetId: string;
   initialSchedule: AvailabilitySchedule;
 }
 
-export function WeeklyScheduleEditor({ vetId, initialSchedule }: WeeklyScheduleEditorProps) {
+export function WeeklyScheduleEditor({ initialSchedule }: WeeklyScheduleEditorProps) {
   const { toast } = useToast();
   const [schedule, setSchedule] = useState<AvailabilitySchedule>(initialSchedule);
   const [isSaving, setIsSaving] = useState(false);
@@ -82,29 +81,37 @@ export function WeeklyScheduleEditor({ vetId, initialSchedule }: WeeklyScheduleE
     toast('Schedule copied to weekdays', 'success');
   }, [schedule, toast]);
 
+  const hasErrors = DAYS_OF_WEEK.some((day) => dayBlocksError(schedule[day] || []) !== null);
+
   const handleSave = useCallback(async () => {
+    if (hasErrors) return;
     setIsSaving(true);
 
-    const supabase = createClient();
-    const { error } = await supabase
-      .from('vet_profiles')
-      .update({
-        availability_schedule: schedule,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', vetId);
+    // Server route validates the schedule and writes it (C-06); all seven
+    // days are sent because it replaces the stored schedule.
+    const fullSchedule = Object.fromEntries(DAYS_OF_WEEK.map((day) => [day, schedule[day] || []]));
+    let response: Response | null = null;
+    try {
+      response = await fetch('/api/vet/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ availabilitySchedule: fullSchedule }),
+      });
+    } catch (error) {
+      console.error('Error saving schedule:', error);
+    }
 
     setIsSaving(false);
 
-    if (error) {
-      console.error('Error saving schedule:', error);
-      toast('Failed to save schedule', 'error');
+    if (!response?.ok) {
+      const data = response ? await response.json().catch(() => ({})) : {};
+      toast(data.error || 'Failed to save schedule', 'error');
       return;
     }
 
     setHasChanges(false);
     toast('Schedule saved successfully', 'success');
-  }, [vetId, schedule, toast]);
+  }, [hasErrors, schedule, toast]);
 
   const handleReset = useCallback(() => {
     setSchedule(initialSchedule);
@@ -130,12 +137,17 @@ export function WeeklyScheduleEditor({ vetId, initialSchedule }: WeeklyScheduleE
             variant="primary"
             onClick={handleSave}
             loading={isSaving}
-            disabled={!hasChanges}
+            disabled={!hasChanges || hasErrors}
           >
             Save Schedule
           </Button>
         </div>
       </div>
+      {hasErrors && (
+        <p className={styles.subtitle} role="alert">
+          Fix the times marked below before saving.
+        </p>
+      )}
 
       <div className={styles.daysGrid}>
         {DAYS_OF_WEEK.map((day) => (

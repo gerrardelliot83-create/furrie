@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
-import { computeAvailableSlots } from '@/lib/scheduling';
+import { computeAvailableSlots, SCHEDULING_CONSTANTS } from '@/lib/scheduling';
 import { withRoute } from '@/server/handler';
+
+// Bookings are allowed up to 7 days ahead; never compute more than 8 days of
+// slots in one request (A-11).
+const DEFAULT_RANGE_MS = 7 * 24 * 60 * 60 * 1000;
+const MAX_RANGE_MS = 8 * 24 * 60 * 60 * 1000;
 
 /**
  * GET /api/consultations/available-slots
@@ -10,8 +15,8 @@ import { withRoute } from '@/server/handler';
  * Slots are 30-minute windows when at least one vet is available.
  *
  * Query Parameters:
- * - from: Start date (ISO string, default: now + 15 min)
- * - to: End date (ISO string, default: from + 7 days)
+ * - from: Start date (ISO string, default: now + 15 min; never before now)
+ * - to: End date (ISO string, default: now + 7 days; never after now + 8 days)
  *
  * Response:
  * {
@@ -62,17 +67,30 @@ export const GET = withRoute(async function GET(request: Request) {
       );
     }
 
-    // Compute available slots
+    // Clamp the range: from >= now, to <= now + 8 days (A-11)
+    const now = Date.now();
+    const effectiveFrom = new Date(
+      Math.max(fromDate?.getTime() ?? now + SCHEDULING_CONSTANTS.MIN_LEAD_TIME_MS, now)
+    );
+    const effectiveTo = new Date(Math.min(toDate?.getTime() ?? now + DEFAULT_RANGE_MS, now + MAX_RANGE_MS));
+
+    if (effectiveTo <= effectiveFrom) {
+      return NextResponse.json(
+        { error: '"to" must be after "from" and within the next 8 days', code: 'INVALID_RANGE' },
+        { status: 400 }
+      );
+    }
+
     const slots = await computeAvailableSlots({
-      fromDate,
-      toDate,
+      fromDate: effectiveFrom,
+      toDate: effectiveTo,
     });
 
     return NextResponse.json({
       slots,
       meta: {
-        fromDate: fromDate?.toISOString() || new Date(Date.now() + 15 * 60 * 1000).toISOString(),
-        toDate: toDate?.toISOString() || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        fromDate: effectiveFrom.toISOString(),
+        toDate: effectiveTo.toISOString(),
         totalSlots: slots.reduce((acc, day) => acc + day.times.length, 0),
       },
     });

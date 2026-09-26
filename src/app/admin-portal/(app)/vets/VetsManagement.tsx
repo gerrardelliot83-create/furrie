@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
+import { summarizeWeeklyHours } from '@/lib/scheduling/summary';
+import type { AvailabilitySchedule } from '@/types';
 import styles from './page.module.css';
 
 interface VetProfileRow {
@@ -10,6 +12,7 @@ interface VetProfileRow {
   years_of_experience: number | null;
   is_verified: boolean;
   is_available: boolean;
+  availability_schedule: AvailabilitySchedule | null;
   consultation_count: number | null;
   average_rating: number | null;
 }
@@ -30,7 +33,7 @@ function getInitials(name: string | null): string {
 }
 
 function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  return new Date(dateStr).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function getVetProfile(vet: VetRow): VetProfileRow | null {
@@ -107,7 +110,7 @@ export function VetsManagement({ initialVets }: { initialVets: VetRow[] }) {
   }
 
   async function handleResetPassword(vet: VetRow) {
-    if (!confirm(`Send a password reset email to ${vet.email}?`)) return;
+    if (!confirm(`Email ${vet.email} a link to set a new password?`)) return;
 
     setActionLoading(vet.id);
     const res = await fetch('/api/admin/password', {
@@ -153,6 +156,7 @@ export function VetsManagement({ initialVets }: { initialVets: VetRow[] }) {
               <th>Specializations</th>
               <th>Consultations</th>
               <th>Rating</th>
+              <th>Weekly hours (IST)</th>
               <th>Status</th>
               <th>Registered</th>
               <th>Actions</th>
@@ -185,9 +189,10 @@ export function VetsManagement({ initialVets }: { initialVets: VetRow[] }) {
                   </td>
                   <td>{vp?.consultation_count ?? 0}</td>
                   <td>{vp?.average_rating ? `${vp.average_rating.toFixed(1)}/5` : '-'}</td>
+                  <td>{summarizeWeeklyHours(vp?.availability_schedule)}</td>
                   <td>
                     <span className={`${styles.badge} ${vp?.is_available ? styles.badgeOnline : styles.badgeOffline}`}>
-                      {vp?.is_available ? 'Online' : 'Offline'}
+                      {vp?.is_available ? 'Available' : 'Not available'}
                     </span>
                   </td>
                   <td>{formatDate(vet.created_at)}</td>
@@ -213,9 +218,9 @@ export function VetsManagement({ initialVets }: { initialVets: VetRow[] }) {
                         className={styles.actionBtn}
                         onClick={() => handleResetPassword(vet)}
                         disabled={isLoading}
-                        title="Send password reset email"
+                        title="Email the vet a link to set a new password"
                       >
-                        Reset Pwd
+                        Send set-password link
                       </button>
                       <button
                         className={`${styles.actionBtn} ${styles.actionBtnDanger}`}
@@ -237,10 +242,10 @@ export function VetsManagement({ initialVets }: { initialVets: VetRow[] }) {
       {showCreateModal && (
         <CreateVetModal
           onClose={() => setShowCreateModal(false)}
-          onCreated={async () => {
+          onCreated={async (resultMessage, emailSent) => {
             setShowCreateModal(false);
             await refreshVets();
-            setMessage({ type: 'success', text: 'Vet created successfully' });
+            setMessage({ type: emailSent ? 'success' : 'error', text: resultMessage });
             clearMessage();
           }}
         />
@@ -264,7 +269,13 @@ export function VetsManagement({ initialVets }: { initialVets: VetRow[] }) {
 
 // ─── Create Vet Modal ────────────────────────────────────────────────────────
 
-function CreateVetModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function CreateVetModal({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated: (message: string, setPasswordEmailSent: boolean) => void;
+}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -278,7 +289,6 @@ function CreateVetModal({ onClose, onCreated }: { onClose: () => void; onCreated
 
     const body = {
       email: form.get('email'),
-      password: form.get('password'),
       fullName: form.get('fullName'),
       phone: form.get('phone') || undefined,
       qualifications: form.get('qualifications'),
@@ -297,7 +307,7 @@ function CreateVetModal({ onClose, onCreated }: { onClose: () => void; onCreated
     setLoading(false);
 
     if (res.ok) {
-      onCreated();
+      onCreated(data.message || 'Vet created', data.setPasswordEmailSent !== false);
     } else {
       setError(data.error || 'Failed to create vet');
     }
@@ -318,11 +328,10 @@ function CreateVetModal({ onClose, onCreated }: { onClose: () => void; onCreated
               <input name="email" type="email" className={styles.input} required placeholder="vet@example.com" />
             </div>
           </div>
+          <p className={styles.label}>
+            The vet gets an email with a link to set their own password. No password is shown or emailed.
+          </p>
           <div className={styles.formRow}>
-            <div className={styles.field}>
-              <label className={styles.label}>Password *</label>
-              <input name="password" type="password" className={styles.input} required minLength={6} placeholder="Min 6 characters" />
-            </div>
             <div className={styles.field}>
               <label className={styles.label}>Phone</label>
               <input name="phone" className={styles.input} placeholder="+919876543210" />

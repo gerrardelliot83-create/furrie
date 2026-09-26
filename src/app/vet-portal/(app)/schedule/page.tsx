@@ -52,13 +52,13 @@ export default async function VetSchedulePage() {
           color: 'var(--color-text-secondary)',
           marginTop: 'var(--space-1)'
         }}>
-          Manage your weekly availability for consultations
+          Your weekly hours for consultations. All times are India time (IST).
         </p>
       </div>
 
       <Card>
         <CardContent>
-          <WeeklyScheduleEditor vetId={user.id} initialSchedule={schedule} />
+          <WeeklyScheduleEditor initialSchedule={schedule} />
         </CardContent>
       </Card>
     </div>

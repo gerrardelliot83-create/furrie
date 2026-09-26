@@ -182,7 +182,9 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
       .from('follow_up_threads')
       .select('id, is_active, expires_at')
       .eq('consultation_id', consultationId)
-      .single(),
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle(),
     // Consultation media
     supabase
       .from('consultation_media')
@@ -222,12 +224,21 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
 
   const pet = consultation.pets;
   const customer = consultation.profiles;
-  const soapNoteRaw = consultation.soap_notes?.[0];
+  // soap_notes and consultation_ratings are one-to-one (UNIQUE consultation_id),
+  // so PostgREST embeds them as an object, not an array (C-01).
+  const soapNoteRaw = Array.isArray(consultation.soap_notes) ? consultation.soap_notes[0] : consultation.soap_notes;
   const hasSoapNotes = !!soapNoteRaw;
-  const rating = consultation.consultation_ratings?.[0];
+  const rating = Array.isArray(consultation.consultation_ratings)
+    ? consultation.consultation_ratings[0]
+    : consultation.consultation_ratings;
   const flag = consultation.consultation_flags?.[0];
   const isActive = ['scheduled', 'active'].includes(consultation.status);
   const isCompleted = consultation.status === 'closed';
+  const closedAsSuccess = isCompleted && consultation.outcome === 'success';
+  // The follow-up thread is created when the notes are sent to the pet parent,
+  // so a success without one still has notes to send (e.g. the cron closed it
+  // before they were written).
+  const awaitingNotesDelivery = closedAsSuccess && !followUpThread;
 
   // Map SOAP note for the SOAPForm initial data
   const soapNoteData: Partial<SoapNote> | undefined = soapNoteRaw
@@ -393,7 +404,8 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
           <div className={styles.historyList}>
             {pastConsultations.map((past) => {
               const pastDate = past.scheduled_at || past.created_at;
-              const diagnosis = past.soap_notes?.[0]?.provisional_diagnosis;
+              const pastNote = Array.isArray(past.soap_notes) ? past.soap_notes[0] : past.soap_notes;
+              const diagnosis = pastNote?.provisional_diagnosis;
               const vetProfile = Array.isArray(past.profiles) ? past.profiles[0] : past.profiles;
               const vetName = vetProfile?.full_name;
               return (
@@ -704,11 +716,12 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
           <div className={styles.mainCard}>
             <ConsultationDetailTabs
               consultationId={consultationId}
-              vetId={user.id}
               petSpecies={pet?.species || 'dog'}
               initialSoapData={soapNoteData}
               hasSoapNotes={hasSoapNotes}
               isCompleted={isCompleted}
+              awaitingNotesDelivery={awaitingNotesDelivery}
+              closedWithoutSuccess={isCompleted && !closedAsSuccess}
               overviewContent={overviewContent}
             />
           </div>

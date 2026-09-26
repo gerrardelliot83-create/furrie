@@ -459,11 +459,13 @@ export function TreatmentPlanBuilder({ consultationId }: Props) {
   const isFinalized = status === 'finalized';
   const finalizedDate = finalizedAt
     ? new Date(finalizedAt).toLocaleDateString('en-IN', {
+        timeZone: 'Asia/Kolkata',
         day: '2-digit',
         month: 'long',
         year: 'numeric',
       })
     : new Date().toLocaleDateString('en-IN', {
+        timeZone: 'Asia/Kolkata',
         day: '2-digit',
         month: 'long',
         year: 'numeric',

@@ -9,6 +9,8 @@ import { createClient } from '@/lib/supabase/client';
 import { NotificationBell } from '@/components/ui/NotificationBell/NotificationBell';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
+import { VetAlerts } from './VetAlerts';
+import { VET_AVAILABILITY_CHANGED_EVENT } from './vetEvents';
 import styles from './VetLayout.module.css';
 
 interface VetLayoutProps {
@@ -30,6 +32,7 @@ export function VetLayout({ children }: VetLayoutProps) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isAvailable, setIsAvailable] = useState<boolean | null>(null);
+  const [vetId, setVetId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
@@ -42,6 +45,7 @@ export function VetLayout({ children }: VetLayoutProps) {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+      setVetId(user.id);
 
       // Initial fetch
       const { data } = await supabase
@@ -78,7 +82,18 @@ export function VetLayout({ children }: VetLayoutProps) {
     };
   }, []);
 
-  // Unlock AudioContext on first user interaction (for video calls)
+  // The Available toggle tells the sidebar directly (postgres_changes above
+  // never fires: the Realtime publication has no tables).
+  useEffect(() => {
+    const onAvailability = (event: Event) => {
+      const detail = (event as CustomEvent<{ isAvailable: boolean }>).detail;
+      if (detail && typeof detail.isAvailable === 'boolean') setIsAvailable(detail.isAvailable);
+    };
+    window.addEventListener(VET_AVAILABILITY_CHANGED_EVENT, onAvailability);
+    return () => window.removeEventListener(VET_AVAILABILITY_CHANGED_EVENT, onAvailability);
+  }, []);
+
+  // Unlock AudioContext on first user interaction (for video calls and the booking chime)
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -245,6 +260,7 @@ export function VetLayout({ children }: VetLayoutProps) {
           </h1>
           <NotificationBell />
         </header>
+        {vetId && <VetAlerts vetId={vetId} />}
         <div className={styles.content}>{children}</div>
       </main>
     </div>

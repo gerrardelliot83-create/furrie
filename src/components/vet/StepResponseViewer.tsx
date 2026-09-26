@@ -18,6 +18,7 @@ interface StepResponseViewerProps {
 
 export function StepResponseViewer({ response }: StepResponseViewerProps) {
   const dateStr = new Date(response.created_at).toLocaleDateString('en-IN', {
+    timeZone: 'Asia/Kolkata',
     day: 'numeric',
     month: 'short',
     year: 'numeric',

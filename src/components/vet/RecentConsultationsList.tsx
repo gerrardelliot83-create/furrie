@@ -7,6 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import type { Consultation } from '@/types';
 import { getStatusVariant, getStatusDisplayText } from '@/lib/utils/statusHelpers';
+import { formatIstDate, formatIstTime } from '@/lib/time/ist';
 import styles from './RecentConsultationsList.module.css';
 
 interface ConsultationWithRelations extends Consultation {
@@ -99,23 +100,6 @@ export const RecentConsultationsList = forwardRef<RecentConsultationsListRef, Re
 
     useImperativeHandle(ref, () => ({ refresh }));
 
-    const formatDate = (dateString: string) => {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-IN', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-      });
-    };
-
-    const formatTime = (dateString: string) => {
-      const date = new Date(dateString);
-      return date.toLocaleTimeString('en-IN', {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    };
-
     if (consultations.length === 0) {
       return (
         <Card>
@@ -147,7 +131,7 @@ export const RecentConsultationsList = forwardRef<RecentConsultationsListRef, Re
                   <th>Pet</th>
                   <th>Pet Parent</th>
                   <th>Date</th>
-                  <th>Time</th>
+                  <th>Time (IST)</th>
                   <th>Status</th>
                   <th>Actions</th>
                 </tr>
@@ -167,8 +151,9 @@ export const RecentConsultationsList = forwardRef<RecentConsultationsListRef, Re
                       </div>
                     </td>
                     <td>{consultation.customer?.fullName || 'Unknown'}</td>
-                    <td>{formatDate(consultation.startedAt || consultation.createdAt)}</td>
-                    <td>{formatTime(consultation.startedAt || consultation.createdAt)}</td>
+                    {/* The appointment time, not when it was booked or joined. */}
+                    <td>{formatIstDate(consultation.scheduledAt || consultation.createdAt)}</td>
+                    <td>{formatIstTime(consultation.scheduledAt || consultation.createdAt)}</td>
                     <td>
                       <Badge variant={getStatusVariant(consultation.status, consultation.outcome)}>
                         {getStatusDisplayText(consultation.status, consultation.outcome)}

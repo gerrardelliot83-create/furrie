@@ -5,7 +5,7 @@
  *
  *   choose → pay → checking
  *
- * choose:   1 / 3 / 5 / 10 consultations with price + GST (from the server's
+ * choose:   1 / 3 / 5 / 10 consultations with their price (from the server's
  *           price list, passed in as quotes).
  * pay:      the server's order (amount, reference, UPI link, QR code). Phone:
  *           "Pay with a UPI app" button; computer: QR code; always: copy
@@ -211,7 +211,8 @@ export function BuyCredits({
       <section className={styles.panel}>
         <h2 className={styles.heading}>Pay {formatInr(order.total)} by UPI</h2>
         <p className={styles.text}>
-          {packLabel(order.packSize)} · {formatInr(order.price)} + {formatInr(order.gst)} GST
+          {packLabel(order.packSize)}
+          {order.gst > 0 ? ` · ${formatInr(order.price)} + ${formatInr(order.gst)} GST` : ''}
         </p>
 
         <ol className={styles.steps}>
@@ -314,8 +315,10 @@ export function BuyCredits({
             onClick={() => setSelected(q.size)}
           >
             <span className={styles.packSize}>{packLabel(q.size)}</span>
-            <span className={styles.packPrice}>{formatInr(q.price)}</span>
-            <span className={styles.packGst}>+ {formatInr(q.gst)} GST = {formatInr(q.total)}</span>
+            <span className={styles.packPrice}>{formatInr(q.total)}</span>
+            {q.gst > 0 && (
+              <span className={styles.packGst}>{formatInr(q.price)} + {formatInr(q.gst)} GST</span>
+            )}
             <span className={styles.packPer}>
               {q.size === 1 ? 'Single consultation' : `${formatInr(q.perConsultation)} each · save ${formatInr(q.savingVsSingle)}`}
             </span>

@@ -209,10 +209,12 @@ function CreditRequestsInner() {
                       <dd className={styles.mono}>{r.reference_code}</dd>
                       <dt>Amount</dt>
                       <dd>
-                        <strong>{formatInr(Number(r.amount_inr))}</strong>{' '}
-                        <span className={styles.muted}>
-                          ({formatInr(Number(r.price_inr))} + {formatInr(Number(r.gst_inr))} GST)
-                        </span>
+                        <strong>{formatInr(Number(r.amount_inr))}</strong>
+                        {Number(r.gst_inr) > 0 && (
+                          <span className={styles.muted}>
+                            {' '}({formatInr(Number(r.price_inr))} + {formatInr(Number(r.gst_inr))} GST)
+                          </span>
+                        )}
                       </dd>
                       <dt>Pack</dt>
                       <dd>{packLabel(r.pack_size ?? r.requested_quantity)}</dd>
@@ -269,7 +271,7 @@ function CreditRequestsInner() {
                     </button>
                   )}
                   {!priced && open && (
-                    <span className={styles.muted}>If they paid offline, use Users → Assign Pack.</span>
+                    <span className={styles.muted}>If they paid offline, use Users → Give credits.</span>
                   )}
                 </div>
               </article>

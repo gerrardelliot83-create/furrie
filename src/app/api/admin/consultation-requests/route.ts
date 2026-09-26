@@ -154,7 +154,7 @@ export const PATCH = withRoute(async function PATCH(request: Request) {
         if (!isPurchasablePackSize(row.pack_size) || !row.reference_code) {
           return NextResponse.json(
             {
-              error: 'This request was made before online payment. Use Users → Assign Pack if the customer paid.',
+              error: 'This request was made before online payment. Use Users → Give credits if the customer paid.',
               code: 'LEGACY_REQUEST',
             },
             { status: 400 }
@@ -188,8 +188,8 @@ export const PATCH = withRoute(async function PATCH(request: Request) {
           const messages: Record<string, string> = {
             NOT_OPEN: 'This order is closed and cannot be granted.',
             AMOUNT_MISMATCH:
-              "This order's amount doesn't match the current price list. Check the payment and use Users → Assign Pack instead.",
-            LEGACY_REQUEST: 'This request was made before online payment. Use Users → Assign Pack.',
+              "This order's amount doesn't match the current price list. Check the payment and use Users → Give credits instead.",
+            LEGACY_REQUEST: 'This request was made before online payment. Use Users → Give credits.',
             NOT_FOUND: 'Request not found.',
           };
           return NextResponse.json(

@@ -2,15 +2,16 @@
  * Consultation pack prices — the single source of truth.
  *
  * Every screen, API route, email and the Terms page read prices from here, so
- * a price change is one edit. Prices are before GST; GST is added on top
- * (Gerard, 2026-09-25). The amount a customer is asked to pay by UPI is
- * `quotePack(size).total`, always computed on the server.
+ * a price change is one edit. The listed price is the full amount the customer
+ * pays: no GST is added on top (Gerard, 2026-09-27, for compliance; this
+ * replaces "GST on top" of 2026-09-25). The amount a customer is asked to pay
+ * by UPI is `quotePack(size).total`, always computed on the server.
  */
 
 export const PACK_SIZES = [1, 3, 5, 10] as const;
 export type PurchasablePackSize = (typeof PACK_SIZES)[number];
 
-/** Price per pack in rupees, before GST. */
+/** Price per pack in rupees: what the customer pays. */
 const PACK_PRICES_INR: Record<PurchasablePackSize, number> = {
   1: 499,
   3: 1399,
@@ -18,29 +19,28 @@ const PACK_PRICES_INR: Record<PurchasablePackSize, number> = {
   10: 3999,
 };
 
-/** GST added on top of the pack price. */
-export const GST_RATE = 0.18;
-
 /**
- * The total is rounded to whole rupees so the UPI amount is easy to type and
- * to match in the bank statement; the GST line absorbs the rounding.
+ * Tax added on top of the pack price. Zero: prices are all-inclusive and we
+ * don't collect GST for now. Orders created while it was 18% keep their stored
+ * GST, which is why screens still show a GST line when an order has one.
  */
-const ROUND_TOTAL_TO_RUPEE = true;
+export const GST_RATE = 0;
 
 export const SINGLE_CONSULTATION_PRICE_INR = PACK_PRICES_INR[1];
 
 export interface PackQuote {
   size: PurchasablePackSize;
-  /** Pack price before GST. */
+  /** Pack price. */
   price: number;
+  /** Tax on top of the price (0 while GST_RATE is 0). */
   gst: number;
-  /** What the customer pays: price + GST. */
+  /** What the customer pays: price + gst. */
   total: number;
-  /** Pre-GST price per consultation, rounded to the rupee for display. */
+  /** Price per consultation, rounded to the rupee for display. */
   perConsultation: number;
-  /** Pre-GST saving against buying single consultations. */
+  /** Saving against buying single consultations. */
   savingVsSingle: number;
-  /** Pre-GST discount against single consultations, in percent (2 dp). */
+  /** Discount against single consultations, in percent (2 dp). */
   discountPercent: number;
 }
 
@@ -52,8 +52,8 @@ export function isPurchasablePackSize(value: unknown): value is PurchasablePackS
 
 export function quotePack(size: PurchasablePackSize): PackQuote {
   const price = PACK_PRICES_INR[size];
-  const exactTotal = price * (1 + GST_RATE);
-  const total = ROUND_TOTAL_TO_RUPEE ? Math.round(exactTotal) : roundPaise(exactTotal);
+  // Whole rupees, so the UPI amount is easy to type and to match in the bank.
+  const total = Math.round(price * (1 + GST_RATE));
   const listPrice = SINGLE_CONSULTATION_PRICE_INR * size;
   return {
     size,

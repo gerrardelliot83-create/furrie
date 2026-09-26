@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { GST_RATE, PACK_QUOTES, formatInr, packLabel } from '@/lib/pricing/packs';
+import { PACK_QUOTES, formatInr, packLabel } from '@/lib/pricing/packs';
 
 export const dynamic = 'force-static';
 
@@ -27,7 +27,7 @@ export default function TermsPage() {
         <strong>Operated by:</strong> Pakta Technologies (OPC) Pvt. Ltd., operating under the trade name &quot;Furrie&quot;
       </p>
       <p style={{ color: '#888', fontSize: '0.875rem', marginBottom: '0.25rem' }}>Effective Date: 10 April 2026</p>
-      <p style={{ color: '#888', fontSize: '0.875rem', marginBottom: '2rem' }}>Last Updated: 25 September 2026</p>
+      <p style={{ color: '#888', fontSize: '0.875rem', marginBottom: '2rem' }}>Last Updated: 27 September 2026</p>
 
       {/* Emergency Warning Box */}
       <section style={{ marginBottom: '2rem', padding: '1rem', background: '#fff3cd', borderRadius: '8px', border: '1px solid #ffc107' }}>
@@ -251,26 +251,26 @@ export default function TermsPage() {
         </p>
         <ul style={ulSpacedStyle}>
           <li><strong>Non-refundable</strong> once activated, except where required by applicable consumer protection law or at Furrie&apos;s sole discretion.</li>
-          <li><strong>Valid as long as the Platform operates.</strong> Purchased pack credits do not expire. Free credits (invite, referral and founding-member credits) expire as set out in sections 8.5 and 9.</li>
+          <li><strong>Valid as long as the Platform operates.</strong> Purchased pack credits do not expire. Invite and referral credits expire as set out in section 9.</li>
           <li><strong>Non-transferable</strong> between accounts.</li>
           <li>Used one per booking. The credit that expires soonest is used first; after that, the oldest.</li>
         </ul>
         <p style={pSpacedStyle}>
           8.3. <strong>Buying Consultations.</strong> You can buy packs of 1, 3, 5 or 10 consultations on the
-          Platform. The price and GST are shown before you pay. You pay by UPI to the account shown on the
+          Platform. The price is shown before you pay. You pay by UPI to the account shown on the
           payment screen, which is currently our founder&apos;s personal UPI account, using the payment
           reference shown. Credits are added to your account after we have verified your payment, and we will
           email you when they are ready. If we cannot find your payment, we will tell you; you can then send us
           proof of payment (for example a screenshot) and we will look again.
         </p>
         <p style={pSpacedStyle}>
-          8.4. <strong>Pricing.</strong> All prices are in Indian Rupees (INR). GST at {Math.round(GST_RATE * 100)}%
-          is added to the prices below. Current prices:
+          8.4. <strong>Pricing.</strong> All prices are in Indian Rupees (INR). The price shown is the full
+          amount you pay; nothing is added at payment. Current prices:
         </p>
         <ul style={ulSpacedStyle}>
           {PACK_QUOTES.map((q) => (
             <li key={q.size}>
-              {packLabel(q.size)}: {formatInr(q.price)} + GST ({formatInr(q.total)} in total)
+              {packLabel(q.size)}: {formatInr(q.total)}
             </li>
           ))}
         </ul>
@@ -280,9 +280,8 @@ export default function TermsPage() {
         </p>
         <p style={pStyle}>
           8.5. <strong>Founding Members.</strong> If you joined the furrie.in waitlist before we opened sign-up,
-          one (1) free consultation credit is added to your account when you sign up, or to your existing
-          account, with the same email address. It is valid for sixty (60) days from the date it is added.
-          One founding credit per email address.
+          we will add one (1) free consultation credit to your Furrie account. Sign up with the email address
+          you joined with, or tell us which address you used. One founding credit per person.
         </p>
       </section>
 

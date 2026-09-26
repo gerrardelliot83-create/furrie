@@ -629,8 +629,7 @@ export async function sendPaymentRequestEmail(params: {
         </p>
         <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
           ${l1Row('Reference', `<strong>${escapeHtml(params.reference)}</strong> (please add it to the UPI note)`)}
-          ${l1Row('Pack price', formatInr(params.price))}
-          ${l1Row('GST', formatInr(params.gst))}
+          ${params.gst > 0 ? l1Row('Pack price', formatInr(params.price)) + l1Row('GST', formatInr(params.gst)) : ''}
           ${l1Row('Total to pay', `<strong>${formatInr(params.total)}</strong>`)}
           ${l1Row('UPI ID', `${escapeHtml(params.vpa)} (our founder&#39;s personal UPI)`)}
         </table>

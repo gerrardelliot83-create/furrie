@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { createClient } from '@/lib/supabase/client';
 import { formatIstTime, istDayRange } from '@/lib/time/ist';
+import { VET_CONSULTATIONS_CHANGED_EVENT } from '@/components/layouts/VetLayout/vetEvents';
 import type { Consultation, ConsultationStatus } from '@/types';
 import styles from './TodaySchedulePanel.module.css';
 
@@ -203,15 +204,21 @@ export function TodaySchedulePanel({ vetId }: TodaySchedulePanelProps) {
       )
       .subscribe();
 
-    // Refresh every minute to update time displays
+    // postgres_changes above never fires today (empty Realtime publication),
+    // so re-fetch when VetAlerts hears a booking, and every minute (which also
+    // updates the "In X min" labels).
+    const onChanged = () => {
+      loadSchedule();
+    };
+    window.addEventListener(VET_CONSULTATIONS_CHANGED_EVENT, onChanged);
     const interval = setInterval(() => {
-      // Force re-render to update "In X min" displays
-      setConsultations((prev) => [...prev]);
+      loadSchedule();
     }, 60000);
 
     return () => {
       isMounted = false;
       supabase.removeChannel(channel);
+      window.removeEventListener(VET_CONSULTATIONS_CHANGED_EVENT, onChanged);
       clearInterval(interval);
     };
   }, [vetId, retryCounter]);

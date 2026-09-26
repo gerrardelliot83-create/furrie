@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/ui/Toast';
+import { emitVetAvailabilityChanged } from '@/components/layouts/VetLayout/vetEvents';
 import styles from './VetStatusToggle.module.css';
 
 interface VetStatusToggleProps {
@@ -38,6 +39,7 @@ export function VetStatusToggle({ vetId, initialStatus }: VetStatusToggleProps) 
     }
 
     setIsAvailable(newStatus);
+    emitVetAvailabilityChanged(newStatus);
     toast(newStatus ? 'You are now available' : 'You are now unavailable', 'success');
   }, [vetId, isAvailable, isUpdating, toast]);
 

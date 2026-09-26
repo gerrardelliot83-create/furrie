@@ -99,10 +99,10 @@ export function welcomeEmail(params: {
       <p style="${textStyle}">Here's what you can do:</p>
       <ul style="font-size: 16px; color: #333; margin: 0 0 24px 0; padding-left: 20px; line-height: 1.8;">
         <li><strong>Talk to a vet</strong> &mdash; Book a video consultation at one of the open times, from anywhere in India.</li>
-        <li><strong>Get a custom care plan</strong> &mdash; Every consultation ends with a plan built specifically for your pet: nutrition, recovery, special care &mdash; whatever they need.</li>
+        <li><strong>Get a care plan</strong> &mdash; After the call, your vet can write up next steps for your pet.</li>
       </ul>
       <p style="${textStyle}">
-        The best place to start is adding your pet's profile. It takes about a minute and helps our vets give better, more personalised care from the very first call.
+        The best place to start is adding your pet's profile. It takes about a minute and helps your vet give better, more personalised care from the very first call.
       </p>
       <div style="text-align: center; margin: 32px 0;">
         <a href="${APP_URL}/pets/new" style="${btnPrimary}">Add Your Pet</a>

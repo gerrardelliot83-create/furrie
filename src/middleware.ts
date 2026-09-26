@@ -75,6 +75,33 @@ function isRoleAllowedOnPortal(role: string, portal: Portal): boolean {
   }
 }
 
+/**
+ * Redirect to /login?error=<reason> and delete the Supabase auth cookies, so
+ * the login page loads signed out (no redirect loop back to the dashboard).
+ */
+function redirectToLoginSignedOut(request: NextRequest, reason: string): NextResponse {
+  const url = request.nextUrl.clone();
+  url.pathname = '/login';
+  url.search = '';
+  url.searchParams.set('error', reason);
+
+  const response = NextResponse.redirect(url);
+
+  // Delete all Supabase auth cookies to force re-login.
+  // Dynamically match sb-* patterns including chunked variants (.0, .1, etc.)
+  for (const cookie of request.cookies.getAll()) {
+    if (
+      cookie.name === 'sb-access-token' ||
+      cookie.name === 'sb-refresh-token' ||
+      cookie.name.match(/^sb-.*-auth-token/)
+    ) {
+      response.cookies.delete(cookie.name);
+    }
+  }
+
+  return response;
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -108,10 +135,12 @@ export async function middleware(request: NextRequest) {
   // Get public routes for this portal
   const publicRoutes = getPublicRoutes(portal);
 
-  // Check if current route is public (handle both rewritten and original paths)
+  // Check if current route is public (handle both rewritten and original paths).
+  // /auth/callback must work signed out on every portal (sign-in links and
+  // V's vet password-recovery links land there).
   const isPublicRoute = publicRoutes.some(
     (route) => pathname === route || pathname.startsWith(`${prefix}/auth/`)
-  ) || pathname === '/login' || pathname === '/signup';
+  ) || pathname === '/login' || pathname === '/signup' || pathname === '/auth/callback';
 
   // Root path handling - redirect to login or dashboard
   if (pathname === '/' || pathname === prefix || pathname === `${prefix}/`) {
@@ -151,44 +180,37 @@ export async function middleware(request: NextRequest) {
     // saying 'customer' forever: their own portal refused them with
     // wrong_account, and editing profiles.role did not help because the stale
     // copy won. Reading the table every time is less code and always correct.
+    //
+    // is_active rides on the same query (C-03).
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, is_active')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
     if (profileError) {
+      // Fail closed (D-05): without the role we can't tell which portal this
+      // user may see. Public pages (login, sign-up, the auth callback) still
+      // load; anything else gets a 503 instead of the page. Cookies are kept,
+      // so a database blip signs nobody out.
       console.error('Middleware: failed to fetch profile for user', user.id, profileError);
-      return supabaseResponse;
+      if (isPublicRoute) return supabaseResponse;
+      return new NextResponse('Furrie is temporarily unavailable. Please refresh the page in a moment.', {
+        status: 503,
+        headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Retry-After': '5' },
+      });
     }
 
-    const userRole = profile?.role || 'customer';
+    // No profile row, or an admin deactivated this account (C-03): sign out.
+    if (!profile || profile.is_active === false) {
+      return redirectToLoginSignedOut(request, profile ? 'account_disabled' : 'no_profile');
+    }
 
     // Check if user's role matches the portal they're accessing
-    if (!isRoleAllowedOnPortal(userRole, portal)) {
+    if (!isRoleAllowedOnPortal(profile.role, portal)) {
       // User is on wrong portal - clear session by redirecting to login with error
       // The error parameter lets the login page show an appropriate message
-      const url = request.nextUrl.clone();
-      url.pathname = '/login';
-      url.searchParams.set('error', 'wrong_account');
-
-      // Create a response that clears the auth cookies
-      const response = NextResponse.redirect(url);
-
-      // Delete all Supabase auth cookies to force re-login.
-      // Dynamically match sb-* patterns including chunked variants (.0, .1, etc.)
-      const allCookies = request.cookies.getAll();
-      for (const cookie of allCookies) {
-        if (
-          cookie.name === 'sb-access-token' ||
-          cookie.name === 'sb-refresh-token' ||
-          cookie.name.match(/^sb-.*-auth-token/)
-        ) {
-          response.cookies.delete(cookie.name);
-        }
-      }
-
-      return response;
+      return redirectToLoginSignedOut(request, 'wrong_account');
     }
 
     // If authenticated user tries to access login/signup, redirect to dashboard

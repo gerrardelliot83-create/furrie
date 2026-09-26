@@ -16,7 +16,6 @@
 
 import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
-import { supabaseAdmin } from '@/lib/supabase/admin';
 import {
   buildDraftFromSoap,
   loadTreatmentPlanContext,
@@ -114,25 +113,13 @@ function parsePreviousPdfUrls(v: unknown): PreviousPdfEntry[] {
   });
 }
 
-async function verifyVet(userId: string) {
-  // Uses supabaseAdmin so role lookup works under either cookie auth or
-  // bearer auth (bearer-only mobile requests have no cookies for an
-  // RLS-scoped read of the user's own profile to land on).
-  const { data: profile } = await supabaseAdmin
-    .from('profiles')
-    .select('role')
-    .eq('id', userId)
-    .single();
-  return profile?.role === 'vet';
-}
-
 // ----------------------------------------------------------------------------
 // GET /api/treatment-plans?consultationId=...
 // ----------------------------------------------------------------------------
 
 export const GET = withRoute(async function GET(request: Request) {
   try {
-    const { user, error: authError, supabase } = await getRequestUser();
+    const { user, error: authError, supabase, profile } = await getRequestUser();
 
     if (authError || !user) {
       return NextResponse.json(
@@ -141,7 +128,7 @@ export const GET = withRoute(async function GET(request: Request) {
       );
     }
 
-    if (!(await verifyVet(user.id))) {
+    if (profile?.role !== 'vet') {
       return NextResponse.json(
         { error: 'Vet access required', code: 'VET_REQUIRED' },
         { status: 403 }
@@ -232,7 +219,7 @@ interface CreateBody {
 
 export const POST = withRoute(async function POST(request: Request) {
   try {
-    const { user, error: authError, supabase } = await getRequestUser();
+    const { user, error: authError, supabase, profile } = await getRequestUser();
 
     if (authError || !user) {
       return NextResponse.json(
@@ -241,7 +228,7 @@ export const POST = withRoute(async function POST(request: Request) {
       );
     }
 
-    if (!(await verifyVet(user.id))) {
+    if (profile?.role !== 'vet') {
       return NextResponse.json(
         { error: 'Vet access required', code: 'VET_REQUIRED' },
         { status: 403 }

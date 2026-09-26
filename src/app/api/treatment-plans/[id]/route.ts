@@ -40,7 +40,7 @@ export const PATCH = withRoute(async function PATCH(
       );
     }
 
-    const { user, error: authError, supabase } = await getRequestUser();
+    const { user, error: authError, supabase, profile } = await getRequestUser();
 
     if (authError || !user) {
       return NextResponse.json(
@@ -49,11 +49,6 @@ export const PATCH = withRoute(async function PATCH(
       );
     }
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
 
     if (!profile || profile.role !== 'vet') {
       return NextResponse.json(

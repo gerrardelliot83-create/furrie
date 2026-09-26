@@ -88,7 +88,7 @@ export const GET = withRoute(async function GET(request: Request) {
 // POST /api/care-plans — Create a care plan with steps
 export const POST = withRoute(async function POST(request: Request) {
   try {
-    const { user, error: authError, supabase } = await getRequestUser();
+    const { user, error: authError, supabase, profile } = await getRequestUser();
 
     if (authError || !user) {
       return NextResponse.json(
@@ -98,12 +98,6 @@ export const POST = withRoute(async function POST(request: Request) {
     }
 
     // Verify user is a vet
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
     if (!profile || profile.role !== 'vet') {
       return NextResponse.json(
         { error: 'Only vets can create care plans', code: 'VET_REQUIRED' },

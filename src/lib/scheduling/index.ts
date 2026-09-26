@@ -396,7 +396,7 @@ function getDayOfWeekName(date: Date): string {
  * Format date as YYYY-MM-DD in IST timezone
  * IMPORTANT: Uses explicit timezone to work correctly on servers running in UTC
  */
-function formatDateISO(date: Date): string {
+export function formatDateISO(date: Date): string {
   // Use Intl.DateTimeFormat to get date parts in IST
   const formatter = new Intl.DateTimeFormat('en-CA', {
     timeZone: IST_TIMEZONE,

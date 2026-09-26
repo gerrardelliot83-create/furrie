@@ -398,7 +398,7 @@ export default async function VetPatientDetailPage({ params }: PageProps) {
               const displayDate = consultation.scheduled_at
                 ? new Date(consultation.scheduled_at)
                 : new Date(consultation.created_at);
-              const soapNote = consultation.soap_notes?.[0];
+              const soapNote = Array.isArray(consultation.soap_notes) ? consultation.soap_notes[0] : consultation.soap_notes;
               const prescription = consultation.prescriptions?.[0];
 
               return (

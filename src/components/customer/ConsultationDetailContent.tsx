@@ -172,8 +172,8 @@ export function ConsultationDetailContent({ consultationId, onCancelSuccess, onO
 
   const pet = consultation.pets;
   const vet = consultation.profiles;
-  const soapNote = consultation.soap_notes?.[0];
-  const rating = consultation.consultation_ratings?.[0];
+  const soapNote = Array.isArray(consultation.soap_notes) ? consultation.soap_notes[0] : consultation.soap_notes;
+  const rating = Array.isArray(consultation.consultation_ratings) ? consultation.consultation_ratings[0] : consultation.consultation_ratings;
   const prescription = consultation.prescriptions?.[0];
   const petPhoto = pet?.photo_urls?.[0];
   const isPendingOrScheduled = ['pending', 'scheduled'].includes(consultation.status);

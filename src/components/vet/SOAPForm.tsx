@@ -7,6 +7,8 @@ import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
 import { createClient } from '@/lib/supabase/client';
 import { revalidateConsultationPath } from '@/app/actions/revalidate';
+import { formatIstTime } from '@/lib/time/ist';
+import { buildSoapDelta, hasSoapChanges, type SoapValues } from './soapDelta';
 import { SubjectiveSection } from './SubjectiveSection';
 import { ObjectiveSection } from './ObjectiveSection';
 import { AssessmentSection } from './AssessmentSection';
@@ -16,7 +18,6 @@ import styles from './SOAPForm.module.css';
 
 interface SOAPFormProps {
   consultationId: string;
-  vetId: string;
   petSpecies: 'dog' | 'cat';
   initialData?: Partial<SoapNote>;
 }
@@ -61,7 +62,7 @@ interface FormData {
 
 const AUTOSAVE_INTERVAL = 30000; // 30 seconds
 
-export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOAPFormProps) {
+export function SOAPForm({ consultationId, petSpecies, initialData }: SOAPFormProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -117,6 +118,14 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
     additionalDiagnostics: initialData?.additionalDiagnostics || '',
   });
 
+  // What the server holds: set from the loaded note, then from each save. Only
+  // fields that differ from it are sent (see soapDelta.ts, C-01).
+  const baselineRef = useRef<SoapValues>(formData);
+  const formDataRef = useRef<FormData>(formData);
+  useEffect(() => {
+    formDataRef.current = formData;
+  }, [formData]);
+
   const toggleSection = useCallback((section: string) => {
     setExpandedSections((prev) => ({
       ...prev,
@@ -137,80 +146,51 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
   }, []);
 
   const performSave = useCallback(async (isAutoSave: boolean): Promise<boolean> => {
-    const supabase = createClient();
+    const { delta } = buildSoapDelta(formData, baselineRef.current, { autosave: isAutoSave });
+    const hasDelta = Object.keys(delta).length > 0;
 
-    const dbData = {
-      consultation_id: consultationId,
-      vet_id: vetId,
-      chief_complaint: formData.chiefComplaint || null,
-      history_present_illness: formData.historyPresentIllness || null,
-      behavior_changes: formData.behaviorChanges || null,
-      appetite_changes: formData.appetiteChanges || null,
-      activity_level_changes: formData.activityLevelChanges || null,
-      diet_info: formData.dietInfo || null,
-      previous_treatments: formData.previousTreatments || null,
-      environmental_factors: formData.environmentalFactors || null,
-      other_pets_household: formData.otherPetsHousehold || null,
-      general_appearance: formData.generalAppearance || null,
-      body_condition_score: formData.bodyConditionScore || null,
-      visible_physical_findings: formData.visiblePhysicalFindings || null,
-      respiratory_pattern: formData.respiratoryPattern || null,
-      gait_mobility: formData.gaitMobility || null,
-      vital_signs: formData.vitalSigns,
-      referenced_media_urls: formData.referencedMediaUrls,
-      provisional_diagnosis: formData.provisionalDiagnosis || null,
-      differential_diagnoses: formData.differentialDiagnoses,
-      confidence_level: formData.confidenceLevel,
-      teleconsultation_limitations: formData.teleconsultationLimitations || null,
-      medications: formData.medications,
-      dietary_recommendations: formData.dietaryRecommendations || null,
-      lifestyle_modifications: formData.lifestyleModifications || null,
-      home_care_instructions: formData.homeCareInstructions || null,
-      warning_signs: formData.warningSigns || null,
-      follow_up_timeframe: formData.followUpTimeframe || null,
-      in_person_visit_recommended: formData.inPersonVisitRecommended,
-      in_person_urgency: formData.inPersonUrgency,
-      referral_specialist: formData.referralSpecialist || null,
-      additional_diagnostics: formData.additionalDiagnostics || null,
-      updated_at: new Date().toISOString(),
-    };
-
-    const { data: existing } = await supabase
-      .from('soap_notes')
-      .select('id')
-      .eq('consultation_id', consultationId)
-      .single();
-
-    let error;
-
-    if (existing) {
-      const result = await supabase
-        .from('soap_notes')
-        .update(dbData)
-        .eq('consultation_id', consultationId);
-      error = result.error;
-    } else {
-      const result = await supabase.from('soap_notes').insert(dbData);
-      error = result.error;
-    }
-
-    if (error) {
-      console.error('Error saving SOAP notes:', error);
-      if (!isAutoSave) {
-        toast('Failed to save notes', 'error');
+    if (hasDelta) {
+      // Server route: assigned-vet check, vet_id/consultation_id set server-side,
+      // and it writes only the keys it receives (partial upsert).
+      let response: Response;
+      try {
+        response = await fetch(`/api/consultations/${consultationId}/soap-notes`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(delta),
+        });
+      } catch (networkError) {
+        console.error('Error saving SOAP notes:', networkError);
+        if (!isAutoSave) {
+          toast('Failed to save notes. Check your connection and try again.', 'error');
+        }
+        return false;
       }
-      return false;
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        console.error('Error saving SOAP notes:', response.status, errData);
+        if (!isAutoSave) {
+          toast(errData.error || 'Failed to save notes', 'error');
+        }
+        return false;
+      }
+
+      baselineRef.current = { ...baselineRef.current, ...delta };
+      setLastSaved(new Date());
     }
 
-    setLastSaved(new Date());
-    setHasUnsavedChanges(false);
+    // Typing during the request, or a clear held back by autosave, stays unsaved.
+    setHasUnsavedChanges(hasSoapChanges(formDataRef.current, baselineRef.current));
 
     if (!isAutoSave) {
-      await revalidateConsultationPath(consultationId);
+      if (hasDelta) {
+        await revalidateConsultationPath(consultationId);
+      }
       toast('Notes saved successfully', 'success');
     }
     return true;
-  }, [consultationId, vetId, formData, toast]);
+  }, [consultationId, formData, toast]);
 
   const saveNotes = useCallback(async (isAutoSave = false): Promise<boolean> => {
     // For manual saves: cancel any pending autosave and wait for in-flight save
@@ -425,7 +405,7 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
           <h1 className={styles.title}>SOAP Notes</h1>
           {lastSaved && (
             <p className={styles.lastSaved}>
-              Last saved: {lastSaved.toLocaleTimeString()}
+              Last saved: {formatIstTime(lastSaved)}
             </p>
           )}
           {hasUnsavedChanges && (

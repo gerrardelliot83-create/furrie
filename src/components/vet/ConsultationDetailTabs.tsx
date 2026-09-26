@@ -14,7 +14,6 @@ type TabKey = 'overview' | 'soap' | 'rx';
 
 interface ConsultationDetailTabsProps {
   consultationId: string;
-  vetId: string;
   petSpecies: 'dog' | 'cat';
   initialSoapData?: Partial<SoapNote>;
   hasSoapNotes: boolean;
@@ -25,7 +24,6 @@ interface ConsultationDetailTabsProps {
 
 export function ConsultationDetailTabs({
   consultationId,
-  vetId,
   petSpecies,
   initialSoapData,
   hasSoapNotes: initialHasSoapNotes,
@@ -163,7 +161,6 @@ export function ConsultationDetailTabs({
       >
         <SOAPForm
           consultationId={consultationId}
-          vetId={vetId}
           petSpecies={petSpecies}
           initialData={initialSoapData}
         />

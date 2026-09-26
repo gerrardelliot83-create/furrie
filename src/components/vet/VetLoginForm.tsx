@@ -34,7 +34,13 @@ export function VetLoginForm() {
       const timer = setTimeout(() => {
         if (errorParam === 'wrong_account') {
           toast(t('wrongAccount'), 'error');
+        } else if (errorParam === 'account_disabled') {
+          // Set by the middleware for a deactivated account (Agent S, C-03)
+          toast('This account has been turned off. Contact support@furrie.in.', 'error');
+        } else if (errorParam === 'no_profile') {
+          toast("We couldn't find your account. Please sign in again.", 'error');
         } else {
+          // The auth callback passes whole sentences (e.g. an expired link)
           toast(errorParam, 'error');
         }
       }, 150);

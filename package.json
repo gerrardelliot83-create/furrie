@@ -11,7 +11,8 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "setup:daily-webhooks": "npx tsx scripts/setup-daily-webhooks.ts"
+    "setup:daily-webhooks": "npx tsx scripts/setup-daily-webhooks.ts",
+    "setup:daily-webhook-secret": "npx tsx scripts/setup-daily-webhooks.ts --new-secret"
   },
   "dependencies": {
     "@daily-co/daily-js": "^0.87.0",

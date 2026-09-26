@@ -3,9 +3,14 @@ import { getRequestUser } from '@/lib/auth/withAuth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import {
   mapConsultationWithRelationsFromDB,
-  mapConsultationUpdateToDB,
+  parseCustomerConsultationPatch,
 } from '@/lib/utils/consultationMapper';
+import { releaseConsultationCredit } from '@/lib/credits/releaseCredit';
 import { withRoute } from '@/server/handler';
+
+const CANCELLABLE_STATUSES = ['pending', 'scheduled'];
+/** Cancelling earlier than this before the start gives the credit back (Terms §7.3). */
+const CREDIT_BACK_MIN_NOTICE_MS = 5 * 60 * 1000;
 
 // GET /api/consultations/[id] - Get single consultation
 export const GET = withRoute(async function GET(
@@ -295,13 +300,15 @@ export const GET = withRoute(async function GET(
   }
 });
 
-// PATCH /api/consultations/[id] - Update consultation (e.g., cancel)
+// PATCH /api/consultations/[id] - a customer cancels their consultation or
+// edits its concern. Nothing else (SEC-3): parseCustomerConsultationPatch()
+// refuses every other shape, because the write uses the service role.
 export const PATCH = withRoute(async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { user, error: authError, supabase } = await getRequestUser();
+    const { user, error: authError, supabase, profile } = await getRequestUser();
     const { id } = await params;
 
     if (authError || !user) {
@@ -311,12 +318,28 @@ export const PATCH = withRoute(async function PATCH(
       );
     }
 
-    const body = await request.json();
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid JSON body', code: 'VALIDATION_ERROR' },
+        { status: 400 }
+      );
+    }
 
-    // Verify consultation exists and belongs to user
+    const patch = parseCustomerConsultationPatch(body);
+    if (patch.kind === 'invalid') {
+      return NextResponse.json(
+        { error: patch.error, code: 'FIELD_NOT_ALLOWED' },
+        { status: 400 }
+      );
+    }
+
+    // Verify consultation exists and belongs to user (read with their session)
     const { data: existing, error: fetchError } = await supabase
       .from('consultations')
-      .select('id, status, customer_id')
+      .select('id, status, customer_id, scheduled_at')
       .eq('id', id)
       .single();
 
@@ -327,28 +350,19 @@ export const PATCH = withRoute(async function PATCH(
       );
     }
 
-    // Check ownership
-    if (existing.customer_id !== user.id) {
+    // Check ownership: the customer on the row, signed in as a customer
+    if (existing.customer_id !== user.id || profile?.role !== 'customer') {
       return NextResponse.json(
         { error: 'You do not have permission to update this consultation', code: 'FORBIDDEN' },
         { status: 403 }
       );
     }
 
-    // Allow editing concerns only when status is 'scheduled'
-    if (body.concernText !== undefined || body.symptomCategories !== undefined) {
-      if (existing.status !== 'scheduled') {
-        return NextResponse.json(
-          { error: 'Cannot edit concerns after consultation has started', code: 'EDIT_NOT_ALLOWED' },
-          { status: 400 }
-        );
-      }
-    }
-
-    // Handle cancel action - converts to closed status with outcome
-    if (body.status === 'cancelled') {
-      // Only allow cancelling pending or scheduled consultations
-      if (!['pending', 'scheduled'].includes(existing.status)) {
+    // Writes use the admin client (customers have no UPDATE policy) and repeat
+    // the owner and status conditions, so a consultation that changed in the
+    // meantime is not touched.
+    if (patch.kind === 'cancel') {
+      if (!CANCELLABLE_STATUSES.includes(existing.status)) {
         return NextResponse.json(
           {
             error: `Cannot cancel consultation with status "${existing.status}"`,
@@ -357,43 +371,61 @@ export const PATCH = withRoute(async function PATCH(
           { status: 400 }
         );
       }
-      // Convert to new status system: cancelled -> closed + outcome
-      body.status = 'closed';
-      body.outcome = 'cancelled';
-    }
 
-    // Validate status transitions for customers
-    if (body.status && body.status !== 'closed') {
-      const allowedTransitions: Record<string, string[]> = {
-        pending: ['scheduled'], // Only transition to scheduled (after payment)
-        // scheduled, active, and closed cannot be changed directly by customer
-      };
+      const { data: updated, error: updateError } = await supabaseAdmin
+        .from('consultations')
+        .update({ status: 'closed', outcome: 'cancelled' })
+        .eq('id', id)
+        .eq('customer_id', user.id)
+        .in('status', CANCELLABLE_STATUSES)
+        .select()
+        .maybeSingle();
 
-      const currentStatus = existing.status;
-      const allowedNextStatuses = allowedTransitions[currentStatus] || [];
-
-      if (!allowedNextStatuses.includes(body.status)) {
+      if (updateError) {
+        console.error('Error cancelling consultation:', updateError);
         return NextResponse.json(
-          {
-            error: `Cannot change status from "${currentStatus}" to "${body.status}"`,
-            code: 'INVALID_TRANSITION',
-          },
+          { error: 'Failed to update consultation', code: 'UPDATE_ERROR' },
+          { status: 500 }
+        );
+      }
+      if (!updated) {
+        return NextResponse.json(
+          { error: 'This consultation can no longer be cancelled', code: 'INVALID_TRANSITION' },
           { status: 400 }
         );
       }
+
+      // Terms §7.3 (L1 seam 2): the credit comes back when a booked
+      // consultation is cancelled more than 5 minutes before it starts.
+      let creditReturned = false;
+      if (
+        existing.status === 'scheduled' &&
+        existing.scheduled_at &&
+        new Date(existing.scheduled_at).getTime() - Date.now() > CREDIT_BACK_MIN_NOTICE_MS
+      ) {
+        const release = await releaseConsultationCredit(id);
+        creditReturned = release.released;
+      }
+
+      return NextResponse.json({ consultation: updated, creditReturned });
     }
 
-    // Map update data
-    const updateData = mapConsultationUpdateToDB(body);
+    // Concern edit: only while the consultation is booked and not started.
+    if (existing.status !== 'scheduled') {
+      return NextResponse.json(
+        { error: 'Cannot edit concerns after consultation has started', code: 'EDIT_NOT_ALLOWED' },
+        { status: 400 }
+      );
+    }
 
-    // Perform update using admin client (ownership already verified above)
-    // Regular client fails due to missing RLS UPDATE policy for customers
     const { data: updated, error: updateError } = await supabaseAdmin
       .from('consultations')
-      .update(updateData)
+      .update(patch.update)
       .eq('id', id)
+      .eq('customer_id', user.id)
+      .eq('status', 'scheduled')
       .select()
-      .single();
+      .maybeSingle();
 
     if (updateError) {
       console.error('Error updating consultation:', updateError);
@@ -402,32 +434,11 @@ export const PATCH = withRoute(async function PATCH(
         { status: 500 }
       );
     }
-
-    // If status changed to 'scheduled', create Daily.co room
-    if (body.status === 'scheduled' && updated.status === 'scheduled' && !updated.daily_room_name) {
-      try {
-        const { createRoom } = await import('@/lib/daily');
-
-        const room = await createRoom(
-          updated.id,
-          updated.duration_minutes || 30
-        );
-
-        // Store room details using admin client
-        await supabaseAdmin
-          .from('consultations')
-          .update({
-            daily_room_name: room.name,
-            daily_room_url: room.url,
-            room_created_at: new Date().toISOString(),
-          })
-          .eq('id', id);
-
-        console.log(`[PATCH] Created Daily room for consultation ${id}:`, room.name);
-      } catch (roomError) {
-        // Log error but don't fail the request - room can be created later when joining
-        console.error(`[PATCH] Failed to create Daily room for consultation ${id}:`, roomError);
-      }
+    if (!updated) {
+      return NextResponse.json(
+        { error: 'Cannot edit concerns after consultation has started', code: 'EDIT_NOT_ALLOWED' },
+        { status: 400 }
+      );
     }
 
     return NextResponse.json({ consultation: updated });

@@ -77,31 +77,70 @@ export function mapConsultationToDB(
   };
 }
 
+const MAX_CONCERN_LENGTH = 2000;
+const MAX_SYMPTOM_CATEGORIES = 20;
+const MAX_SYMPTOM_LENGTH = 100;
+
+export type CustomerConsultationPatch =
+  | { kind: 'cancel' }
+  | { kind: 'edit'; update: Pick<ConsultationUpdate, 'concern_text' | 'symptom_categories'> }
+  | { kind: 'invalid'; error: string };
+
 /**
- * Convert TypeScript interface to database update format
+ * The only changes a customer may make to their own consultation (SEC-3):
+ *
+ *   { status: 'cancelled' }                     cancel (CancelConsultationButton, mobile)
+ *   { status: 'closed', outcome: 'cancelled' }  cancel (ConsultationDetailContent)
+ *   { concernText?, symptomCategories? }        edit the concern (EditConcernForm, mobile)
+ *
+ * Anything else is refused, including extra keys next to those: the route
+ * writes with the service role, so vetId, amountPaid, paymentId, the Daily room
+ * or another status must never reach it from the browser.
  */
-export function mapConsultationUpdateToDB(
-  data: Partial<Consultation>
-): ConsultationUpdate {
-  const update: ConsultationUpdate = {};
+export function parseCustomerConsultationPatch(body: unknown): CustomerConsultationPatch {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return { kind: 'invalid', error: 'Request body must be a JSON object' };
+  }
+  const fields = body as Record<string, unknown>;
+  const keys = Object.keys(fields);
 
-  if (data.status !== undefined) update.status = data.status;
-  if (data.outcome !== undefined) update.outcome = data.outcome;
-  if (data.vetId !== undefined) update.vet_id = data.vetId;
-  if (data.startedAt !== undefined) update.started_at = data.startedAt;
-  if (data.endedAt !== undefined) update.ended_at = data.endedAt;
-  if (data.durationMinutes !== undefined) update.duration_minutes = data.durationMinutes;
-  if (data.wasExtended !== undefined) update.was_extended = data.wasExtended;
-  if (data.concernText !== undefined) update.concern_text = data.concernText;
-  if (data.symptomCategories !== undefined) update.symptom_categories = data.symptomCategories;
-  if (data.dailyRoomName !== undefined) update.daily_room_name = data.dailyRoomName;
-  if (data.dailyRoomUrl !== undefined) update.daily_room_url = data.dailyRoomUrl;
-  if (data.recordingId !== undefined) update.recording_id = data.recordingId;
-  if (data.recordingUrl !== undefined) update.recording_url = data.recordingUrl;
-  if (data.paymentId !== undefined) update.payment_id = data.paymentId;
-  if (data.amountPaid !== undefined) update.amount_paid = data.amountPaid;
+  if (
+    (keys.length === 1 && fields.status === 'cancelled') ||
+    (keys.length === 2 && fields.status === 'closed' && fields.outcome === 'cancelled')
+  ) {
+    return { kind: 'cancel' };
+  }
 
-  return update;
+  if (keys.length > 0 && keys.every((key) => key === 'concernText' || key === 'symptomCategories')) {
+    const update: Pick<ConsultationUpdate, 'concern_text' | 'symptom_categories'> = {};
+
+    if ('concernText' in fields) {
+      const concern = fields.concernText;
+      if (concern !== null && typeof concern !== 'string') {
+        return { kind: 'invalid', error: 'concernText must be text' };
+      }
+      if (typeof concern === 'string' && concern.length > MAX_CONCERN_LENGTH) {
+        return { kind: 'invalid', error: `concernText must be at most ${MAX_CONCERN_LENGTH} characters` };
+      }
+      update.concern_text = concern;
+    }
+
+    if ('symptomCategories' in fields) {
+      const symptoms = fields.symptomCategories;
+      if (
+        !Array.isArray(symptoms) ||
+        symptoms.length > MAX_SYMPTOM_CATEGORIES ||
+        !symptoms.every((s) => typeof s === 'string' && s.length <= MAX_SYMPTOM_LENGTH)
+      ) {
+        return { kind: 'invalid', error: 'symptomCategories must be a short list of text values' };
+      }
+      update.symptom_categories = symptoms as string[];
+    }
+
+    return { kind: 'edit', update };
+  }
+
+  return { kind: 'invalid', error: 'Only cancelling a consultation or editing its concern is allowed here' };
 }
 
 /**
@@ -179,6 +218,11 @@ type SoapNoteRow = {
   updated_at: string | null;
 };
 
+type RatingRow = {
+  rating: number;
+  feedback_text: string | null;
+};
+
 type ConsultationMediaRow = {
   id: string;
   consultation_id: string;
@@ -216,10 +260,7 @@ export function mapConsultationWithRelationsFromDB(
     vet_profiles?: {
       qualifications: string;
     };
-    consultation_ratings?: {
-      rating: number;
-      feedback_text: string | null;
-    }[];
+    consultation_ratings?: RatingRow | RatingRow[] | null;
     prescriptions?: {
       id: string;
       pdf_url: string | null;
@@ -237,6 +278,12 @@ export function mapConsultationWithRelationsFromDB(
   const soapRaw: SoapNoteRow | null = Array.isArray(row.soap_notes)
     ? row.soap_notes[0] ?? null
     : row.soap_notes ?? null;
+
+  // consultation_ratings.consultation_id is UNIQUE, so PostgREST embeds the
+  // rating as an object rather than an array; accept both shapes.
+  const ratingRaw: RatingRow | null = Array.isArray(row.consultation_ratings)
+    ? row.consultation_ratings[0] ?? null
+    : row.consultation_ratings ?? null;
 
   return {
     ...base,
@@ -265,10 +312,10 @@ export function mapConsultationWithRelationsFromDB(
           avatarUrl: row.customer.avatar_url,
         }
       : undefined,
-    rating: row.consultation_ratings?.[0]
+    rating: ratingRaw
       ? {
-          rating: row.consultation_ratings[0].rating,
-          feedbackText: row.consultation_ratings[0].feedback_text,
+          rating: ratingRaw.rating,
+          feedbackText: ratingRaw.feedback_text,
         }
       : undefined,
     prescription: row.prescriptions?.[0]

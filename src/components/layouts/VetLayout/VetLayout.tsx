@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactNode, useState, useEffect, useCallback } from 'react';
+import { type ReactNode, useState, useEffect, useCallback, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
@@ -26,6 +26,24 @@ const navItems = [
   { href: '/profile', label: 'Profile', icon: ProfileIcon },
 ];
 
+// Must match the breakpoint in VetLayout.module.css (mobile header below, top bar at and above).
+const DESKTOP_QUERY = '(min-width: 768px)';
+
+function subscribeToDesktopQuery(onChange: () => void) {
+  const mql = window.matchMedia(DESKTOP_QUERY);
+  mql.addEventListener('change', onChange);
+  return () => mql.removeEventListener('change', onChange);
+}
+
+// null during server render and hydration, then true/false in the browser.
+function useIsDesktop(): boolean | null {
+  return useSyncExternalStore(
+    subscribeToDesktopQuery,
+    () => window.matchMedia(DESKTOP_QUERY).matches,
+    () => null
+  );
+}
+
 export function VetLayout({ children }: VetLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -36,6 +54,9 @@ export function VetLayout({ children }: VetLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+  // Mount the bell only in the visible slot: mounting both (one hidden by CSS)
+  // doubled its API calls, Realtime channel and poll (same fix as W's B-08).
+  const isDesktop = useIsDesktop();
 
   // Fetch vet availability status and subscribe to real-time changes
   useEffect(() => {
@@ -165,7 +186,7 @@ export function VetLayout({ children }: VetLayoutProps) {
             priority
           />
         </Link>
-        <NotificationBell />
+        {isDesktop === false && <NotificationBell />}
       </header>
 
       {/* Mobile Sidebar Overlay */}
@@ -258,7 +279,7 @@ export function VetLayout({ children }: VetLayoutProps) {
           <h1 className={styles.pageTitle}>
             {navItems.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))?.label || 'Dashboard'}
           </h1>
-          <NotificationBell />
+          {isDesktop === true && <NotificationBell />}
         </header>
         {vetId && <VetAlerts vetId={vetId} />}
         <div className={styles.content}>{children}</div>

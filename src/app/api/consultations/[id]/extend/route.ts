@@ -18,11 +18,19 @@ export const POST = withRoute(async function POST(
 ) {
   try {
     const { id: consultationId } = await params;
-    const { user, error: authError, supabase } = await getRequestUser();
+    const { user, error: authError, supabase, profile } = await getRequestUser();
     if (authError || !user) {
       return NextResponse.json(
         { error: 'Authentication required', code: 'AUTH_REQUIRED' },
         { status: 401 }
+      );
+    }
+
+    // A-03: the assigned-vet check below must also be a vet.
+    if (profile?.role !== 'vet') {
+      return NextResponse.json(
+        { error: 'Only the assigned veterinarian can extend this session', code: 'FORBIDDEN' },
+        { status: 403 }
       );
     }
 

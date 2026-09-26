@@ -22,12 +22,20 @@ interface CaptureRequest {
  */
 export const POST = withRoute(async function POST(request: Request) {
   try {
-    const { user, error: authError, supabase } = await getRequestUser();
+    const { user, error: authError, supabase, profile } = await getRequestUser();
 
     if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized', code: 'AUTH_REQUIRED' },
         { status: 401 }
+      );
+    }
+
+    // A-03: the assigned-vet check below must also be a vet.
+    if (profile?.role !== 'vet') {
+      return NextResponse.json(
+        { error: 'Vet access required', code: 'VET_REQUIRED' },
+        { status: 403 }
       );
     }
 

@@ -20,12 +20,20 @@ interface CreateThreadRequest {
  */
 export const POST = withRoute(async function POST(request: NextRequest) {
   try {
-    const { user, error: authError, supabase } = await getRequestUser();
+    const { user, error: authError, supabase, profile } = await getRequestUser();
 
     if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized', code: 'UNAUTHORIZED' },
         { status: 401 }
+      );
+    }
+
+    // A-03: the assigned-vet check below must also be a vet.
+    if (profile?.role !== 'vet') {
+      return NextResponse.json(
+        { error: 'Only the assigned vet can create a follow-up thread', code: 'NOT_ASSIGNED_VET' },
+        { status: 403 }
       );
     }
 

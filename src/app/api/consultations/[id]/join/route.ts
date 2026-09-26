@@ -34,7 +34,7 @@ export const POST = withRoute(async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { user, error: authError, supabase } = await getRequestUser();
+    const { user, error: authError, profile } = await getRequestUser();
     const { id } = await params;
 
     if (authError || !user) {
@@ -83,9 +83,11 @@ export const POST = withRoute(async function POST(
       );
     }
 
-    // Determine if user is customer or vet
-    const isCustomer = consultation.customer_id === user.id;
-    const isVet = consultation.vet_id === user.id;
+    // Determine if user is customer or vet. A-03: the id on the row must match
+    // AND the caller must have that role; `isVet` makes them the room owner
+    // with recording.
+    const isCustomer = consultation.customer_id === user.id && profile?.role === 'customer';
+    const isVet = consultation.vet_id === user.id && profile?.role === 'vet';
 
     if (!isCustomer && !isVet) {
       return NextResponse.json(
@@ -127,9 +129,12 @@ export const POST = withRoute(async function POST(
       );
     }
 
-    // Create room just-in-time if it doesn't exist
-    let roomName = consultation.daily_room_name;
-    let roomUrl = consultation.daily_room_url;
+    // Create room just-in-time if it doesn't exist. A-04: a consultation's
+    // room is always `furrie-<consultation id>` (lib/daily createRoom); a
+    // stored name that differs is ignored rather than trusted.
+    const expectedRoomName = `furrie-${id}`;
+    let roomName = consultation.daily_room_name === expectedRoomName ? consultation.daily_room_name : null;
+    let roomUrl = roomName ? consultation.daily_room_url : null;
 
     if (!roomName || !roomUrl) {
       try {
@@ -155,14 +160,8 @@ export const POST = withRoute(async function POST(
       }
     }
 
-    // Get user's display name
-    const { data: userProfile } = await supabase
-      .from('profiles')
-      .select('full_name')
-      .eq('id', user.id)
-      .single();
-
-    const userName = userProfile?.full_name || (isVet ? 'Veterinarian' : 'Pet Parent');
+    // Display name from the profile getRequestUser() already loaded.
+    const userName = profile?.full_name || (isVet ? 'Veterinarian' : 'Pet Parent');
 
     // Generate meeting token
     let token: string;

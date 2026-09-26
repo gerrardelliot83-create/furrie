@@ -3,7 +3,7 @@
  *
  * POST — Customer starts a UPI purchase (L1, 2026-09-25).
  *   Body: { packSize: 1 | 3 | 5 | 10 }
- *   The server prices the pack (GST on top), creates a unique payment
+ *   The server prices the pack (all-inclusive), creates a unique payment
  *   reference and returns everything the pay screen needs (amount, UPI link,
  *   QR code, WhatsApp/call links). One open request per customer:
  *   - an open request for the same pack that isn't marked paid is returned

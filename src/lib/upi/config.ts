@@ -38,9 +38,9 @@ export function isValidVpa(vpa: string): boolean {
 }
 
 /**
- * What the pay screen promises about when credits arrive. Deliberately
- * without hours until Gerard confirms who checks the bank and when
- * (open question, 2026-09-25) — never promise a time we can't keep.
+ * What the pay screen promises about when credits arrive. Payments are
+ * checked 8 am – 8 pm India time; messages outside those hours are answered
+ * as soon as possible (Gerard, 2026-09-27). Never promise a time we can't keep.
  */
 export const PAYMENT_CHECK_PROMISE =
-  'We check payments through the day and add your consultations as soon as we find yours. You will get an email when they are ready.';
+  'We check payments between 8 am and 8 pm (India time) and add your consultations as soon as we find yours. You will get an email when they are ready. Paid outside those hours? You can still message us, and we will get to it as soon as we can.';

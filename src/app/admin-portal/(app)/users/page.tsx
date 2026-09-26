@@ -12,7 +12,13 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function AdminUsersPage() {
+export default async function AdminUsersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string | string[] }>;
+}) {
+  const { q } = await searchParams;
+  const initialQuery = (Array.isArray(q) ? q[0] : q)?.trim().slice(0, 100) ?? '';
   const supabase = await createClient();
 
   // Fetch all customers with pet info
@@ -47,5 +53,5 @@ export default async function AdminUsersPage() {
     hasActiveSubscription: activeSubscriptionIds.has(u.id),
   }));
 
-  return <UsersManagement initialUsers={enrichedUsers} />;
+  return <UsersManagement initialUsers={enrichedUsers} initialQuery={initialQuery} />;
 }

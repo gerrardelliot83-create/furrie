@@ -24,8 +24,36 @@ function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-export function UsersManagement({ initialUsers }: { initialUsers: UserRow[] }) {
+type AccountFilter = 'all' | 'active' | 'inactive';
+
+/** Name, email or phone contains the text (A1: find the customer who wrote in). */
+function matchesSearch(user: UserRow, text: string): boolean {
+  if (!text) return true;
+  const needle = text.toLowerCase();
+  const digits = needle.replace(/\D/g, '');
+  return (
+    (user.full_name ?? '').toLowerCase().includes(needle) ||
+    (user.email ?? '').toLowerCase().includes(needle) ||
+    (digits.length >= 3 && (user.phone ?? '').replace(/\D/g, '').includes(digits))
+  );
+}
+
+export function UsersManagement({
+  initialUsers,
+  initialQuery = '',
+}: {
+  initialUsers: UserRow[];
+  initialQuery?: string;
+}) {
   const [users, setUsers] = useState<UserRow[]>(initialUsers);
+  const [query, setQuery] = useState(initialQuery);
+  const [accountFilter, setAccountFilter] = useState<AccountFilter>('all');
+  const searchText = query.trim();
+  const shownUsers = users.filter(
+    (u) =>
+      matchesSearch(u, searchText) &&
+      (accountFilter === 'all' || (accountFilter === 'inactive') === (u.is_active === false))
+  );
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [packUser, setPackUser] = useState<UserRow | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -110,14 +138,42 @@ export function UsersManagement({ initialUsers }: { initialUsers: UserRow[] }) {
 
       <div className={styles.header}>
         <h1 className={styles.title}>
-          Users <span className={styles.count}>({users.length})</span>
+          Users{' '}
+          <span className={styles.count}>
+            ({shownUsers.length === users.length ? users.length : `${shownUsers.length} of ${users.length}`})
+          </span>
         </h1>
         <button className={styles.primaryBtn} onClick={() => setShowCreateModal(true)}>
           + Create User
         </button>
       </div>
 
-      {users.length === 0 ? (
+      <div className={styles.searchBar} role="search">
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search name, email or phone"
+          aria-label="Search users"
+          className={`${styles.input} ${styles.searchInput}`}
+        />
+        <select
+          value={accountFilter}
+          onChange={(e) => setAccountFilter(e.target.value as AccountFilter)}
+          aria-label="Account status"
+          className={styles.input}
+        >
+          <option value="all">All accounts</option>
+          <option value="active">Active</option>
+          <option value="inactive">Turned off</option>
+        </select>
+      </div>
+
+      {users.length > 0 && shownUsers.length === 0 ? (
+        <div className={styles.emptyState}>
+          <p>No users match this search.</p>
+        </div>
+      ) : users.length === 0 ? (
         <div className={styles.emptyState}>
           <p>No customers registered yet.</p>
         </div>
@@ -135,7 +191,7 @@ export function UsersManagement({ initialUsers }: { initialUsers: UserRow[] }) {
             </tr>
           </thead>
           <tbody>
-            {users.map((user) => {
+            {shownUsers.map((user) => {
               const isInactive = user.is_active === false;
               const isLoading = actionLoading === user.id;
 

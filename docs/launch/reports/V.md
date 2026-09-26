@@ -5,7 +5,7 @@
 - **PR:** https://github.com/gerrardelliot83-create/furrie/pull/58 (`launch/v-vets` → `main`)
 - **Branch base:** `origin/main@0564463` (L1 #53, L1.1 #54 and W-app #55 are included)
 - **CI:** GitHub Actions on PR #58 (typecheck, lint, build, audit). Before push I ran the same four locally with the CI placeholders: typecheck 0 errors · lint 0 errors (12 warnings, all in files V didn't write, or pre-existing in them) · build OK · `npm audit --audit-level=high` 0 high (1 low, pre-existing).
-- **Size:** 14 commits (+1 for this report), 67 files, +3,328 / −1,291. **No database changes.**
+- **Size:** 17 code commits + 2 report commits (3 of the code commits answer the CTO review). **No database changes.**
 
 ---
 
@@ -42,7 +42,18 @@
 | 12 | `dd313bb` deactivated vets are never offered or matched | C-03 (V half) |
 | 13 | `52c556a` dashboard timeout shows retry, not a redirect loop | BRK-8 |
 | 14 | `e1ec7e4` whole-slot, overlap-safe matcher; bounded slot range | D-06, A-11 |
-| 15 | this report + `V-` backlog rows | — |
+| 15 | `efa0d63` this report + `V-` backlog rows | — |
+| 16 | late notes reach the pet parent | CTO review item 1 |
+| 17 | record the real call length on Finish | CTO review item 2 |
+| 18 | vet login explains `account_disabled` and `no_profile` | CTO review item 3 (from S's review) |
+| 19 | this report update | — |
+
+**CTO review of V-1 (`furrie-launch\approvals\V-review.md`), items 1–3, all fixed in this PR:**
+1. **Late notes.** When the cron closes a consultation as success before the vet has written notes, the vet page now shows **"Send notes to the pet parent"**. That calls the same `/complete` route, which sends the follow-up chat, the follow-up email and the completion email once. The follow-up thread's existence is the "already sent" marker, so there is no DB change. Only the call that creates the thread sends emails. Racing calls keep the earliest thread and delete their own. Tested with a fake DB: 20 random interleavings each of three simultaneous presses, and of a press racing the finish side effects. The vet's normal Finish uses the same single step.
+2. **Call length.** On Finish, the route records the length from Daily's meeting records for the room (summed, capped at 60). If Daily has none or doesn't answer within 5 s, it uses first join → now (capped at 60). With no join at all (a phone call finished from `scheduled`), the allotted 30 stays. `meeting.ended` still only updates active rows; I didn't let it rewrite a closed one, since Finish reads the same Daily records.
+3. **Login errors.** `error=account_disabled` → "This account has been turned off. Contact support@furrie.in."; `error=no_profile` → "We couldn't find your account. Please sign in again."
+
+Items 4–8 of the review (reminder vet re-send on retry, autosave re-arm, `revalidatePath` + disabled buttons before the start, the A-12 admin recovery design, the rate-limit backlog note) go to V-2.
 
 ---
 
@@ -126,6 +137,11 @@ None.
 | 13 | Treatment-plan / prescription PDF | Today's IST date |
 | 14 | Vet login → **Forgot your password?** (another browser) | "If this email belongs to a Furrie vet account…"; the email arrives and its link opens Set your password |
 | 15 | Admin → Vets → **Deactivate** the test vet | Its hours vanish from the customer slot list; re-activate |
+| 16 | Late notes: book another test consultation; both join the call, then both leave **without** the vet pressing Finish or writing notes. Wait until ~100 min after the start (the stale-call cron closes it). | The consultation shows **Completed**. The customer gets an in-app "has ended… notes will appear here". **No** completion email yet. The vet gets "Please add your notes…". |
+| 17 | The vet opens it, writes the chief complaint and a diagnosis, presses **Send notes to the pet parent** | "Notes sent to the pet parent". The customer gets **one** completion email + one follow-up email, and the follow-up chat opens. The button changes to "Consultation Completed". |
+| 18 | Reload; if the button still showed, press it again (or call it from a second tab) | Nothing more is sent |
+| 19 | Admin consultations page for a finished call | The duration is the call's real length (not always 30) |
+| 20 | Deactivate a test **vet** account, then try to sign in at vet.furrie.in (after S-1 is live) | "This account has been turned off. Contact support@furrie.in." |
 
 The no-show rules (missed/failed) are covered by tests, not by staging no-shows. The first real no-show produces an ops email.
 
@@ -136,7 +152,7 @@ The no-show rules (missed/failed) are covered by tests, not by staging no-shows.
 1. **Base commit.** The approval said `603b4f1`. `main` moved to `e1cb38b` (L1.1 #54) before I started and to `0564463` (W-app #55) during the build, so I built on and rebased onto the latest `main`. The rebase was clean; no conflicts.
 2. **Extra commit 6.** `createNotification` returns its error instead of throwing, so I wrapped the calls in the new side-effect and notice modules so a failed in-app notice reaches Sentry.
 3. **New truthful "missed" email.** The crons no longer send `missedAppointmentEmail`: it said "no one joined the call" (not true when the vet was there) and "available 24/7" (W removed that line in #55). I added a V-block `customerMissedConsultationEmail` and an ops "action needed" email for `failed`.
-4. **Completion duration.** The plan said "from Daily attendance". The route keeps the length `meeting.ended` recorded (if 1–60 min), else started→now capped at 60, which is the web's old rule. The stale-call cron uses Daily attendance.
+4. **Completion duration.** Superseded by CTO review item 2 (commit 17): Finish now records Daily's measured length (the plan's original intent), with first join → now as the fallback.
 5. **Admin dashboard "Today's consultations"** now counts today's appointments (India day, `scheduled_at`) instead of bookings created since UTC midnight.
 6. **Readiness card** lists hours + Available only. "Turn on booking alerts" is a banner on every vet page instead of a checklist line, so it isn't shown twice.
 7. **`PATCH /api/vet/profile`** also refuses deactivated accounts (small tightening; same response shape for the mobile app).

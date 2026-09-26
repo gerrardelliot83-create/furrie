@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
 import { createClient } from '@/lib/supabase/server';
+import { countCompletedConsultations } from '@/app/api/vet/_lib/consultationCounts';
 import { VetsManagement } from './VetsManagement';
 
 export const maxDuration = 15;
@@ -39,5 +40,9 @@ export default async function AdminVetsPage() {
     .eq('role', 'vet')
     .order('created_at', { ascending: false });
 
-  return <VetsManagement initialVets={vets || []} />;
+  // Completed consultations per vet, counted (consultation_count is never incremented)
+  const counts = await countCompletedConsultations((vets || []).map((v) => v.id));
+  const vetsWithCounts = (vets || []).map((v) => ({ ...v, completed_consultations: counts.get(v.id) ?? 0 }));
+
+  return <VetsManagement initialVets={vetsWithCounts} />;
 }

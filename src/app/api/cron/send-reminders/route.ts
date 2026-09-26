@@ -148,6 +148,32 @@ async function setFlags(
   return !!data;
 }
 
+/**
+ * The vet's part of a reminder goes out once. When nothing reached the
+ * customer, the claim is released and the next run tries again; without
+ * this check the vet would get the same notice and email again (CTO review
+ * of V-1, item 4). The in-app notice is the marker: it is written first and
+ * the email follows it. No DB change.
+ */
+async function vetAlreadyReminded(
+  consultationId: string,
+  vetId: string,
+  type: 'consultation_reminder_1h' | 'consultation_reminder_15m'
+): Promise<boolean> {
+  const { data, error } = await supabaseAdmin
+    .from('notifications')
+    .select('id')
+    .eq('user_id', vetId)
+    .eq('type', type)
+    .contains('data', { consultationId })
+    .limit(1);
+  if (error) {
+    console.error('[send-reminders] could not check earlier vet reminders:', error);
+    return false;
+  }
+  return (data?.length ?? 0) > 0;
+}
+
 async function loadVet(vetId: string | null) {
   if (!vetId) return null;
   const { data } = await supabaseAdmin.from('profiles').select('email, full_name').eq('id', vetId).maybeSingle();
@@ -196,7 +222,10 @@ async function sendOneHourReminders(consultation: Candidate): Promise<Delivery> 
       })
     : false;
 
-  if (consultation.vet_id) {
+  if (
+    consultation.vet_id &&
+    !(await vetAlreadyReminded(consultation.id, consultation.vet_id, 'consultation_reminder_1h'))
+  ) {
     await attempt('vet 1h in-app', consultation.id, async () => {
       const { error } = await createNotification({
         user_id: consultation.vet_id!,
@@ -267,7 +296,10 @@ async function sendStartingSoonReminders(consultation: Candidate, now: Date): Pr
       })
     : false;
 
-  if (consultation.vet_id) {
+  if (
+    consultation.vet_id &&
+    !(await vetAlreadyReminded(consultation.id, consultation.vet_id, 'consultation_reminder_15m'))
+  ) {
     await attempt('vet 15m in-app', consultation.id, async () => {
       const { error } = await createNotification({
         user_id: consultation.vet_id!,

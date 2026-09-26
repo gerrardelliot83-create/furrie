@@ -36,6 +36,7 @@ export const VetQuickStats = forwardRef<VetQuickStatsRef, VetQuickStatsProps>(
         weekActiveResult,
         weekCompletedResult,
         vetProfileResult,
+        completedResult,
       ] = await Promise.all([
         supabase
           .from('consultations')
@@ -69,9 +70,16 @@ export const VetQuickStats = forwardRef<VetQuickStatsRef, VetQuickStatsProps>(
           .eq('outcome', 'success'),
         supabase
           .from('vet_profiles')
-          .select('consultation_count, average_rating')
+          .select('average_rating')
           .eq('id', vetId)
           .single(),
+        // Counted, not read from vet_profiles.consultation_count (never incremented)
+        supabase
+          .from('consultations')
+          .select('id', { count: 'exact', head: true })
+          .eq('vet_id', vetId)
+          .eq('status', 'closed')
+          .eq('outcome', 'success'),
       ]);
 
       const todayCount = (todayActiveResult.count || 0) + (todayCompletedResult.count || 0);
@@ -80,7 +88,7 @@ export const VetQuickStats = forwardRef<VetQuickStatsRef, VetQuickStatsProps>(
       setStats({
         todayConsultations: todayCount,
         weekConsultations: weekCount,
-        totalConsultations: vetProfileResult.data?.consultation_count || stats.totalConsultations,
+        totalConsultations: completedResult.count ?? stats.totalConsultations,
         averageRating: vetProfileResult.data?.average_rating || stats.averageRating,
       });
     }, [vetId, stats.totalConsultations, stats.averageRating]);

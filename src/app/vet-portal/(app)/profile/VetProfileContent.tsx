@@ -9,6 +9,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { TagInput } from '@/components/customer/TagInput';
 import { useToast } from '@/components/ui/Toast';
+import { normalizeIndianMobile } from '@/app/api/vet/_lib/phone';
 import styles from './page.module.css';
 
 interface VetDetails {
@@ -66,7 +67,8 @@ export function VetProfileContent({ profile }: VetProfileContentProps) {
       return;
     }
 
-    if (formData.phone && !/^[6-9]\d{9}$/.test(formData.phone.replace(/[\s-]/g, ''))) {
+    // Same rule as the server (+91 / spaces accepted; 10 digits stored)
+    if (formData.phone && !normalizeIndianMobile(formData.phone)) {
       setError('Please enter a valid 10-digit Indian mobile number');
       return;
     }

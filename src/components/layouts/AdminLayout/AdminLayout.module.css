@@ -103,6 +103,37 @@
 }
 
 /* Main Content */
+.sidebarFooter {
+  padding: var(--space-3);
+  border-top: 1px solid var(--gray-100);
+}
+
+.logoutButton {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  color: var(--gray-500);
+  background: none;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+}
+
+.logoutButton:hover:not(:disabled) {
+  background-color: var(--gray-50);
+  color: var(--color-text-primary);
+}
+
+.logoutButton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .main {
   flex: 1;
   margin-left: var(--sidebar-width);

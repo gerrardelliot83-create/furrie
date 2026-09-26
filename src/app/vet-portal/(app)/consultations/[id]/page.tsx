@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/Badge';
 import { FlagButton } from '@/components/vet/FlagButton';
 import { ConsultationDetailTabs } from '@/components/vet/ConsultationDetailTabs';
 import { getStatusVariant, getStatusDisplayText } from '@/lib/utils/statusHelpers';
+import { formatVetName } from '@/lib/utils';
 import type { ConsultationStatus, ConsultationOutcome, SoapNote } from '@/types';
 import styles from './page.module.css';
 
@@ -422,7 +423,7 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
                       {diagnosis || 'No diagnosis recorded'}
                     </span>
                     {vetName && (
-                      <span className={styles.historyVet}>Dr. {vetName}</span>
+                      <span className={styles.historyVet}>{formatVetName(vetName)}</span>
                     )}
                   </div>
                   <div className={styles.historyOutcome}>
@@ -722,6 +723,7 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
               isCompleted={isCompleted}
               awaitingNotesDelivery={awaitingNotesDelivery}
               closedWithoutSuccess={isCompleted && !closedAsSuccess}
+              notBefore={consultation.status === 'scheduled' ? consultation.scheduled_at : null}
               overviewContent={overviewContent}
             />
           </div>

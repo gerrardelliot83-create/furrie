@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
 import { SOAPForm, type SOAPFormHandle } from './SOAPForm';
 import { finishConsultation } from './finishConsultation';
+import { formatIstTime } from '@/lib/time/ist';
 import { TreatmentPlanBuilder } from './treatment-plan/TreatmentPlanBuilder';
 import type { SoapNote } from '@/types';
 import styles from './ConsultationDetailTabs.module.css';
@@ -22,6 +23,8 @@ interface ConsultationDetailTabsProps {
   awaitingNotesDelivery: boolean;
   /** Closed with another outcome (missed, failed, cancelled): nothing to finish or send. */
   closedWithoutSuccess: boolean;
+  /** Start time of a still-scheduled consultation; it can't be finished before then. */
+  notBefore: string | null;
   /* Overview content passed as children */
   overviewContent: React.ReactNode;
 }
@@ -34,6 +37,7 @@ export function ConsultationDetailTabs({
   isCompleted: initialIsCompleted,
   awaitingNotesDelivery: initialAwaitingNotes,
   closedWithoutSuccess,
+  notBefore,
   overviewContent,
 }: ConsultationDetailTabsProps) {
   const router = useRouter();
@@ -52,14 +56,31 @@ export function ConsultationDetailTabs({
   const [isCompleted, setIsCompleted] = useState(initialIsCompleted);
   const [awaitingNotes, setAwaitingNotes] = useState(initialAwaitingNotes);
 
+  // Before the start time the server refuses to finish (409 NOT_STARTED), so
+  // the buttons are disabled until then; re-checked every 30 s (review item 6).
+  const startsAtMs = notBefore ? new Date(notBefore).getTime() : null;
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (startsAtMs === null || isCompleted) return;
+    const timer = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(timer);
+  }, [startsAtMs, isCompleted]);
+  const notStartedYet = !isCompleted && startsAtMs !== null && now < startsAtMs;
+
   // What the finish buttons do: finish the consultation, send late notes
-  // (closed by the cron before the notes were written), or nothing.
-  const finishAction: 'finish' | 'send_notes' | 'none' = !isCompleted
-    ? 'finish'
-    : awaitingNotes && !closedWithoutSuccess
-      ? 'send_notes'
-      : 'none';
-  const closedLabel = closedWithoutSuccess ? 'Consultation Closed' : 'Consultation Completed';
+  // (closed by the cron before the notes were written), or nothing yet.
+  const finishAction: 'finish' | 'send_notes' | 'none' = notStartedYet
+    ? 'none'
+    : !isCompleted
+      ? 'finish'
+      : awaitingNotes && !closedWithoutSuccess
+        ? 'send_notes'
+        : 'none';
+  const closedLabel = notStartedYet && notBefore
+    ? `Finish from ${formatIstTime(notBefore)}`
+    : closedWithoutSuccess
+      ? 'Consultation Closed'
+      : 'Consultation Completed';
 
   // Lazy-mount: only render TreatmentPlanBuilder once the rx tab has been
   // activated. This prevents it from firing its load useEffect at page mount

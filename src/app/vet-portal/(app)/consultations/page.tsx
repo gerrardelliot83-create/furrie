@@ -87,11 +87,24 @@ export default async function VetConsultationsPage({ searchParams }: PageProps) 
     query = query.eq('status', 'closed').eq('outcome', 'missed');
   }
 
-  // Apply search filter — match pet name or customer name via concern_text (full text)
-  if (searchQuery) {
-    query = query.or(
-      `concern_text.ilike.%${searchQuery}%,pets.name.ilike.%${searchQuery}%`
-    );
+  // Search: consultation number, concern, pet name or pet parent's name.
+  // PostgREST can't filter on an embedded table inside .or(), and raw input
+  // could break the filter syntax, so: strip filter characters, look up the
+  // matching pets / pet parents (RLS: only this vet's patients), then filter
+  // by id. A failed search shows an empty list, not an error page.
+  const term = (searchQuery ?? '').replace(/[,()*%\\"'.:]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
+  if (term) {
+    const pattern = `%${term}%`;
+    const [{ data: matchingPets }, { data: matchingCustomers }] = await Promise.all([
+      supabase.from('pets').select('id').ilike('name', pattern).limit(50),
+      supabase.from('profiles').select('id').ilike('full_name', pattern).limit(50),
+    ]);
+    const clauses = [`concern_text.ilike.${pattern}`, `consultation_number.ilike.${pattern}`];
+    const petIds = (matchingPets ?? []).map((p) => p.id);
+    const customerIds = (matchingCustomers ?? []).map((c) => c.id);
+    if (petIds.length > 0) clauses.push(`pet_id.in.(${petIds.join(',')})`);
+    if (customerIds.length > 0) clauses.push(`customer_id.in.(${customerIds.join(',')})`);
+    query = query.or(clauses.join(','));
   }
 
   // Apply pagination

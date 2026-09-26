@@ -4,6 +4,9 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { verifyAdmin, logAdminAction } from '@/lib/admin/auth';
 import { withRoute } from '@/server/handler';
 import { sendVetSetPasswordLink } from '@/app/api/vet/_lib/passwordLink';
+import { stripDoctorPrefix } from '@/app/api/vet/_lib/vetName';
+import { INVALID_PHONE_MESSAGE, normalizeIndianMobile } from '@/app/api/vet/_lib/phone';
+import { countCompletedConsultations } from '@/app/api/vet/_lib/consultationCounts';
 
 interface CreateVetBody {
   email: string;
@@ -39,11 +42,21 @@ export const POST = withRoute(async function POST(request: Request) {
         { status: 400 }
       );
     }
+    // Stored without "Dr." — every screen and email adds it (C-09)
+    body.fullName = typeof body.fullName === 'string' ? stripDoctorPrefix(body.fullName) : '';
     if (!body.fullName) {
       return NextResponse.json(
         { error: 'fullName is required', code: 'VALIDATION_ERROR' },
         { status: 400 }
       );
+    }
+    // One phone format (C-12): stored as the 10-digit mobile number
+    if (body.phone) {
+      const phone = normalizeIndianMobile(String(body.phone));
+      if (!phone) {
+        return NextResponse.json({ error: INVALID_PHONE_MESSAGE, code: 'VALIDATION_ERROR' }, { status: 400 });
+      }
+      body.phone = phone;
     }
     if (!body.qualifications) {
       return NextResponse.json(
@@ -221,7 +234,11 @@ export const GET = withRoute(async function GET() {
       );
     }
 
-    return NextResponse.json({ vets: vets || [] });
+    // Completed consultations per vet, counted (consultation_count is never incremented)
+    const counts = await countCompletedConsultations((vets || []).map((v) => v.id));
+    return NextResponse.json({
+      vets: (vets || []).map((v) => ({ ...v, completed_consultations: counts.get(v.id) ?? 0 })),
+    });
   } catch (error) {
     console.error('Unexpected error in GET /api/admin/vets:', error);
     return NextResponse.json(
@@ -286,8 +303,26 @@ export const PATCH = withRoute(async function PATCH(request: Request) {
 
     // Update profiles table fields
     const profileUpdates: Record<string, unknown> = {};
-    if (body.fullName !== undefined) profileUpdates.full_name = body.fullName;
-    if (body.phone !== undefined) profileUpdates.phone = body.phone;
+    if (body.fullName !== undefined) {
+      // Stored without "Dr." — every screen and email adds it (C-09)
+      const fullName = stripDoctorPrefix(String(body.fullName ?? ''));
+      if (!fullName) {
+        return NextResponse.json(
+          { error: 'Full name cannot be empty', code: 'VALIDATION_ERROR' },
+          { status: 400 }
+        );
+      }
+      profileUpdates.full_name = fullName;
+    }
+    if (body.phone !== undefined) {
+      // One phone format (C-12): stored as the 10-digit mobile number; empty clears it
+      const raw = String(body.phone ?? '').trim();
+      const phone = raw ? normalizeIndianMobile(raw) : null;
+      if (raw && !phone) {
+        return NextResponse.json({ error: INVALID_PHONE_MESSAGE, code: 'VALIDATION_ERROR' }, { status: 400 });
+      }
+      profileUpdates.phone = phone;
+    }
     if (body.isActive !== undefined) profileUpdates.is_active = body.isActive;
 
     if (Object.keys(profileUpdates).length > 0) {

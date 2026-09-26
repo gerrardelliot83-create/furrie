@@ -25,6 +25,8 @@ interface VetRow {
   is_active: boolean | null;
   created_at: string;
   vet_profiles: VetProfileRow[] | VetProfileRow | null;
+  /** Counted from consultations (closed + success). */
+  completed_consultations?: number;
 }
 
 function getInitials(name: string | null): string {
@@ -187,7 +189,7 @@ export function VetsManagement({ initialVets }: { initialVets: VetRow[] }) {
                       </div>
                     ) : '-'}
                   </td>
-                  <td>{vp?.consultation_count ?? 0}</td>
+                  <td>{vet.completed_consultations ?? 0}</td>
                   <td>{vp?.average_rating ? `${vp.average_rating.toFixed(1)}/5` : '-'}</td>
                   <td>{summarizeWeeklyHours(vp?.availability_schedule)}</td>
                   <td>
@@ -320,8 +322,8 @@ function CreateVetModal({
         <form onSubmit={handleSubmit} className={styles.form}>
           <div className={styles.formRow}>
             <div className={styles.field}>
-              <label className={styles.label}>Full Name *</label>
-              <input name="fullName" className={styles.input} required placeholder="Dr. Priya Sharma" />
+              <label className={styles.label}>Full Name (without &ldquo;Dr.&rdquo;) *</label>
+              <input name="fullName" className={styles.input} required placeholder="Priya Sharma" />
             </div>
             <div className={styles.field}>
               <label className={styles.label}>Email *</label>
@@ -334,7 +336,7 @@ function CreateVetModal({
           <div className={styles.formRow}>
             <div className={styles.field}>
               <label className={styles.label}>Phone</label>
-              <input name="phone" className={styles.input} placeholder="+919876543210" />
+              <input name="phone" className={styles.input} placeholder="98765 43210 (10-digit mobile)" />
             </div>
           </div>
           <div className={styles.formRow}>
@@ -422,7 +424,7 @@ function EditVetModal({ vet, onClose, onSaved }: { vet: VetRow; onClose: () => v
         <form onSubmit={handleSubmit} className={styles.form}>
           <div className={styles.formRow}>
             <div className={styles.field}>
-              <label className={styles.label}>Full Name</label>
+              <label className={styles.label}>Full Name (without &ldquo;Dr.&rdquo;)</label>
               <input name="fullName" className={styles.input} defaultValue={vet.full_name || ''} />
             </div>
             <div className={styles.field}>

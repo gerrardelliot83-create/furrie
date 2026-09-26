@@ -229,7 +229,8 @@ export function SOAPForm({
         pendingManualSaveRef.current = false;
       }
     } else {
-      // For autosave: skip if a save is already in progress
+      // For autosave: skip if a save is already in progress; the timer below
+      // re-arms when that save finishes
       if (savePromiseRef.current) return true;
     }
 
@@ -246,9 +247,11 @@ export function SOAPForm({
     }
   }, [cancelAutosave, performSave]);
 
-  // Auto-save every 30 seconds
+  // Auto-save 30 seconds after the last change. Armed only while no save is
+  // running, so it re-arms when a slow save finishes with changes still
+  // unsaved (it used to stall until the next keystroke; CTO review item 5).
   useEffect(() => {
-    if (hasUnsavedChanges) {
+    if (hasUnsavedChanges && !isSaving) {
       autosaveTimerRef.current = setTimeout(() => {
         saveNotes('auto');
       }, AUTOSAVE_INTERVAL);
@@ -259,7 +262,7 @@ export function SOAPForm({
         clearTimeout(autosaveTimerRef.current);
       }
     };
-  }, [hasUnsavedChanges, saveNotes]);
+  }, [hasUnsavedChanges, isSaving, saveNotes]);
 
   useImperativeHandle(
     ref,

@@ -7,6 +7,7 @@ import { withRoute } from '@/server/handler';
 import {
   deliverLateNotes,
   noteIsComplete,
+  revalidateConsultationPages,
   runCompletionSideEffects,
 } from '@/app/api/vet/_lib/completeConsultation';
 
@@ -94,6 +95,7 @@ export const POST = withRoute(async function POST(
           { status: 422 }
         );
       }
+      if (late === 'sent') revalidateConsultationPages(id);
       return NextResponse.json({ completed: true, alreadyCompleted: true, notesSent: late === 'sent' });
     }
     return NextResponse.json(
@@ -213,6 +215,7 @@ export const POST = withRoute(async function POST(
   }
 
   after(() => runCompletionSideEffects(id, 'vet'));
+  revalidateConsultationPages(id);
 
   return NextResponse.json({ completed: true, alreadyCompleted: false, consultation: updated });
 });

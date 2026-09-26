@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/Button';
+import { createClient } from '@/lib/supabase/client';
 import styles from './page.module.css';
 
 // Lazy-load Daily SDK and VideoRoom — only fetched when user clicks "Join"
@@ -64,11 +65,11 @@ interface TokenResponse {
 
 interface ConsultationInfo {
   id: string;
-  customerName: string;
+  customerName: string | null;
   petName: string;
   petSpecies: string;
   petBreed: string;
-  concern: string;
+  concern: string | null;
   symptoms: string[];
 }
 
@@ -102,15 +103,41 @@ export default function VetVideoRoomPage() {
 
         const data = await joinResponse.json();
 
-        // Set consultation info from join response
+        // The join response has no concern or pet-parent name, so read them with
+        // the vet's own session (assigned consultations only). If they can't be
+        // read, the lines are hidden rather than filled with made-up text.
+        let details: { concern: string | null; symptoms: string[]; customerName: string | null } = {
+          concern: null,
+          symptoms: [],
+          customerName: null,
+        };
+        try {
+          const supabase = createClient();
+          const { data: row } = await supabase
+            .from('consultations')
+            .select('concern_text, symptom_categories, profiles!consultations_customer_id_fkey (full_name)')
+            .eq('id', consultationId)
+            .maybeSingle();
+          if (row) {
+            const customer = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+            details = {
+              concern: row.concern_text?.trim() || null,
+              symptoms: row.symptom_categories ?? [],
+              customerName: customer?.full_name?.trim() || null,
+            };
+          }
+        } catch (detailsError) {
+          console.warn('Could not load consultation details for the room:', detailsError);
+        }
+
         setConsultationInfo({
           id: data.consultation.id,
-          customerName: data.consultation.pet?.name ? `${data.consultation.pet.name}'s parent` : 'Customer',
+          customerName: details.customerName,
           petName: data.consultation.pet?.name || 'Pet',
           petSpecies: data.consultation.pet?.species || 'Unknown',
           petBreed: data.consultation.pet?.breed || 'Unknown',
-          concern: 'General consultation', // Not returned by join endpoint
-          symptoms: [], // Not returned by join endpoint
+          concern: details.concern,
+          symptoms: details.symptoms,
         });
 
         // Set token data from join response
@@ -243,14 +270,18 @@ export default function VetVideoRoomPage() {
             </div>
 
             <div className={styles.patientDetails}>
-              <div className={styles.detailRow}>
-                <span className={styles.detailLabel}>Pet Parent:</span>
-                <span className={styles.detailValue}>{consultationInfo.customerName}</span>
-              </div>
-              <div className={styles.detailRow}>
-                <span className={styles.detailLabel}>Concern:</span>
-                <span className={styles.detailValue}>{consultationInfo.concern}</span>
-              </div>
+              {consultationInfo.customerName && (
+                <div className={styles.detailRow}>
+                  <span className={styles.detailLabel}>Pet Parent:</span>
+                  <span className={styles.detailValue}>{consultationInfo.customerName}</span>
+                </div>
+              )}
+              {consultationInfo.concern && (
+                <div className={styles.detailRow}>
+                  <span className={styles.detailLabel}>Concern:</span>
+                  <span className={styles.detailValue}>{consultationInfo.concern}</span>
+                </div>
+              )}
               {consultationInfo.symptoms.length > 0 && (
                 <div className={styles.detailRow}>
                   <span className={styles.detailLabel}>Symptoms:</span>

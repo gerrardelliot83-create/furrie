@@ -8,6 +8,7 @@ import { VetQuickStats, type VetQuickStatsRef } from '@/components/vet/VetQuickS
 import { TodaySchedulePanel } from '@/components/vet/TodaySchedulePanel';
 import { RecentConsultationsList, type RecentConsultationsListRef } from '@/components/vet/RecentConsultationsList';
 import { VetReadinessCard } from '@/components/vet/VetReadinessCard';
+import { formatVetName } from '@/lib/utils';
 import { useVetDashboardRealtime } from '@/hooks/useVetDashboardRealtime';
 import type { Consultation } from '@/types';
 import styles from './VetDashboard.module.css';
@@ -77,7 +78,7 @@ export function VetDashboardContent({
       <header className={styles.header}>
         <div className={styles.headerLeft}>
           <h1 className={styles.title}>{t('dashboard')}</h1>
-          <p className={styles.welcome}>Welcome back, Dr. {vetName}</p>
+          <p className={styles.welcome}>Welcome back, {formatVetName(vetName)}</p>
         </div>
         <div className={styles.headerRight}>
           <VetStatusToggle initialStatus={isAvailable} />

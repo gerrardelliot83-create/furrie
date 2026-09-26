@@ -839,3 +839,44 @@ export function vetStartingSoonEmail(params: {
     `),
   };
 }
+
+/**
+ * Vet set-password link (C-04). 'welcome' replaces vetWelcomeEmail, which
+ * emailed the password in plain text; 'reset' is for "Forgot password" and
+ * the admin's "Send set-password link".
+ */
+export function vetSetPasswordEmail(params: {
+  vetName: string;
+  email: string;
+  link: string;
+  reason: 'welcome' | 'reset';
+}): { subject: string; html: string } {
+  const isWelcome = params.reason === 'welcome';
+  return {
+    subject: isWelcome ? 'Welcome to Furrie: set your password' : 'Set a new password for your Furrie vet account',
+    html: wrapEmailBody(`
+      <p style="${textStyle}">Dear ${vEscape(vVetName(params.vetName))},</p>
+      <p style="${textStyle}">
+        ${isWelcome
+          ? 'Your Furrie vet account is ready. Set your password with the button below, then sign in at vet.furrie.in with this email address:'
+          : 'We received a request to set a new password for the Furrie vet account with this email address:'}
+      </p>
+      <div style="${infoBox}">
+        <p style="${labelStyle}">Email</p>
+        <p style="${valueStyle}">${vEscape(params.email)}</p>
+      </div>
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="${vEscape(params.link)}" style="${btnPrimary}">Set your password</a>
+      </div>
+      <p style="${textStyle}">
+        The link works once and expires after a short time. If it has expired, open vet.furrie.in, choose "Forgot your password?" and enter this email address to get a new one.
+      </p>
+      ${isWelcome
+        ? `<p style="${textStyle}">Once you are signed in, set your weekly hours on the Schedule page and turn on Available, so customers can book you.</p>`
+        : `<p style="${textStyle}">If you did not ask for this, you can ignore this email; your password stays as it is.</p>`}
+      <p style="${textStyle}">
+        <strong>Team Furrie</strong>
+      </p>
+    `),
+  };
+}

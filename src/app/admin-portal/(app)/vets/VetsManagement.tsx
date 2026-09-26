@@ -107,7 +107,7 @@ export function VetsManagement({ initialVets }: { initialVets: VetRow[] }) {
   }
 
   async function handleResetPassword(vet: VetRow) {
-    if (!confirm(`Send a password reset email to ${vet.email}?`)) return;
+    if (!confirm(`Email ${vet.email} a link to set a new password?`)) return;
 
     setActionLoading(vet.id);
     const res = await fetch('/api/admin/password', {
@@ -213,9 +213,9 @@ export function VetsManagement({ initialVets }: { initialVets: VetRow[] }) {
                         className={styles.actionBtn}
                         onClick={() => handleResetPassword(vet)}
                         disabled={isLoading}
-                        title="Send password reset email"
+                        title="Email the vet a link to set a new password"
                       >
-                        Reset Pwd
+                        Send set-password link
                       </button>
                       <button
                         className={`${styles.actionBtn} ${styles.actionBtnDanger}`}
@@ -237,10 +237,10 @@ export function VetsManagement({ initialVets }: { initialVets: VetRow[] }) {
       {showCreateModal && (
         <CreateVetModal
           onClose={() => setShowCreateModal(false)}
-          onCreated={async () => {
+          onCreated={async (resultMessage, emailSent) => {
             setShowCreateModal(false);
             await refreshVets();
-            setMessage({ type: 'success', text: 'Vet created successfully' });
+            setMessage({ type: emailSent ? 'success' : 'error', text: resultMessage });
             clearMessage();
           }}
         />
@@ -264,7 +264,13 @@ export function VetsManagement({ initialVets }: { initialVets: VetRow[] }) {
 
 // ─── Create Vet Modal ────────────────────────────────────────────────────────
 
-function CreateVetModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function CreateVetModal({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated: (message: string, setPasswordEmailSent: boolean) => void;
+}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -278,7 +284,6 @@ function CreateVetModal({ onClose, onCreated }: { onClose: () => void; onCreated
 
     const body = {
       email: form.get('email'),
-      password: form.get('password'),
       fullName: form.get('fullName'),
       phone: form.get('phone') || undefined,
       qualifications: form.get('qualifications'),
@@ -297,7 +302,7 @@ function CreateVetModal({ onClose, onCreated }: { onClose: () => void; onCreated
     setLoading(false);
 
     if (res.ok) {
-      onCreated();
+      onCreated(data.message || 'Vet created', data.setPasswordEmailSent !== false);
     } else {
       setError(data.error || 'Failed to create vet');
     }
@@ -318,11 +323,10 @@ function CreateVetModal({ onClose, onCreated }: { onClose: () => void; onCreated
               <input name="email" type="email" className={styles.input} required placeholder="vet@example.com" />
             </div>
           </div>
+          <p className={styles.label}>
+            The vet gets an email with a link to set their own password. No password is shown or emailed.
+          </p>
           <div className={styles.formRow}>
-            <div className={styles.field}>
-              <label className={styles.label}>Password *</label>
-              <input name="password" type="password" className={styles.input} required minLength={6} placeholder="Min 6 characters" />
-            </div>
             <div className={styles.field}>
               <label className={styles.label}>Phone</label>
               <input name="phone" className={styles.input} placeholder="+919876543210" />

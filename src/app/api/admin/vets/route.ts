@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
+import { randomBytes } from 'crypto';
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { sendVetWelcomeEmail } from '@/lib/email';
 import { verifyAdmin, logAdminAction } from '@/lib/admin/auth';
 import { withRoute } from '@/server/handler';
+import { sendVetSetPasswordLink } from '@/app/api/vet/_lib/passwordLink';
 
 interface CreateVetBody {
   email: string;
-  password: string;
   fullName: string;
   phone?: string;
   qualifications: string;
@@ -19,9 +19,11 @@ interface CreateVetBody {
  * POST /api/admin/vets
  *
  * Create a vet account in one call:
- * 1. Create auth user with email_confirm: true
+ * 1. Create auth user with email_confirm: true and a random password that
+ *    nobody sees (C-04: the admin no longer types one and it is never emailed)
  * 2. Update profile: role='vet', full_name, phone
  * 3. Insert vet_profiles row
+ * 4. Email the vet a one-time link to set their own password
  */
 export const POST = withRoute(async function POST(request: Request) {
   try {
@@ -34,12 +36,6 @@ export const POST = withRoute(async function POST(request: Request) {
     if (!body.email) {
       return NextResponse.json(
         { error: 'email is required', code: 'VALIDATION_ERROR' },
-        { status: 400 }
-      );
-    }
-    if (!body.password) {
-      return NextResponse.json(
-        { error: 'password is required', code: 'VALIDATION_ERROR' },
         { status: 400 }
       );
     }
@@ -62,17 +58,11 @@ export const POST = withRoute(async function POST(request: Request) {
       );
     }
 
-    if (body.password.length < 6) {
-      return NextResponse.json(
-        { error: 'Password must be at least 6 characters', code: 'VALIDATION_ERROR' },
-        { status: 400 }
-      );
-    }
-
-    // Step 1: Create auth user (email_confirm: true skips verification email)
+    // Step 1: Create auth user (email_confirm: true skips verification email).
+    // The vet sets their own password from the emailed link (step 4).
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: body.email,
-      password: body.password,
+      password: randomBytes(32).toString('base64url'),
       email_confirm: true,
     });
 
@@ -137,14 +127,14 @@ export const POST = withRoute(async function POST(request: Request) {
       );
     }
 
-    // Send vet welcome email with credentials
-    const welcomeEmailResult = await sendVetWelcomeEmail(body.email, {
-      vetName: body.fullName,
+    // Step 4: welcome email with a set-password link (no password in it)
+    const linkResult = await sendVetSetPasswordLink({
       email: body.email,
-      temporaryPassword: body.password,
+      vetName: body.fullName,
+      reason: 'welcome',
     });
-    if (!welcomeEmailResult.success) {
-      console.error('Failed to send vet welcome email:', welcomeEmailResult.error);
+    if (!linkResult.success) {
+      console.error('Failed to send vet set-password email:', linkResult.error);
     }
 
     // Audit log
@@ -170,7 +160,10 @@ export const POST = withRoute(async function POST(request: Request) {
           isVerified: true,
           isAvailable: false,
         },
-        message: `Vet account created for ${body.fullName} (${body.email}). They can log in at vet.furrie.in.`,
+        message: linkResult.success
+          ? `Vet account created for ${body.fullName} (${body.email}). We've emailed them a link to set their password.`
+          : `Vet account created for ${body.fullName} (${body.email}), but the set-password email could not be sent. Use "Send set-password link" on the Vets page.`,
+        setPasswordEmailSent: linkResult.success,
       },
       { status: 201 }
     );

@@ -4,17 +4,18 @@ import { verifyAdmin, logAdminAction } from '@/lib/admin/auth';
 import { sendEmail } from '@/lib/email';
 import { passwordResetEmail } from '@/lib/email/templates';
 import { withRoute } from '@/server/handler';
+import { sendVetSetPasswordLink } from '@/app/api/vet/_lib/passwordLink';
 
 /**
  * The portal whose /auth/callback should receive the recovery token. Every
  * portal mounts the same handler (src/lib/auth/handleAuthCallback.ts), which
  * accepts ?token_hash= and creates the session server-side.
  */
-function portalFor(role: string | null): { origin: string; name: string } {
+function portalFor(role: string | null): { origin: string; name: string; next: string } {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.furrie.in';
-  if (role === 'vet') return { origin: appUrl.replace('//app.', '//vet.'), name: 'vet portal' };
-  if (role === 'admin') return { origin: appUrl.replace('//app.', '//admin.'), name: 'admin portal' };
-  return { origin: appUrl, name: 'Furrie' };
+  // Admins change their password on Settings; vets use the vet-portal link below.
+  if (role === 'admin') return { origin: appUrl.replace('//app.', '//admin.'), name: 'admin portal', next: '/settings' };
+  return { origin: appUrl, name: 'Furrie', next: '/dashboard' };
 }
 
 /**
@@ -89,6 +90,30 @@ async function handlePasswordReset(
     );
   }
 
+  // Vets: a set-password link that lands on /set-password (C-04).
+  if (profile.role === 'vet') {
+    const result = await sendVetSetPasswordLink({
+      email: profile.email,
+      vetName: profile.full_name || '',
+      reason: 'reset',
+    });
+    if (!result.success) {
+      console.error('Error sending vet set-password link:', result.error);
+      return NextResponse.json(
+        { error: 'Failed to send the set-password email', code: 'RESET_ERROR' },
+        { status: 500 }
+      );
+    }
+    await logAdminAction({
+      adminId,
+      action: 'reset_password',
+      targetType: 'user',
+      targetId: body.userId,
+      details: { email: profile.email },
+    });
+    return NextResponse.json({ message: `Set-password link sent to ${profile.email}` });
+  }
+
   const { data: linkData, error: resetError } = await supabaseAdmin.auth.admin.generateLink({
     type: 'recovery',
     email: profile.email,
@@ -104,7 +129,7 @@ async function handlePasswordReset(
   }
 
   const portal = portalFor(profile.role);
-  const link = `${portal.origin}/auth/callback?token_hash=${encodeURIComponent(hashedToken)}&type=recovery&next=/dashboard`;
+  const link = `${portal.origin}/auth/callback?token_hash=${encodeURIComponent(hashedToken)}&type=recovery&next=${portal.next}`;
   const email = passwordResetEmail({
     name: profile.full_name || 'there',
     link,

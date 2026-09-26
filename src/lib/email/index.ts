@@ -798,3 +798,11 @@ export async function sendVetStartingSoonEmail(
   const { subject, html } = templates.vetStartingSoonEmail(params);
   return sendEmail({ to, subject, html });
 }
+
+export async function sendVetSetPasswordEmail(
+  to: string,
+  params: Parameters<typeof templates.vetSetPasswordEmail>[0]
+) {
+  const { subject, html } = templates.vetSetPasswordEmail(params);
+  return sendEmail({ to, subject, html });
+}

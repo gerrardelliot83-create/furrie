@@ -1,0 +1,57 @@
+/* VetReadinessCard.module.css */
+
+.title {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+}
+
+.subtitle {
+  margin: 0 0 var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.todo,
+.done {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--font-size-base, 1rem);
+}
+
+.done {
+  color: var(--color-text-secondary);
+}
+
+.mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: #fff;
+  background-color: var(--color-navy, #1e5081);
+}
+
+.done .mark {
+  background-color: var(--color-success, #15803d);
+}
+
+.link {
+  font-weight: 600;
+  color: var(--color-navy, #1e5081);
+}

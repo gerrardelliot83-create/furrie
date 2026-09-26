@@ -204,6 +204,7 @@ export const GET = withRoute(async function GET() {
           years_of_experience,
           is_verified,
           is_available,
+          availability_schedule,
           consultation_count,
           average_rating
         )

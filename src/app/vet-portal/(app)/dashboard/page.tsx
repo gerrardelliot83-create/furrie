@@ -5,6 +5,8 @@ import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/supabase/getCurrentUser';
 import { withTimeout } from '@/lib/utils/queryTimeout';
 import { istDayRange, istWeekRange } from '@/lib/time/ist';
+import { hasWeeklyHours } from '@/lib/scheduling/summary';
+import type { AvailabilitySchedule } from '@/types';
 import { VetDashboardContent } from './VetDashboardContent';
 
 export const maxDuration = 30;
@@ -41,7 +43,7 @@ export default async function VetDashboard() {
     // [1] Vet profile
     supabase
       .from('vet_profiles')
-      .select('is_available, consultation_count, average_rating')
+      .select('is_available, consultation_count, average_rating, availability_schedule')
       .eq('id', user.id)
       .single(),
     // [2] Today active count
@@ -246,6 +248,7 @@ export default async function VetDashboard() {
       vetId={user.id}
       vetName={profile.full_name || 'Doctor'}
       isAvailable={vetProfile?.is_available || false}
+      hasHours={hasWeeklyHours(vetProfile?.availability_schedule as AvailabilitySchedule | null)}
       stats={stats}
       recentConsultations={mappedConsultations}
       activeCarePlans={activeCarePlans}

@@ -2,17 +2,15 @@
 
 import { useState, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
-import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/ui/Toast';
 import { emitVetAvailabilityChanged } from '@/components/layouts/VetLayout/vetEvents';
 import styles from './VetStatusToggle.module.css';
 
 interface VetStatusToggleProps {
-  vetId: string;
   initialStatus: boolean;
 }
 
-export function VetStatusToggle({ vetId, initialStatus }: VetStatusToggleProps) {
+export function VetStatusToggle({ initialStatus }: VetStatusToggleProps) {
   const t = useTranslations('status');
   const { toast } = useToast();
   const [isAvailable, setIsAvailable] = useState(initialStatus);
@@ -24,16 +22,22 @@ export function VetStatusToggle({ vetId, initialStatus }: VetStatusToggleProps) 
     setIsUpdating(true);
     const newStatus = !isAvailable;
 
-    const supabase = createClient();
-    const { error } = await supabase
-      .from('vet_profiles')
-      .update({ is_available: newStatus, updated_at: new Date().toISOString() })
-      .eq('id', vetId);
+    // Server route: role check, then a service-role write (C-06).
+    let ok = false;
+    try {
+      const response = await fetch('/api/vet/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isAvailable: newStatus }),
+      });
+      ok = response.ok;
+    } catch (error) {
+      console.error('Error updating availability:', error);
+    }
 
     setIsUpdating(false);
 
-    if (error) {
-      console.error('Error updating availability:', error);
+    if (!ok) {
       toast('Failed to update availability', 'error');
       return;
     }
@@ -41,7 +45,7 @@ export function VetStatusToggle({ vetId, initialStatus }: VetStatusToggleProps) 
     setIsAvailable(newStatus);
     emitVetAvailabilityChanged(newStatus);
     toast(newStatus ? 'You are now available' : 'You are now unavailable', 'success');
-  }, [vetId, isAvailable, isUpdating, toast]);
+  }, [isAvailable, isUpdating, toast]);
 
   return (
     <div className={styles.container}>

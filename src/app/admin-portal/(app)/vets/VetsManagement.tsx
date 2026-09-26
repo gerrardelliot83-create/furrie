@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
+import { summarizeWeeklyHours } from '@/lib/scheduling/summary';
+import type { AvailabilitySchedule } from '@/types';
 import styles from './page.module.css';
 
 interface VetProfileRow {
@@ -10,6 +12,7 @@ interface VetProfileRow {
   years_of_experience: number | null;
   is_verified: boolean;
   is_available: boolean;
+  availability_schedule: AvailabilitySchedule | null;
   consultation_count: number | null;
   average_rating: number | null;
 }
@@ -153,6 +156,7 @@ export function VetsManagement({ initialVets }: { initialVets: VetRow[] }) {
               <th>Specializations</th>
               <th>Consultations</th>
               <th>Rating</th>
+              <th>Weekly hours (IST)</th>
               <th>Status</th>
               <th>Registered</th>
               <th>Actions</th>
@@ -185,9 +189,10 @@ export function VetsManagement({ initialVets }: { initialVets: VetRow[] }) {
                   </td>
                   <td>{vp?.consultation_count ?? 0}</td>
                   <td>{vp?.average_rating ? `${vp.average_rating.toFixed(1)}/5` : '-'}</td>
+                  <td>{summarizeWeeklyHours(vp?.availability_schedule)}</td>
                   <td>
                     <span className={`${styles.badge} ${vp?.is_available ? styles.badgeOnline : styles.badgeOffline}`}>
-                      {vp?.is_available ? 'Online' : 'Offline'}
+                      {vp?.is_available ? 'Available' : 'Not available'}
                     </span>
                   </td>
                   <td>{formatDate(vet.created_at)}</td>

@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { useToast } from '@/components/ui/Toast';
+import { formatIstDate } from '@/lib/time/ist';
 import styles from './VaccinationApprovalCard.module.css';
 
 interface VaccinationRecord {
@@ -110,7 +111,7 @@ export function VaccinationApprovalCard({
   }, [record, rejectReason, toast, onRejected]);
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-IN', {
+    return formatIstDate(dateString, {
       day: 'numeric',
       month: 'short',
       year: 'numeric',

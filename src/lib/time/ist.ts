@@ -82,6 +82,15 @@ export function istWeekRange(value: Date | string = new Date()): { start: Date; 
   return { start, end: new Date(start.getTime() + 7 * DAY_MS) };
 }
 
+/** The India calendar month containing `value`, as UTC instants [start, end). */
+export function istMonthRange(value: Date | string = new Date()): { start: Date; end: Date } {
+  const [year, month] = istDateKey(value).split('-').map(Number);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const start = new Date(`${year}-${pad(month)}-01T00:00:00${IST_OFFSET}`);
+  const next = month === 12 ? `${year + 1}-01` : `${year}-${pad(month + 1)}`;
+  return { start, end: new Date(`${next}-01T00:00:00${IST_OFFSET}`) };
+}
+
 /** "4:00 pm" */
 export function formatIstTime(value: Date | string): string {
   return timeFormatter.format(toIstDate(value));

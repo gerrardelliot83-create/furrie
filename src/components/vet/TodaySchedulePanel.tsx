@@ -7,6 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { createClient } from '@/lib/supabase/client';
+import { formatIstTime, istDayRange } from '@/lib/time/ist';
 import type { Consultation, ConsultationStatus } from '@/types';
 import styles from './TodaySchedulePanel.module.css';
 
@@ -67,15 +68,6 @@ function getAppointmentStatus(consultation: ScheduledConsultation): AppointmentS
   return 'upcoming';
 }
 
-function formatTime(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleTimeString('en-IN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
-  });
-}
-
 function getTimeUntil(dateStr: string): string {
   const now = new Date();
   const scheduled = new Date(dateStr);
@@ -118,10 +110,8 @@ export function TodaySchedulePanel({ vetId }: TodaySchedulePanelProps) {
 
     // Initial data fetch using local async function
     const loadSchedule = async () => {
-      // Get today's date range
-      const today = new Date();
-      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+      // Today in India time, whatever zone this browser is set to
+      const { start: startOfDay, end: endOfDay } = istDayRange();
 
       const { data, error: fetchError } = await supabase
         .from('consultations')
@@ -307,7 +297,7 @@ export function TodaySchedulePanel({ vetId }: TodaySchedulePanelProps) {
                   className={`${styles.appointmentCard} ${styles[status]}`}
                 >
                   <div className={styles.timeColumn}>
-                    <span className={styles.time}>{consultation.scheduledAt ? formatTime(consultation.scheduledAt) : '--:--'}</span>
+                    <span className={styles.time}>{consultation.scheduledAt ? formatIstTime(consultation.scheduledAt) : '--:--'}</span>
                     <span className={styles.timeUntil}>{consultation.scheduledAt ? getTimeUntil(consultation.scheduledAt) : ''}</span>
                   </div>
 
@@ -376,7 +366,7 @@ export function TodaySchedulePanel({ vetId }: TodaySchedulePanelProps) {
                 {completedConsultations.map((consultation) => (
                   <div key={consultation.id} className={styles.completedCard}>
                     <span className={styles.completedTime}>
-                      {consultation.scheduledAt ? formatTime(consultation.scheduledAt) : '--:--'}
+                      {consultation.scheduledAt ? formatIstTime(consultation.scheduledAt) : '--:--'}
                     </span>
                     <span className={styles.completedPet}>
                       {consultation.pet?.name || 'Unknown Pet'}

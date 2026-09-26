@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { getStatusVariant, getStatusDisplayText } from '@/lib/utils/statusHelpers';
+import { formatIstDate } from '@/lib/time/ist';
 import type { ConsultationStatus, ConsultationOutcome } from '@/types';
 import styles from './page.module.css';
 
@@ -302,8 +303,8 @@ export default async function VetPatientDetailPage({ params }: PageProps) {
                     {vax.status === 'pending_approval' && <Badge variant="warning">Pending</Badge>}
                   </div>
                   <span className={styles.vaccinationDate}>
-                    Given: {new Date(vax.date).toLocaleDateString('en-IN')}
-                    {vax.nextDueDate && <> | Due: {new Date(vax.nextDueDate).toLocaleDateString('en-IN')}</>}
+                    Given: {formatIstDate(vax.date)}
+                    {vax.nextDueDate && <> | Due: {formatIstDate(vax.nextDueDate)}</>}
                   </span>
                 </div>
               ))}

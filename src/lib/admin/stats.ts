@@ -2,6 +2,7 @@
 // Server-side functions for fetching KPI data
 
 import { createClient } from '@/lib/supabase/server';
+import { istDayRange, istMonthRange } from '@/lib/time/ist';
 
 export interface DashboardStats {
   totalUsers: number;
@@ -25,14 +26,9 @@ export interface ActivityItem {
 export async function getDashboardStats(): Promise<DashboardStats> {
   const supabase = await createClient();
 
-  // Get today's date range
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayIso = today.toISOString();
-
-  // Get first day of month
-  const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-  const firstOfMonthIso = firstOfMonth.toISOString();
+  // Today and this month in India time (the server runs in UTC)
+  const today = istDayRange();
+  const firstOfMonthIso = istMonthRange().start.toISOString();
 
   // Fetch all stats in parallel
   const [
@@ -64,11 +60,12 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       .select('id', { count: 'exact', head: true })
       .eq('role', 'vet'),
 
-    // Today's consultations
+    // Today's consultations: appointments today, India time
     supabase
       .from('consultations')
       .select('id', { count: 'exact', head: true })
-      .gte('created_at', todayIso),
+      .gte('scheduled_at', today.start.toISOString())
+      .lt('scheduled_at', today.end.toISOString()),
 
     // Month's revenue
     supabase
@@ -212,5 +209,5 @@ export function formatRelativeTime(timestamp: string): string {
   if (diffMins < 60) return `${diffMins}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  return date.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short' });
 }

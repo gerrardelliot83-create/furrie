@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
+import { istDayRange, istWeekRange } from '@/lib/time/ist';
 import { withRoute } from '@/server/handler';
 
 // GET /api/vet/stats - Get vet dashboard statistics
@@ -28,18 +29,17 @@ export const GET = withRoute(async function GET() {
       );
     }
 
-    // Get date ranges
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const weekStart = new Date(todayStart);
-    weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Start of week (Sunday)
+    // Today and this week (from Sunday) in India time, by appointment time
+    const today = istDayRange();
+    const week = istWeekRange();
 
     // Fetch today's consultations count (closed with success + currently active)
     const { count: todayCount } = await supabase
       .from('consultations')
       .select('*', { count: 'exact', head: true })
       .eq('vet_id', user.id)
-      .gte('created_at', todayStart.toISOString())
+      .gte('scheduled_at', today.start.toISOString())
+      .lt('scheduled_at', today.end.toISOString())
       .in('status', ['closed', 'active']);
 
     // Fetch this week's consultations count
@@ -47,7 +47,8 @@ export const GET = withRoute(async function GET() {
       .from('consultations')
       .select('*', { count: 'exact', head: true })
       .eq('vet_id', user.id)
-      .gte('created_at', weekStart.toISOString())
+      .gte('scheduled_at', week.start.toISOString())
+      .lt('scheduled_at', week.end.toISOString())
       .in('status', ['closed', 'active']);
 
     // Get vet profile for total count and rating

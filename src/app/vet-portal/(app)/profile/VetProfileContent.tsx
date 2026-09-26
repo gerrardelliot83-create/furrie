@@ -102,7 +102,7 @@ export function VetProfileContent({ profile }: VetProfileContentProps) {
   };
 
   const memberSince = profile.created_at
-    ? new Date(profile.created_at).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
+    ? new Date(profile.created_at).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', month: 'long', year: 'numeric' })
     : '';
 
   return (

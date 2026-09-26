@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 
 import { getCurrentUser } from '@/lib/supabase/getCurrentUser';
 import { withTimeout } from '@/lib/utils/queryTimeout';
+import { istDayRange, istWeekRange } from '@/lib/time/ist';
 import { VetDashboardContent } from './VetDashboardContent';
 
 export const maxDuration = 30;
@@ -22,11 +23,9 @@ export default async function VetDashboard() {
     redirect('/login');
   }
 
-  // Get date ranges
-  const now = new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const weekStart = new Date(todayStart);
-  weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+  // Today and this week in India time, by appointment time (the server runs in UTC).
+  const today = istDayRange();
+  const week = istWeekRange();
 
   // Run ALL queries in parallel with timeout protection
   // Profile, vet_profile, care_plans, and consultation counts all fire together
@@ -50,14 +49,16 @@ export default async function VetDashboard() {
       .from('consultations')
       .select('id', { count: 'exact', head: true })
       .eq('vet_id', user.id)
-      .gte('created_at', todayStart.toISOString())
+      .gte('scheduled_at', today.start.toISOString())
+      .lt('scheduled_at', today.end.toISOString())
       .eq('status', 'active'),
     // [3] Today completed count
     supabase
       .from('consultations')
       .select('id', { count: 'exact', head: true })
       .eq('vet_id', user.id)
-      .gte('created_at', todayStart.toISOString())
+      .gte('scheduled_at', today.start.toISOString())
+      .lt('scheduled_at', today.end.toISOString())
       .eq('status', 'closed')
       .eq('outcome', 'success'),
     // [4] Week active count
@@ -65,14 +66,16 @@ export default async function VetDashboard() {
       .from('consultations')
       .select('id', { count: 'exact', head: true })
       .eq('vet_id', user.id)
-      .gte('created_at', weekStart.toISOString())
+      .gte('scheduled_at', week.start.toISOString())
+      .lt('scheduled_at', week.end.toISOString())
       .eq('status', 'active'),
     // [5] Week completed count
     supabase
       .from('consultations')
       .select('id', { count: 'exact', head: true })
       .eq('vet_id', user.id)
-      .gte('created_at', weekStart.toISOString())
+      .gte('scheduled_at', week.start.toISOString())
+      .lt('scheduled_at', week.end.toISOString())
       .eq('status', 'closed')
       .eq('outcome', 'success'),
     // [6] Recent consultations

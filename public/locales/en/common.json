@@ -1,7 +1,7 @@
 {
   "common": {
     "appName": "Furrie",
-    "tagline": "Veterinary care, when you need it",
+    "tagline": "Video consultations with a vet, for dogs and cats.",
     "loading": "Loading...",
     "error": "Something went wrong",
     "retry": "Try again",

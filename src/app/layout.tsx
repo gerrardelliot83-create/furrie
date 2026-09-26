@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     template: '%s | Furrie',
   },
   description:
-    'Connect with licensed veterinarians via on-demand video consultations for your pets.',
+    'Book a video consultation with a vet for your dog or cat.',
   keywords: ['veterinary', 'pet care', 'teleconsultation', 'dog', 'cat', 'vet', 'online vet', 'pet health', 'India'],
   authors: [{ name: 'Furrie' }],
   creator: 'Furrie',
@@ -30,13 +30,13 @@ export const metadata: Metadata = {
     locale: 'en_IN',
     siteName: 'Furrie',
     title: 'Furrie - Veterinary Teleconsultation',
-    description: 'Connect with licensed veterinarians via on-demand video consultations for your pets. Available for dogs and cats across India.',
+    description: 'Book a video consultation with a vet for your dog or cat, from anywhere in India.',
     url: 'https://furrie.in',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Furrie - Veterinary Teleconsultation',
-    description: 'Connect with licensed veterinarians via on-demand video consultations for your pets.',
+    description: 'Book a video consultation with a vet for your dog or cat.',
   },
   robots: {
     index: true,

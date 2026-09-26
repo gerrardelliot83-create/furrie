@@ -1,4 +1,6 @@
 // Prescription PDF Template Configuration
+import { istDateKey } from '@/lib/time/ist';
+
 export interface PrescriptionData {
   prescriptionNumber: string;
   date: string;
@@ -40,11 +42,9 @@ This treatment plan was generated via a teleconsultation. Certain physical exami
 
 export const FURRIE_FOOTER = 'Generated via Furrie Teleconsultation Platform | www.furrie.in';
 
-// Format date as DD/MM/YYYY
+// Format date as DD/MM/YYYY, the calendar date in India (the server runs in UTC)
 export function formatPrescriptionDate(date: Date): string {
-  const day = date.getDate().toString().padStart(2, '0');
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const year = date.getFullYear();
+  const [year, month, day] = istDateKey(date).split('-');
   return `${day}/${month}/${year}`;
 }
 

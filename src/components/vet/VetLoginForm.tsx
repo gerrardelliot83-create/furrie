@@ -34,7 +34,13 @@ export function VetLoginForm() {
       const timer = setTimeout(() => {
         if (errorParam === 'wrong_account') {
           toast(t('wrongAccount'), 'error');
+        } else if (errorParam === 'account_disabled') {
+          // Set by the middleware for a deactivated account (Agent S, C-03)
+          toast('This account has been turned off. Contact support@furrie.in.', 'error');
+        } else if (errorParam === 'no_profile') {
+          toast("We couldn't find your account. Please sign in again.", 'error');
         } else {
+          // The auth callback passes whole sentences (e.g. an expired link)
           toast(errorParam, 'error');
         }
       }, 150);
@@ -144,18 +150,26 @@ export function VetLoginForm() {
       return;
     }
 
+    // Server route: a one-time link that works in any browser and opens the
+    // set-password page (C-04). Same answer whether or not the account exists.
     setForgotLoading(true);
-    const supabase = createClient();
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?type=recovery`,
-    });
-    setForgotLoading(false);
-
-    if (resetError) {
-      toast('Failed to send reset email. Please try again.', 'error');
-    } else {
-      toast('Password reset email sent. Check your inbox.', 'success');
-      setShowForgotPassword(false);
+    try {
+      const res = await fetch('/api/vet/password-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        toast(data.message || 'Check your inbox for a link to set a new password.', 'success');
+        setShowForgotPassword(false);
+      } else {
+        toast(data.error || 'Could not send the email. Please try again.', 'error');
+      }
+    } catch {
+      toast('Could not reach Furrie. Check your connection and try again.', 'error');
+    } finally {
+      setForgotLoading(false);
     }
   };
 
@@ -208,7 +222,7 @@ export function VetLoginForm() {
         {showForgotPassword ? (
           <div className={styles.forgotPasswordForm}>
             <p className={styles.forgotPasswordText}>
-              Enter your email above, then click the button below to receive a password reset link.
+              Enter your email above, then click the button below. We&apos;ll email you a link to set a new password.
             </p>
             <Button
               type="button"

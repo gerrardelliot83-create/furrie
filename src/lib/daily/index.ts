@@ -1,5 +1,9 @@
 // Daily.co video integration helpers for Furrie teleconsultations
 
+import { roomNameForConsultation } from './rooms';
+
+export { roomNameForConsultation, consultationIdFromRoom } from './rooms';
+
 export const DAILY_DOMAIN = process.env.NEXT_PUBLIC_DAILY_DOMAIN;
 const DAILY_API_KEY = process.env.DAILY_API_KEY;
 const DAILY_API_URL = 'https://api.daily.co/v1';
@@ -71,7 +75,7 @@ export async function createRoom(
   }
 
   // Room name: furrie-{consultation_id}
-  const roomName = `furrie-${consultationId}`;
+  const roomName = roomNameForConsultation(consultationId);
 
   // Expiry: current time + duration + 5 min buffer
   const expiresAt = Math.floor(Date.now() / 1000) + (durationMinutes + 5) * 60;
@@ -426,6 +430,74 @@ export async function getMeetingsByRoom(roomName: string): Promise<{
   const duration = meeting.duration ?? 0;
 
   return { duration, ended, ongoing };
+}
+
+export interface RoomAttendance {
+  /** Meetings (sessions) Daily has recorded for the room. */
+  meetings: number;
+  /** True while anyone is still in the room. */
+  ongoing: boolean;
+  /** Sum of all meetings' durations, in seconds. */
+  totalSeconds: number;
+  /** Our user ids (from the meeting tokens) of everyone who was in the room. */
+  participantUserIds: string[];
+}
+
+/**
+ * Who was in a consultation's room, across every meeting (a dropped call
+ * and a rejoin are separate meetings). Returns null when Daily can't be
+ * asked, so callers never mistake "unknown" for "nobody came".
+ * https://docs.daily.co/reference/rest-api/meetings (participants[].user_id)
+ */
+export async function getRoomAttendance(roomName: string): Promise<RoomAttendance | null> {
+  if (!DAILY_API_KEY) {
+    console.error('DAILY_API_KEY is not configured');
+    return null;
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(`${DAILY_API_URL}/meetings?room=${encodeURIComponent(roomName)}&limit=10`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${DAILY_API_KEY}` },
+      // The vet's Finish waits on this; a slow Daily must not hold it up.
+      signal: AbortSignal.timeout(5000),
+    });
+  } catch (error) {
+    console.error(`Daily meetings request failed for room ${roomName}:`, error);
+    return null;
+  }
+
+  if (!response.ok) {
+    console.error(`Failed to get meetings for room ${roomName}: HTTP ${response.status}`);
+    return null;
+  }
+
+  const data = (await response.json().catch(() => null)) as {
+    data?: Array<{
+      ongoing?: boolean;
+      duration?: number;
+      participants?: Array<{ user_id?: string | null }>;
+    }>;
+  } | null;
+  if (!data) return null;
+
+  const meetings = Array.isArray(data.data) ? data.data : [];
+  const userIds = new Set<string>();
+  let totalSeconds = 0;
+  let ongoing = false;
+
+  for (const meeting of meetings) {
+    if (meeting.ongoing) ongoing = true;
+    if (typeof meeting.duration === 'number' && Number.isFinite(meeting.duration)) {
+      totalSeconds += meeting.duration;
+    }
+    for (const participant of meeting.participants ?? []) {
+      if (participant.user_id) userIds.add(participant.user_id);
+    }
+  }
+
+  return { meetings: meetings.length, ongoing, totalSeconds, participantUserIds: [...userIds] };
 }
 
 /**

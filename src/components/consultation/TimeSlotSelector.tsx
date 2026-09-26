@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
+import { istDayLabel } from '@/lib/time/ist';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import styles from './TimeSlotSelector.module.css';
@@ -77,25 +78,9 @@ export function TimeSlotSelector({
   // Get slots for selected date
   const selectedDaySlots = slots.find((day) => day.date === selectedDate);
 
-  // Format date for display
-  const formatDateDisplay = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    if (dateStr === today.toISOString().split('T')[0]) {
-      return 'Today';
-    } else if (dateStr === tomorrow.toISOString().split('T')[0]) {
-      return 'Tomorrow';
-    }
-
-    return date.toLocaleDateString('en-IN', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
+  // Slot dates are India dates ("2026-10-03"): Today / Tomorrow / "Sat, 3 Oct"
+  // in India time, whatever zone the browser is in.
+  const formatDateDisplay = (dateStr: string) => (dateStr ? istDayLabel(dateStr) : '');
 
   // Handle slot selection
   const handleSlotClick = (slot: TimeSlot) => {
@@ -150,7 +135,7 @@ export function TimeSlotSelector({
         </div>
         <h3 className={styles.emptyTitle}>No times available</h3>
         <p className={styles.emptyText}>
-          All our veterinarians are fully booked for the next 7 days. Please check back later.
+          No open times in the next 7 days. Please check again later.
         </p>
         <div className={styles.emptyActions}>
           <Button variant="primary" onClick={fetchSlots}>

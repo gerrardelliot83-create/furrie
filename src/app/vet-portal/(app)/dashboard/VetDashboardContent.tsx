@@ -7,6 +7,7 @@ import { VetStatusToggle } from '@/components/vet/VetStatusToggle';
 import { VetQuickStats, type VetQuickStatsRef } from '@/components/vet/VetQuickStats';
 import { TodaySchedulePanel } from '@/components/vet/TodaySchedulePanel';
 import { RecentConsultationsList, type RecentConsultationsListRef } from '@/components/vet/RecentConsultationsList';
+import { VetReadinessCard } from '@/components/vet/VetReadinessCard';
 import { useVetDashboardRealtime } from '@/hooks/useVetDashboardRealtime';
 import type { Consultation } from '@/types';
 import styles from './VetDashboard.module.css';
@@ -28,6 +29,8 @@ interface VetDashboardContentProps {
   vetId: string;
   vetName: string;
   isAvailable: boolean;
+  /** Weekly hours saved (C-06 readiness). */
+  hasHours: boolean;
   stats: {
     todayConsultations: number;
     weekConsultations: number;
@@ -50,6 +53,7 @@ export function VetDashboardContent({
   vetId,
   vetName,
   isAvailable,
+  hasHours,
   stats,
   recentConsultations,
   activeCarePlans = [],
@@ -76,9 +80,11 @@ export function VetDashboardContent({
           <p className={styles.welcome}>Welcome back, Dr. {vetName}</p>
         </div>
         <div className={styles.headerRight}>
-          <VetStatusToggle vetId={vetId} initialStatus={isAvailable} />
+          <VetStatusToggle initialStatus={isAvailable} />
         </div>
       </header>
+
+      <VetReadinessCard hasHours={hasHours} isAvailable={isAvailable} />
 
       <section className={styles.statsSection}>
         <VetQuickStats

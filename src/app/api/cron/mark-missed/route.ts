@@ -1,29 +1,28 @@
 import { NextResponse } from 'next/server';
 import { verifyCronRequest } from '@/lib/cron/auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { createNotification } from '@/lib/notifications/createNotification';
-import { sendMissedAppointmentEmail } from '@/lib/email';
+import { SCHEDULING_CONSTANTS } from '@/lib/scheduling';
 import { withRoute } from '@/server/handler';
+import { sendMissedNotices } from '../_lib/consultationNotices';
 
 /**
- * GET /api/cron/mark-missed
+ * GET /api/cron/mark-missed   (every 5 minutes, vercel.json)
  *
- * Vercel Cron job that runs every 5 minutes to mark consultations as missed
- * if no one joined within the join window (45 minutes after scheduled time).
+ * A consultation still 'scheduled' when its join window has closed (45 min
+ * after the start) was never opened by anyone: the customer did not join, so
+ * it is 'missed' (V rule set, src/lib/scheduling/outcomes.ts).
  *
- * Cron schedule: Every 5 minutes (see vercel.json)
+ * 'active' consultations are no longer touched here — close-stale-active is
+ * the only job that closes them (A-07: the two crons used to disagree, one
+ * recording success and the other failed).
  */
 export const GET = withRoute(async function GET(request: Request) {
-  // Verify cron secret (set in Vercel environment)
   const denied = verifyCronRequest(request);
   if (denied) return denied;
 
   const now = new Date();
-  // Join window is 45 minutes after scheduled time
-  // So if scheduled_at + 45 min < now, the window has expired
-  const windowExpiredBefore = new Date(now.getTime() - 45 * 60 * 1000);
+  const windowExpiredBefore = new Date(now.getTime() - SCHEDULING_CONSTANTS.JOIN_WINDOW_AFTER_MS);
 
-  // Find consultations where join window has expired
   const { data: expiredConsultations, error: fetchError } = await supabaseAdmin
     .from('consultations')
     .select(`
@@ -31,6 +30,7 @@ export const GET = withRoute(async function GET(request: Request) {
       customer_id,
       vet_id,
       scheduled_at,
+      consultation_number,
       pets!consultations_pet_id_fkey (name)
     `)
     .eq('status', 'scheduled')
@@ -41,157 +41,42 @@ export const GET = withRoute(async function GET(request: Request) {
     return NextResponse.json({ error: 'Query failed' }, { status: 500 });
   }
 
-  // Also find stale 'active' consultations that were never closed
-  // (e.g., Daily.co webhook failed, browser crashed during call)
-  // Active consultations older than 2 hours are considered stale
-  const staleActiveCutoff = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+  const results: Array<{ consultationId: string; action: 'marked_missed' }> = [];
 
-  const { data: staleActiveConsultations, error: staleError } = await supabaseAdmin
-    .from('consultations')
-    .select(`
-      id,
-      customer_id,
-      vet_id,
-      scheduled_at,
-      pets!consultations_pet_id_fkey (name)
-    `)
-    .eq('status', 'active')
-    .lt('updated_at', staleActiveCutoff.toISOString());
+  for (const consultation of expiredConsultations || []) {
+    if (!consultation.scheduled_at) continue;
 
-  if (staleError) {
-    console.error('Failed to fetch stale active consultations:', staleError);
-  }
-
-  // Merge both lists for processing
-  const allExpired = [
-    ...(expiredConsultations || []).map((c) => ({ ...c, _reason: 'missed' as const })),
-    ...(staleActiveConsultations || []).map((c) => ({ ...c, _reason: 'stale_active' as const })),
-  ];
-
-  if (allExpired.length === 0) {
-    return NextResponse.json({ processed: 0, results: [] });
-  }
-
-  const results: Array<{
-    consultationId: string;
-    action: 'marked_missed';
-    notifiedCustomer: boolean;
-    notifiedVet: boolean;
-  }> = [];
-
-  for (const consultation of allExpired) {
-    const isMissed = consultation._reason === 'missed';
-    const outcome = isMissed ? 'missed' : 'failed';
-    const expectedStatus = isMissed ? 'scheduled' : 'active';
-
-    // Mark as closed with appropriate outcome
-    const updateData: Record<string, unknown> = {
-      status: 'closed',
-      outcome,
-      updated_at: new Date().toISOString(),
-    };
-
-    // For stale active consultations, cap duration at 60 minutes
-    // to prevent absurd duration values (e.g., 13935 min from days-old 'active' status)
-    if (!isMissed) {
-      updateData.duration_minutes = 0;
-      updateData.ended_at = new Date().toISOString();
-    }
-
-    const { error: updateError } = await supabaseAdmin
+    const { data: closed, error: updateError } = await supabaseAdmin
       .from('consultations')
-      .update(updateData)
+      .update({ status: 'closed', outcome: 'missed' })
       .eq('id', consultation.id)
-      .eq('status', expectedStatus); // Only if still in expected status
+      .eq('status', 'scheduled') // Only if nobody joined in the meantime
+      .select('id')
+      .maybeSingle();
 
     if (updateError) {
       console.error(`Failed to mark consultation ${consultation.id} as missed:`, updateError);
       continue;
     }
+    if (!closed) continue;
 
     // Supabase returns joined data as objects (not arrays) for !fkey syntax
     const petData = consultation.pets as unknown as { name: string } | null;
-    const petName = petData?.name || 'your pet';
-    const scheduledTime = new Date(consultation.scheduled_at);
-    const dateTimeStr = scheduledTime.toLocaleString('en-IN', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
 
-    let notifiedCustomer = false;
-    let notifiedVet = false;
-
-    const notifTitle = isMissed ? 'Appointment missed' : 'Consultation ended';
-    const notifBody = isMissed
-      ? `Your consultation for ${petName} scheduled for ${dateTimeStr} was missed. You can book a new appointment.`
-      : `Your consultation for ${petName} has been automatically closed due to inactivity.`;
-
-    // Notify customer (in-app)
-    await createNotification({
-      user_id: consultation.customer_id,
-      type: isMissed ? 'consultation_missed' : 'consultation_closed',
-      title: notifTitle,
-      body: notifBody,
-      channel: 'in_app',
-      data: {
-        consultationId: consultation.id,
-        scheduledAt: consultation.scheduled_at,
-        petName,
+    await sendMissedNotices(
+      {
+        id: consultation.id,
+        customer_id: consultation.customer_id,
+        vet_id: consultation.vet_id,
+        scheduled_at: consultation.scheduled_at,
+        consultation_number: consultation.consultation_number,
+        petName: petData?.name || 'your pet',
       },
-    });
-    notifiedCustomer = true;
+      false
+    );
 
-    // Send missed email to customer (only for scheduled-missed, not stale active)
-    if (isMissed) {
-      const { data: customerProfile } = await supabaseAdmin
-        .from('profiles')
-        .select('email, full_name')
-        .eq('id', consultation.customer_id)
-        .single();
-
-      if (customerProfile?.email) {
-        const emailResult = await sendMissedAppointmentEmail(customerProfile.email, {
-          customerName: customerProfile.full_name || 'there',
-          petName,
-          scheduledAt: consultation.scheduled_at,
-        });
-        if (!emailResult.success) {
-          console.error('Missed appointment email failed:', emailResult.error);
-        }
-      }
-    }
-
-    // Notify vet if assigned
-    if (consultation.vet_id) {
-      await createNotification({
-        user_id: consultation.vet_id,
-        type: isMissed ? 'consultation_missed' : 'consultation_closed',
-        title: notifTitle,
-        body: isMissed
-          ? `Consultation for ${petName} scheduled for ${dateTimeStr} was not joined and has been marked as missed.`
-          : `Consultation for ${petName} has been automatically closed due to inactivity.`,
-        channel: 'in_app',
-        data: {
-          consultationId: consultation.id,
-          scheduledAt: consultation.scheduled_at,
-          petName,
-        },
-      });
-      notifiedVet = true;
-    }
-
-    results.push({
-      consultationId: consultation.id,
-      action: 'marked_missed',
-      notifiedCustomer,
-      notifiedVet,
-    });
-
-    console.log(`Consultation ${consultation.id} marked as ${isMissed ? 'missed' : 'stale-closed'}`);
+    results.push({ consultationId: consultation.id, action: 'marked_missed' });
+    console.log(`Consultation ${consultation.id} marked as missed`);
   }
 
   return NextResponse.json({

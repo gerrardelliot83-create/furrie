@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import { verifyCronRequest } from '@/lib/cron/auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { getMeetingsByRoom } from '@/lib/daily';
-import { checkPlusSubscriptionWithClient, calculateThreadExpiry } from '@/lib/utils/followUpHelpers';
+import { getRoomAttendance, roomNameForConsultation, type RoomAttendance } from '@/lib/daily';
+import { decideStaleActiveOutcome } from '@/lib/scheduling/outcomes';
 import type { Database } from '@/lib/database.types';
 import { withRoute } from '@/server/handler';
+import { runCompletionSideEffects } from '@/app/api/vet/_lib/completeConsultation';
+import { sendFailedNotices, sendMissedNotices, type ClosedConsultation } from '../_lib/consultationNotices';
 
 type ConsultationRow = Database['public']['Tables']['consultations']['Row'];
 
@@ -19,38 +21,48 @@ const STALE_COLUMNS = [
   'started_at',
   'scheduled_at',
   'daily_room_name',
+  'consultation_number',
 ] as const satisfies readonly (keyof ConsultationRow)[];
 
 type StaleConsultation = Pick<ConsultationRow, (typeof STALE_COLUMNS)[number]>;
 
+// A slot is 30 minutes; 90 minutes after the first join the call is over
+// unless Daily says someone is still in the room.
+const STALE_AFTER_MS = 90 * 60 * 1000;
+const MAX_DURATION_MINUTES = 60;
+
+function callMinutes(attendance: RoomAttendance | null): number {
+  if (!attendance || attendance.totalSeconds <= 0) return 0;
+  return Math.min(Math.max(1, Math.ceil(attendance.totalSeconds / 60)), MAX_DURATION_MINUTES);
+}
+
 /**
- * GET /api/cron/close-stale-active
+ * GET /api/cron/close-stale-active   (every 10 minutes, vercel.json)
  *
- * Vercel Cron job that runs every 10 minutes to recover consultations
- * stuck in 'active' status due to failed Daily.co webhooks.
+ * Closes 'active' consultations the vet never finished, by the V rule set
+ * (src/lib/scheduling/outcomes.ts, A-07). Who was in the call comes from
+ * Daily's Meetings API (participants' user ids = our user ids):
+ *   - still in the room          → leave it
+ *   - vet and customer           → success (+ follow-up, emails, invite reward)
+ *   - vet only                   → missed (the customer didn't come)
+ *   - customer only / nobody     → failed (+ ops email)
+ *   - Daily unreachable          → retry; failed (+ ops email) after 3 hours
  *
- * Strategy:
- * 1. Find consultations with status='active' that started >90 min ago
- * 2. For each, query Daily.co meetings API for actual room status/duration
- * 3. Close with actual duration from Daily.co (or capped calculated duration as fallback)
- * 4. Apply Plus subscription check for follow-up expiry
- *
- * Cron schedule: Every 10 minutes (see vercel.json)
+ * This is the only job that closes 'active' consultations; mark-missed only
+ * handles 'scheduled' ones. Writes use the service role, guarded on status.
  */
 export const GET = withRoute(async function GET(request: Request) {
   const denied = verifyCronRequest(request);
   if (denied) return denied;
 
   const now = new Date();
-  // 90-minute threshold: max consultation is 30 min, this provides a wide safety margin
-  const staleCutoff = new Date(now.getTime() - 90 * 60 * 1000);
+  const cutoffIso = new Date(now.getTime() - STALE_AFTER_MS).toISOString();
 
-  // Find stale active consultations
   const { data: staleConsultations, error: fetchError } = await supabaseAdmin
     .from('consultations')
     .select(STALE_COLUMNS.join(', '))
     .eq('status', 'active')
-    .lt('started_at', staleCutoff.toISOString())
+    .or(`started_at.lt.${cutoffIso},and(started_at.is.null,scheduled_at.lt.${cutoffIso})`)
     .returns<StaleConsultation[]>();
 
   if (fetchError) {
@@ -62,114 +74,94 @@ export const GET = withRoute(async function GET(request: Request) {
     return NextResponse.json({ processed: 0, results: [] });
   }
 
-  console.log(`[close-stale-active] Found ${staleConsultations.length} stale active consultation(s)`);
+  const petIds = [...new Set(staleConsultations.map((c) => c.pet_id))];
+  const { data: pets } = await supabaseAdmin.from('pets').select('id, name').in('id', petIds);
+  const petNames = new Map((pets ?? []).map((p) => [p.id, p.name]));
 
   const results: Array<{
     consultationId: string;
-    action: string;
-    durationMinutes: number | null;
-    source: string;
-    followUpExpiry: string | null;
+    action: 'closed' | 'waiting' | 'skipped';
+    outcome?: string;
+    reason: string;
+    durationMinutes?: number;
   }> = [];
 
   for (const consultation of staleConsultations) {
-    let durationMinutes: number | null = null;
-    let durationSource = 'unknown';
+    const startedAt = consultation.started_at ?? consultation.scheduled_at;
+    const msSinceStart = startedAt ? now.getTime() - new Date(startedAt).getTime() : STALE_AFTER_MS;
 
-    // Try to get actual duration from Daily.co
-    const roomName = consultation.daily_room_name || `furrie-${consultation.id}`;
-    try {
-      const meetingData = await getMeetingsByRoom(roomName);
-      if (meetingData && meetingData.ended) {
-        // Daily.co returns duration in seconds
-        durationMinutes = Math.ceil(meetingData.duration / 60);
-        durationSource = 'daily_api';
-        console.log(`[close-stale-active] ${consultation.id}: Daily.co reports ${durationMinutes} min`);
-      } else if (meetingData && meetingData.ongoing) {
-        // Meeting is actually still ongoing — skip this consultation
-        console.log(`[close-stale-active] ${consultation.id}: Meeting still ongoing, skipping`);
-        continue;
-      }
-    } catch (dailyError) {
-      console.error(`[close-stale-active] Daily.co API failed for ${consultation.id}:`, dailyError);
+    const attendance = await getRoomAttendance(
+      consultation.daily_room_name || roomNameForConsultation(consultation.id)
+    );
+
+    const decision = decideStaleActiveOutcome({
+      attendance,
+      vetId: consultation.vet_id,
+      customerId: consultation.customer_id,
+      msSinceStart,
+    });
+
+    if (decision.action === 'wait') {
+      results.push({ consultationId: consultation.id, action: 'waiting', reason: decision.reason });
+      continue;
     }
 
-    // Fallback: calculate from timestamps, cap at 60 min
-    if (durationMinutes === null && consultation.started_at) {
-      const calculatedMinutes = Math.ceil(
-        (now.getTime() - new Date(consultation.started_at).getTime()) / 60000
-      );
-      durationMinutes = Math.min(calculatedMinutes, 60);
-      durationSource = 'calculated_capped';
-      console.log(`[close-stale-active] ${consultation.id}: Using capped duration ${durationMinutes} min`);
-    }
+    const durationMinutes = callMinutes(attendance);
 
-    // Cap Daily.co duration at 60 min too (safety measure)
-    if (durationMinutes !== null && durationMinutes > 60) {
-      durationMinutes = 60;
-      durationSource += '_capped';
-    }
-
-    // Close the consultation
-    const { error: updateError } = await supabaseAdmin
+    const { data: closed, error: updateError } = await supabaseAdmin
       .from('consultations')
       .update({
         status: 'closed',
-        outcome: 'success',
+        outcome: decision.outcome,
         ended_at: now.toISOString(),
         duration_minutes: durationMinutes,
-        updated_at: now.toISOString(),
       })
       .eq('id', consultation.id)
-      .eq('status', 'active'); // Only if still active (prevent race conditions)
+      .eq('status', 'active')
+      .select('id')
+      .maybeSingle();
 
     if (updateError) {
       console.error(`[close-stale-active] Failed to close ${consultation.id}:`, updateError);
       continue;
     }
-
-    // Check Plus subscription for follow-up expiry
-    let followUpExpiry: string | null = null;
-    if (consultation.customer_id && consultation.pet_id) {
-      try {
-        const isPlusUser = await checkPlusSubscriptionWithClient(
-          supabaseAdmin,
-          consultation.customer_id,
-          consultation.pet_id
-        );
-        followUpExpiry = calculateThreadExpiry(isPlusUser);
-      } catch (subErr) {
-        console.error(`[close-stale-active] Plus check failed for ${consultation.id}:`, subErr);
-        // Default to 7-day expiry on error
-        const defaultExpiry = new Date();
-        defaultExpiry.setDate(defaultExpiry.getDate() + 7);
-        followUpExpiry = defaultExpiry.toISOString();
-      }
-    } else {
-      // No customer/pet info — default to 7 days
-      const defaultExpiry = new Date();
-      defaultExpiry.setDate(defaultExpiry.getDate() + 7);
-      followUpExpiry = defaultExpiry.toISOString();
+    if (!closed) {
+      // Finished by the vet (or changed otherwise) since we read it.
+      results.push({ consultationId: consultation.id, action: 'skipped', reason: 'no_longer_active' });
+      continue;
     }
 
-    await supabaseAdmin
-      .from('consultations')
-      .update({ follow_up_expires_at: followUpExpiry })
-      .eq('id', consultation.id);
+    const closedConsultation: ClosedConsultation = {
+      id: consultation.id,
+      customer_id: consultation.customer_id,
+      vet_id: consultation.vet_id,
+      scheduled_at: consultation.scheduled_at ?? startedAt ?? now.toISOString(),
+      consultation_number: consultation.consultation_number,
+      petName: petNames.get(consultation.pet_id) || 'your pet',
+    };
+
+    if (decision.outcome === 'success') {
+      await runCompletionSideEffects(consultation.id, 'system');
+    } else if (decision.outcome === 'missed') {
+      await sendMissedNotices(closedConsultation, true);
+    } else {
+      await sendFailedNotices(closedConsultation, decision.reason);
+    }
 
     results.push({
       consultationId: consultation.id,
       action: 'closed',
+      outcome: decision.outcome,
+      reason: decision.reason,
       durationMinutes,
-      source: durationSource,
-      followUpExpiry,
     });
-
-    console.log(`[close-stale-active] ${consultation.id} closed: ${durationMinutes} min (${durationSource}), follow-up: ${followUpExpiry ?? 'indefinite'}`);
+    console.log(
+      `[close-stale-active] ${consultation.id} closed as ${decision.outcome} (${decision.reason}), ${durationMinutes} min`
+    );
   }
 
   return NextResponse.json({
-    processed: results.length,
+    processed: results.filter((r) => r.action === 'closed').length,
     results,
   });
 });

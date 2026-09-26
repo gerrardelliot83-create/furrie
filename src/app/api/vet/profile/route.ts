@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 import { validateAvailabilitySchedule } from '@/lib/scheduling/validateAvailabilitySchedule';
 import { withRoute } from '@/server/handler';
 
@@ -63,8 +64,14 @@ export const GET = withRoute(async function GET() {
  *
  * Update the vet's editable profile fields.
  * Vets can update: full_name, phone, avatar_url, specializations,
- *   years_of_experience, availability_schedule (camelCase: availabilitySchedule)
+ *   years_of_experience, availability_schedule (camelCase: availabilitySchedule),
+ *   is_available (camelCase: isAvailable)
  * They CANNOT change: qualifications, vci_registration_number (admin-managed)
+ *
+ * Only the allow-listed fields above are written, to the caller's own rows,
+ * with the service role after the vet-role check — so tightening the
+ * vet_profiles / profiles UPDATE policies (Agent S) can't break the portal.
+ * The web portal's schedule editor and Available switch use this route too.
  */
 export const PATCH = withRoute(async function PATCH(request: Request) {
   try {
@@ -77,14 +84,14 @@ export const PATCH = withRoute(async function PATCH(request: Request) {
       );
     }
 
-    // Verify vet role
-    const { data: existingProfile } = await supabase
+    // Verify vet role (and an active account) before any write
+    const { data: existingProfile } = await supabaseAdmin
       .from('profiles')
-      .select('role')
+      .select('role, is_active')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
-    if (!existingProfile || existingProfile.role !== 'vet') {
+    if (!existingProfile || existingProfile.role !== 'vet' || existingProfile.is_active === false) {
       return NextResponse.json(
         { error: 'Not a vet account', code: 'FORBIDDEN' },
         { status: 403 }
@@ -154,6 +161,15 @@ export const PATCH = withRoute(async function PATCH(request: Request) {
       }
       vetUpdate.availability_schedule = validation.value;
     }
+    if (body.isAvailable !== undefined) {
+      if (typeof body.isAvailable !== 'boolean') {
+        return NextResponse.json(
+          { error: 'isAvailable must be true or false', code: 'VALIDATION_ERROR' },
+          { status: 400 }
+        );
+      }
+      vetUpdate.is_available = body.isAvailable;
+    }
 
     if (Object.keys(profileUpdate).length === 0 && Object.keys(vetUpdate).length === 0) {
       return NextResponse.json(
@@ -164,7 +180,7 @@ export const PATCH = withRoute(async function PATCH(request: Request) {
 
     // Perform updates
     if (Object.keys(profileUpdate).length > 0) {
-      const { error: profileError } = await supabase
+      const { error: profileError } = await supabaseAdmin
         .from('profiles')
         .update(profileUpdate)
         .eq('id', user.id);
@@ -179,7 +195,7 @@ export const PATCH = withRoute(async function PATCH(request: Request) {
     }
 
     if (Object.keys(vetUpdate).length > 0) {
-      const { error: vetError } = await supabase
+      const { error: vetError } = await supabaseAdmin
         .from('vet_profiles')
         .update(vetUpdate)
         .eq('id', user.id);

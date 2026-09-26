@@ -16,6 +16,7 @@ export async function generateMetadata(): Promise<Metadata> {
 function formatDateTime(dateStr: string | null): string {
   if (!dateStr) return '-';
   return new Date(dateStr).toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
     day: 'numeric',
     month: 'short',
     year: 'numeric',

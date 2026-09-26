@@ -31,6 +31,7 @@ export default async function AdminVetsPage() {
         years_of_experience,
         is_verified,
         is_available,
+        availability_schedule,
         consultation_count,
         average_rating
       )

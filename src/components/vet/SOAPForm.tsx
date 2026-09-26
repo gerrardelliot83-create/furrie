@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useImperativeHandle, useRef, type Ref } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
-import { createClient } from '@/lib/supabase/client';
 import { revalidateConsultationPath } from '@/app/actions/revalidate';
+import { formatIstTime } from '@/lib/time/ist';
+import { buildSoapDelta, hasSoapChanges, type SoapValues } from './soapDelta';
 import { SubjectiveSection } from './SubjectiveSection';
 import { ObjectiveSection } from './ObjectiveSection';
 import { AssessmentSection } from './AssessmentSection';
@@ -14,12 +15,27 @@ import { PlanSection } from './PlanSection';
 import type { SoapNote, PrescribedMedication, VitalSigns } from '@/types';
 import styles from './SOAPForm.module.css';
 
+/** Lets the Treatment Plan tab save these notes before it finishes the consultation. */
+export interface SOAPFormHandle {
+  saveBeforeFinish: () => Promise<boolean>;
+  isDiagnosisFromList: () => boolean;
+}
+
 interface SOAPFormProps {
   consultationId: string;
-  vetId: string;
   petSpecies: 'dog' | 'cat';
   initialData?: Partial<SoapNote>;
+  /** 'finish' the consultation, 'send_notes' after a cron close, or 'none'. */
+  finishAction: 'finish' | 'send_notes' | 'none';
+  /** Shown on the disabled button when finishAction is 'none'. */
+  closedLabel: string;
+  isFinishing: boolean;
+  /** Called after the notes are saved; finishes the consultation (ConsultationDetailTabs). */
+  onComplete: (options: { isDiagnosisFromList: boolean }) => Promise<void>;
+  ref?: Ref<SOAPFormHandle>;
 }
+
+type SaveMode = 'auto' | 'manual' | 'before-finish';
 
 interface FormData {
   // Subjective
@@ -61,7 +77,16 @@ interface FormData {
 
 const AUTOSAVE_INTERVAL = 30000; // 30 seconds
 
-export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOAPFormProps) {
+export function SOAPForm({
+  consultationId,
+  petSpecies,
+  initialData,
+  finishAction,
+  closedLabel,
+  isFinishing,
+  onComplete,
+  ref,
+}: SOAPFormProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -117,6 +142,14 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
     additionalDiagnostics: initialData?.additionalDiagnostics || '',
   });
 
+  // What the server holds: set from the loaded note, then from each save. Only
+  // fields that differ from it are sent (see soapDelta.ts, C-01).
+  const baselineRef = useRef<SoapValues>(formData);
+  const formDataRef = useRef<FormData>(formData);
+  useEffect(() => {
+    formDataRef.current = formData;
+  }, [formData]);
+
   const toggleSection = useCallback((section: string) => {
     setExpandedSections((prev) => ({
       ...prev,
@@ -136,85 +169,57 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
     }
   }, []);
 
-  const performSave = useCallback(async (isAutoSave: boolean): Promise<boolean> => {
-    const supabase = createClient();
+  const performSave = useCallback(async (mode: SaveMode): Promise<boolean> => {
+    const isAutoSave = mode === 'auto';
+    const { delta } = buildSoapDelta(formData, baselineRef.current, { autosave: isAutoSave });
+    const hasDelta = Object.keys(delta).length > 0;
 
-    const dbData = {
-      consultation_id: consultationId,
-      vet_id: vetId,
-      chief_complaint: formData.chiefComplaint || null,
-      history_present_illness: formData.historyPresentIllness || null,
-      behavior_changes: formData.behaviorChanges || null,
-      appetite_changes: formData.appetiteChanges || null,
-      activity_level_changes: formData.activityLevelChanges || null,
-      diet_info: formData.dietInfo || null,
-      previous_treatments: formData.previousTreatments || null,
-      environmental_factors: formData.environmentalFactors || null,
-      other_pets_household: formData.otherPetsHousehold || null,
-      general_appearance: formData.generalAppearance || null,
-      body_condition_score: formData.bodyConditionScore || null,
-      visible_physical_findings: formData.visiblePhysicalFindings || null,
-      respiratory_pattern: formData.respiratoryPattern || null,
-      gait_mobility: formData.gaitMobility || null,
-      vital_signs: formData.vitalSigns,
-      referenced_media_urls: formData.referencedMediaUrls,
-      provisional_diagnosis: formData.provisionalDiagnosis || null,
-      differential_diagnoses: formData.differentialDiagnoses,
-      confidence_level: formData.confidenceLevel,
-      teleconsultation_limitations: formData.teleconsultationLimitations || null,
-      medications: formData.medications,
-      dietary_recommendations: formData.dietaryRecommendations || null,
-      lifestyle_modifications: formData.lifestyleModifications || null,
-      home_care_instructions: formData.homeCareInstructions || null,
-      warning_signs: formData.warningSigns || null,
-      follow_up_timeframe: formData.followUpTimeframe || null,
-      in_person_visit_recommended: formData.inPersonVisitRecommended,
-      in_person_urgency: formData.inPersonUrgency,
-      referral_specialist: formData.referralSpecialist || null,
-      additional_diagnostics: formData.additionalDiagnostics || null,
-      updated_at: new Date().toISOString(),
-    };
-
-    const { data: existing } = await supabase
-      .from('soap_notes')
-      .select('id')
-      .eq('consultation_id', consultationId)
-      .single();
-
-    let error;
-
-    if (existing) {
-      const result = await supabase
-        .from('soap_notes')
-        .update(dbData)
-        .eq('consultation_id', consultationId);
-      error = result.error;
-    } else {
-      const result = await supabase.from('soap_notes').insert(dbData);
-      error = result.error;
-    }
-
-    if (error) {
-      console.error('Error saving SOAP notes:', error);
-      if (!isAutoSave) {
-        toast('Failed to save notes', 'error');
+    if (hasDelta) {
+      // Server route: assigned-vet check, vet_id/consultation_id set server-side,
+      // and it writes only the keys it receives (partial upsert).
+      let response: Response;
+      try {
+        response = await fetch(`/api/consultations/${consultationId}/soap-notes`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(delta),
+        });
+      } catch (networkError) {
+        console.error('Error saving SOAP notes:', networkError);
+        if (!isAutoSave) {
+          toast('Failed to save notes. Check your connection and try again.', 'error');
+        }
+        return false;
       }
-      return false;
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        console.error('Error saving SOAP notes:', response.status, errData);
+        if (!isAutoSave) {
+          toast(errData.error || 'Failed to save notes', 'error');
+        }
+        return false;
+      }
+
+      baselineRef.current = { ...baselineRef.current, ...delta };
+      setLastSaved(new Date());
     }
 
-    setLastSaved(new Date());
-    setHasUnsavedChanges(false);
+    // Typing during the request, or a clear held back by autosave, stays unsaved.
+    setHasUnsavedChanges(hasSoapChanges(formDataRef.current, baselineRef.current));
 
-    if (!isAutoSave) {
+    if (!isAutoSave && hasDelta) {
       await revalidateConsultationPath(consultationId);
+    }
+    if (mode === 'manual') {
       toast('Notes saved successfully', 'success');
     }
     return true;
-  }, [consultationId, vetId, formData, toast]);
+  }, [consultationId, formData, toast]);
 
-  const saveNotes = useCallback(async (isAutoSave = false): Promise<boolean> => {
+  const saveNotes = useCallback(async (mode: SaveMode = 'manual'): Promise<boolean> => {
     // For manual saves: cancel any pending autosave and wait for in-flight save
-    if (!isAutoSave) {
+    if (mode !== 'auto') {
       cancelAutosave();
 
       if (savePromiseRef.current) {
@@ -229,7 +234,7 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
     }
 
     setIsSaving(true);
-    const promise = performSave(isAutoSave);
+    const promise = performSave(mode);
     savePromiseRef.current = promise;
 
     try {
@@ -245,7 +250,7 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
   useEffect(() => {
     if (hasUnsavedChanges) {
       autosaveTimerRef.current = setTimeout(() => {
-        saveNotes(true);
+        saveNotes('auto');
       }, AUTOSAVE_INTERVAL);
     }
 
@@ -256,19 +261,24 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
     };
   }, [hasUnsavedChanges, saveNotes]);
 
+  useImperativeHandle(
+    ref,
+    () => ({
+      saveBeforeFinish: () => saveNotes('before-finish'),
+      isDiagnosisFromList: () => formDataRef.current.isDiagnosisFromList,
+    }),
+    [saveNotes]
+  );
+
   const handleGeneratePrescription = async () => {
     cancelAutosave();
-    const saved = await saveNotes(false);
+    const saved = await saveNotes('manual');
     if (!saved) {
       toast('Please save your notes before generating a treatment plan', 'error');
       return;
     }
     router.push(`/consultations/${consultationId}/prescription`);
   };
-
-  // Maximum consultation duration cap (in minutes)
-  // Consultations are 15-30 min slots; 60 min is a generous safety margin
-  const MAX_DURATION_MINUTES = 60;
 
   const handleComplete = async () => {
     // Validate required fields
@@ -305,117 +315,12 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
   const executeComplete = async () => {
     setShowConfirmDialog(false);
 
-    // Cancel autosave and save notes first
+    // Notes first, then the server closes the consultation (one path, C-02).
     cancelAutosave();
-    const saved = await saveNotes(false);
-    if (!saved) {
-      toast('Failed to save notes. Please try again.', 'error');
-      return;
-    }
+    const saved = await saveNotes('before-finish');
+    if (!saved) return; // performSave already told the vet why
 
-    // Calculate duration with a safety cap to prevent absurd values
-    // (e.g., 13935 min when a stale 'active' consultation is completed days later)
-    const now = new Date();
-    const endedAt = now.toISOString();
-
-    // Update consultation status to closed with success outcome
-    const supabase = createClient();
-
-    // First, fetch the consultation to get started_at for duration calculation
-    const { data: consultation } = await supabase
-      .from('consultations')
-      .select('started_at, duration_minutes')
-      .eq('id', consultationId)
-      .single();
-
-    let durationMinutes: number | null = null;
-    if (consultation?.started_at) {
-      const rawDuration = Math.ceil(
-        (now.getTime() - new Date(consultation.started_at).getTime()) / 60000
-      );
-      // Cap duration — if it exceeds MAX_DURATION_MINUTES, something went wrong
-      // (webhook failure, browser crash, etc.)
-      durationMinutes = Math.min(rawDuration, MAX_DURATION_MINUTES);
-    }
-
-    // Only set duration if not already set by Daily.co webhook
-    const updateData: Record<string, unknown> = {
-      status: 'closed',
-      outcome: 'success',
-      ended_at: endedAt,
-      updated_at: endedAt,
-    };
-
-    // Only override duration if it wasn't set by the webhook or if it's clearly wrong
-    if (!consultation?.duration_minutes || consultation.duration_minutes > MAX_DURATION_MINUTES) {
-      updateData.duration_minutes = durationMinutes;
-    }
-
-    const { error } = await supabase
-      .from('consultations')
-      .update(updateData)
-      .eq('id', consultationId);
-
-    if (error) {
-      console.error('Error completing consultation:', error);
-      toast('Failed to complete consultation', 'error');
-      return;
-    }
-
-    // Revalidate the consultation detail page cache
-    await revalidateConsultationPath(consultationId);
-
-    // Create follow-up thread (non-blocking, don't fail if this fails)
-    try {
-      const threadRes = await fetch('/api/follow-up/thread', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ consultationId }),
-      });
-      if (!threadRes.ok) {
-        const errData = await threadRes.json().catch(() => ({}));
-        console.error('Follow-up thread creation failed:', threadRes.status, errData);
-      }
-    } catch (threadError) {
-      // Log but don't block consultation completion
-      console.error('Failed to create follow-up thread:', threadError);
-    }
-
-    // Capture treatment analytics for intelligent autocomplete + AI/ML training
-    try {
-      const analyticsRes = await fetch('/api/analytics/capture-treatment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          consultationId,
-          isDiagnosisFromList: formData.isDiagnosisFromList,
-        }),
-      });
-      if (!analyticsRes.ok) {
-        const errData = await analyticsRes.json().catch(() => ({}));
-        console.error('Treatment analytics capture failed:', analyticsRes.status, errData);
-      }
-    } catch (analyticsError) {
-      console.error('Failed to capture treatment analytics:', analyticsError);
-    }
-
-    // Send consultation completed email (non-blocking)
-    try {
-      const emailRes = await fetch('/api/email/consultation-completed', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ consultationId }),
-      });
-      if (!emailRes.ok) {
-        const errData = await emailRes.json().catch(() => ({}));
-        console.error('Consultation completed email failed:', emailRes.status, errData);
-      }
-    } catch (emailError) {
-      console.error('Failed to send completed email:', emailError);
-    }
-
-    toast('Consultation completed', 'success');
-    router.push('/consultations');
+    await onComplete({ isDiagnosisFromList: formData.isDiagnosisFromList });
   };
 
   return (
@@ -425,7 +330,7 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
           <h1 className={styles.title}>SOAP Notes</h1>
           {lastSaved && (
             <p className={styles.lastSaved}>
-              Last saved: {lastSaved.toLocaleTimeString()}
+              Last saved: {formatIstTime(lastSaved)}
             </p>
           )}
           {hasUnsavedChanges && (
@@ -433,7 +338,7 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
           )}
         </div>
         <div className={styles.headerActions}>
-          <Button variant="secondary" onClick={() => saveNotes(false)} loading={isSaving}>
+          <Button variant="secondary" onClick={() => saveNotes('manual')} loading={isSaving}>
             Save Draft
           </Button>
         </div>
@@ -572,9 +477,15 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
         <Button variant="secondary" onClick={handleGeneratePrescription}>
           Generate Treatment Plan
         </Button>
-        <Button variant="primary" onClick={handleComplete}>
-          Complete Consultation
-        </Button>
+        {finishAction === 'none' ? (
+          <Button variant="secondary" disabled>
+            {closedLabel}
+          </Button>
+        ) : (
+          <Button variant="primary" onClick={handleComplete} loading={isFinishing}>
+            {finishAction === 'send_notes' ? 'Send notes to the pet parent' : 'Complete Consultation'}
+          </Button>
+        )}
       </div>
 
       {/* Confirmation modal for incomplete optional sections */}
@@ -593,7 +504,7 @@ export function SOAPForm({ consultationId, vetId, petSpecies, initialData }: SOA
             <Button variant="ghost" onClick={() => setShowConfirmDialog(false)}>
               Go Back
             </Button>
-            <Button variant="primary" onClick={executeComplete}>
+            <Button variant="primary" onClick={executeComplete} loading={isFinishing}>
               Continue Anyway
             </Button>
           </div>

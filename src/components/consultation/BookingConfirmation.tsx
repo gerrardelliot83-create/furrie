@@ -28,16 +28,18 @@ export function BookingConfirmation({
   // Format date and time
   const scheduledDate = new Date(scheduledAt);
   const dateStr = scheduledDate.toLocaleDateString('en-IN', {
+    timeZone: 'Asia/Kolkata',
     weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric',
   });
-  const timeStr = scheduledDate.toLocaleTimeString('en-IN', {
+  const timeStr = `${scheduledDate.toLocaleTimeString('en-IN', {
+    timeZone: 'Asia/Kolkata',
     hour: '2-digit',
     minute: '2-digit',
     hour12: true,
-  });
+  })} IST`;
 
   // Generate calendar event (.ics file)
   const handleAddToCalendar = () => {

@@ -99,10 +99,10 @@ export function welcomeEmail(params: {
       <p style="${textStyle}">Here's what you can do:</p>
       <ul style="font-size: 16px; color: #333; margin: 0 0 24px 0; padding-left: 20px; line-height: 1.8;">
         <li><strong>Talk to a vet</strong> &mdash; Book a video consultation at one of the open times, from anywhere in India.</li>
-        <li><strong>Get a custom care plan</strong> &mdash; Every consultation ends with a plan built specifically for your pet: nutrition, recovery, special care &mdash; whatever they need.</li>
+        <li><strong>Get a care plan</strong> &mdash; After the call, your vet can write up next steps for your pet.</li>
       </ul>
       <p style="${textStyle}">
-        The best place to start is adding your pet's profile. It takes about a minute and helps our vets give better, more personalised care from the very first call.
+        The best place to start is adding your pet's profile. It takes about a minute and helps your vet give better, more personalised care from the very first call.
       </p>
       <div style="text-align: center; margin: 32px 0;">
         <a href="${APP_URL}/pets/new" style="${btnPrimary}">Add Your Pet</a>
@@ -670,6 +670,210 @@ export function carePlanCreatedEmail(params: {
       <p style="${textStyle}">
         If you have questions about any of the steps, you can use your follow-up thread or book a quick consultation with Dr. ${vetName}.
       </p>
+      <p style="${textStyle}">
+        <strong>Team Furrie</strong>
+      </p>
+    `),
+  };
+}
+
+// ---- V ----
+// Agent V (vets, reminders, the consultation), 2026-09-27. Times are India
+// time. Names and other values people typed are HTML-escaped here.
+
+function vEscape(value: string | null | undefined): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/** Customer did not join (V rule set): replaces missedAppointmentEmail for the crons. */
+export function customerMissedConsultationEmail(params: {
+  customerName: string;
+  petName: string;
+  scheduledAt: string;
+}): { subject: string; html: string } {
+  const pet = vEscape(params.petName);
+  return {
+    subject: `${params.petName}'s consultation was missed`,
+    html: wrapEmailBody(`
+      <p style="${textStyle}">${vEscape(emailGreeting(params.customerName))}</p>
+      <p style="${textStyle}">
+        You didn't join the video call for ${pet}'s consultation on ${formatDateTime(params.scheduledAt)} IST, so it has been marked as missed.
+      </p>
+      <p style="${textStyle}">
+        If ${pet} still needs a vet, you can book a new time from your dashboard.
+      </p>
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="${APP_URL}/connect" style="${btnPrimary}">Book a consultation</a>
+      </div>
+      <p style="${textStyle}">
+        If something went wrong on our side, reply to this email and tell us what happened.
+      </p>
+      <p style="${textStyle}">
+        <strong>Team Furrie</strong>
+      </p>
+    `),
+  };
+}
+
+/** Ops: a consultation did not happen and a person needs to follow up (V rule set: 'failed'). */
+export function opsConsultationProblemEmail(params: {
+  consultationNumber: string;
+  scheduledAt: string;
+  petName: string;
+  customerName: string;
+  customerEmail: string | null;
+  vetName: string;
+  reason: string;
+}): { subject: string; html: string } {
+  const row = (label: string, value: string) =>
+    `<p style="${labelStyle}">${label}</p><p style="${valueStyle}">${value}</p>`;
+  return {
+    subject: `[Action needed] ${params.consultationNumber} did not happen`,
+    html: wrapEmailBody(`
+      <p style="${textStyle}"><strong>A consultation was closed as failed.</strong></p>
+      <p style="${textStyle}">${vEscape(params.reason)}</p>
+      <div style="${infoBox}">
+        ${row('When', `${formatDateTime(params.scheduledAt)} IST`)}
+        ${row('Consultation', vEscape(params.consultationNumber))}
+        ${row('Pet', vEscape(params.petName))}
+        ${row('Customer', `${vEscape(params.customerName)}${params.customerEmail ? ` · ${vEscape(params.customerEmail)}` : ''}`)}
+        ${row('Vet', vEscape(params.vetName))}
+      </div>
+      <p style="${textStyle}">
+        What to do: check with the vet and the customer. If the customer should not lose the consultation, grant them a replacement credit in the admin portal (Users). The customer has been told that our team will be in touch.
+      </p>
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="https://admin.furrie.in/consultations" style="${btnPrimary}">Open admin consultations</a>
+      </div>
+    `),
+  };
+}
+
+/** "Dr. Name" without doubling a prefix the stored name already has (C-09). */
+function vVetName(name: string | null | undefined): string {
+  const trimmed = (name ?? '').trim();
+  if (!trimmed) return 'your vet';
+  return /^dr\.?\s/i.test(trimmed) ? trimmed : `Dr. ${trimmed}`;
+}
+
+/** "4:00 pm" in India time. */
+function vTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
+
+function vJoinLine(params: { scheduledAt: string; canJoinNow: boolean }): string {
+  const joinFrom = vTime(new Date(new Date(params.scheduledAt).getTime() - 5 * 60 * 1000).toISOString());
+  return params.canJoinNow
+    ? 'You can join the video call now.'
+    : `You can join the video call from ${joinFrom} IST, 5 minutes before the start.`;
+}
+
+/**
+ * 15-minute reminder (customer). Replaces customerFifteenMinReminderEmail in
+ * the cron: that one linked to /consultations/<id>/video, a page that does
+ * not exist, and said the vet "will be waiting".
+ */
+export function customerStartingSoonEmail(params: {
+  customerName: string;
+  petName: string;
+  vetName: string;
+  consultationId: string;
+  scheduledAt: string;
+  canJoinNow: boolean;
+}): { subject: string; html: string } {
+  const pet = vEscape(params.petName);
+  return {
+    subject: `${params.petName}'s consultation starts at ${vTime(params.scheduledAt)} IST`,
+    html: wrapEmailBody(`
+      <p style="${textStyle}">${vEscape(emailGreeting(params.customerName))}</p>
+      <p style="${textStyle}">
+        ${pet}'s consultation with ${vEscape(vVetName(params.vetName))} starts at <strong>${vTime(params.scheduledAt)} IST</strong>.
+        ${vJoinLine(params)}
+      </p>
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="${APP_URL}/consultations/${encodeURIComponent(params.consultationId)}" style="${btnPrimary}">Open your consultation</a>
+      </div>
+      <p style="${textStyle}">
+        Have ${pet} with you and find a quiet spot with a steady internet connection.
+      </p>
+      <p style="${textStyle}">
+        <strong>Team Furrie</strong>
+      </p>
+    `),
+  };
+}
+
+/** 15-minute reminder (vet). Replaces vetFifteenMinReminderEmail in the cron. */
+export function vetStartingSoonEmail(params: {
+  vetName: string;
+  petName: string;
+  customerName: string;
+  consultationId: string;
+  scheduledAt: string;
+  canJoinNow: boolean;
+}): { subject: string; html: string } {
+  return {
+    subject: `Starts at ${vTime(params.scheduledAt)} IST: consultation for ${params.petName}`,
+    html: wrapEmailBody(`
+      <p style="${textStyle}">Dear ${vEscape(vVetName(params.vetName))},</p>
+      <p style="${textStyle}">
+        Your consultation for ${vEscape(params.petName)} (${vEscape(params.customerName)}) starts at <strong>${vTime(params.scheduledAt)} IST</strong>.
+        ${vJoinLine(params)}
+      </p>
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="${VET_URL}/consultations/${encodeURIComponent(params.consultationId)}" style="${btnPrimary}">Open consultation</a>
+      </div>
+      <p style="${textStyle}">
+        <strong>Team Furrie</strong>
+      </p>
+    `),
+  };
+}
+
+/**
+ * Vet set-password link (C-04). 'welcome' replaces vetWelcomeEmail, which
+ * emailed the password in plain text; 'reset' is for "Forgot password" and
+ * the admin's "Send set-password link".
+ */
+export function vetSetPasswordEmail(params: {
+  vetName: string;
+  email: string;
+  link: string;
+  reason: 'welcome' | 'reset';
+}): { subject: string; html: string } {
+  const isWelcome = params.reason === 'welcome';
+  return {
+    subject: isWelcome ? 'Welcome to Furrie: set your password' : 'Set a new password for your Furrie vet account',
+    html: wrapEmailBody(`
+      <p style="${textStyle}">Dear ${vEscape(vVetName(params.vetName))},</p>
+      <p style="${textStyle}">
+        ${isWelcome
+          ? 'Your Furrie vet account is ready. Set your password with the button below, then sign in at vet.furrie.in with this email address:'
+          : 'We received a request to set a new password for the Furrie vet account with this email address:'}
+      </p>
+      <div style="${infoBox}">
+        <p style="${labelStyle}">Email</p>
+        <p style="${valueStyle}">${vEscape(params.email)}</p>
+      </div>
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="${vEscape(params.link)}" style="${btnPrimary}">Set your password</a>
+      </div>
+      <p style="${textStyle}">
+        The link works once and expires after a short time. If it has expired, open vet.furrie.in, choose "Forgot your password?" and enter this email address to get a new one.
+      </p>
+      ${isWelcome
+        ? `<p style="${textStyle}">Once you are signed in, set your weekly hours on the Schedule page and turn on Available, so customers can book you.</p>`
+        : `<p style="${textStyle}">If you did not ask for this, you can ignore this email; your password stays as it is.</p>`}
       <p style="${textStyle}">
         <strong>Team Furrie</strong>
       </p>

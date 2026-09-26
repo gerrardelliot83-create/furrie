@@ -1,70 +1,36 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { useToast } from '@/components/ui/Toast';
+import { VET_CONSULTATIONS_CHANGED_EVENT } from '@/components/layouts/VetLayout/vetEvents';
 
 interface UseVetDashboardRealtimeOptions {
   vetId: string;
   onConsultationChange: () => void;
 }
 
-interface NewConsultationPayload {
-  consultationId: string;
-  petName?: string;
-  scheduledAt?: string;
-}
-
 /**
  * Hook for real-time updates on the vet dashboard.
- * Uses Supabase broadcast channel for notifications (avoids RLS issues with postgres_changes).
- * Also subscribes to postgres_changes for UPDATE events on already-visible consultations.
+ *
+ * The booking Broadcast (vet:<id>:notifications) is received once for the
+ * whole portal by VetAlerts in the layout, which also chimes and toasts; it
+ * re-emits a window event that this hook listens to (C-05). A second
+ * subscription to the same topic from one tab is fragile, so this hook no
+ * longer opens one.
+ * The postgres_changes subscription below stays for when the Realtime
+ * publication gets its tables (audit Phase 6); today it never fires.
  */
 export function useVetDashboardRealtime({
   vetId,
   onConsultationChange,
 }: UseVetDashboardRealtimeOptions) {
-  const { toast } = useToast();
-  const seenIdsRef = useRef<Set<string>>(new Set());
-
   useEffect(() => {
     const supabase = createClient();
     type Channel = ReturnType<typeof supabase.channel>;
-    let broadcastChannel: Channel | null = null;
     let changesChannel: Channel | null = null;
 
-    // Subscribe to broadcast channel for consultation notifications
-    // This bypasses RLS issues since broadcasts don't go through postgres.
-    // Wrapped in try/catch so that environments where WebSockets are blocked
-    // (e.g. Safari with a stale CSP, corporate proxies) degrade gracefully
-    // instead of crashing the whole dashboard via the error boundary.
-    try {
-      broadcastChannel = supabase
-        .channel(`vet:${vetId}:notifications`)
-        .on('broadcast', { event: 'new_consultation' }, (payload) => {
-          const data = payload.payload as NewConsultationPayload;
-          // Prevent duplicate notifications for the same consultation
-          if (data.consultationId && !seenIdsRef.current.has(data.consultationId)) {
-            seenIdsRef.current.add(data.consultationId);
-            const message = data.petName
-              ? `New consultation for ${data.petName}`
-              : 'New consultation assigned to you';
-            toast(message, 'info');
-          }
-          onConsultationChange();
-        })
-        .on('broadcast', { event: 'consultation_updated' }, () => {
-          // Trigger refresh when consultation status changes (e.g., payment completed)
-          onConsultationChange();
-        })
-        .subscribe((status, err) => {
-          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-            console.warn(`[vet-dashboard-realtime] broadcast channel ${status}`, err);
-          }
-        });
-    } catch (err) {
-      console.warn('[vet-dashboard-realtime] failed to subscribe to broadcast channel', err);
-    }
+    const onChange = () => onConsultationChange();
+    window.addEventListener(VET_CONSULTATIONS_CHANGED_EVENT, onChange);
 
     // Also subscribe to postgres_changes for UPDATE events
     // These work because the vet already has SELECT access to their assigned consultations
@@ -93,12 +59,12 @@ export function useVetDashboardRealtime({
     }
 
     return () => {
+      window.removeEventListener(VET_CONSULTATIONS_CHANGED_EVENT, onChange);
       try {
-        if (broadcastChannel) supabase.removeChannel(broadcastChannel);
         if (changesChannel) supabase.removeChannel(changesChannel);
       } catch (err) {
         console.warn('[vet-dashboard-realtime] error during cleanup', err);
       }
     };
-  }, [vetId, onConsultationChange, toast]);
+  }, [vetId, onConsultationChange]);
 }

@@ -723,6 +723,7 @@ export default async function VetConsultationDetailPage({ params }: PageProps) {
               isCompleted={isCompleted}
               awaitingNotesDelivery={awaitingNotesDelivery}
               closedWithoutSuccess={isCompleted && !closedAsSuccess}
+              notBefore={consultation.status === 'scheduled' ? consultation.scheduled_at : null}
               overviewContent={overviewContent}
             />
           </div>

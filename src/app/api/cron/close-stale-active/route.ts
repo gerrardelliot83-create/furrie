@@ -5,7 +5,7 @@ import { getRoomAttendance, roomNameForConsultation, type RoomAttendance } from 
 import { decideStaleActiveOutcome } from '@/lib/scheduling/outcomes';
 import type { Database } from '@/lib/database.types';
 import { withRoute } from '@/server/handler';
-import { runCompletionSideEffects } from '@/app/api/vet/_lib/completeConsultation';
+import { revalidateConsultationPages, runCompletionSideEffects } from '@/app/api/vet/_lib/completeConsultation';
 import { sendFailedNotices, sendMissedNotices, type ClosedConsultation } from '../_lib/consultationNotices';
 
 type ConsultationRow = Database['public']['Tables']['consultations']['Row'];
@@ -147,6 +147,7 @@ export const GET = withRoute(async function GET(request: Request) {
     } else {
       await sendFailedNotices(closedConsultation, decision.reason);
     }
+    revalidateConsultationPages(consultation.id);
 
     results.push({
       consultationId: consultation.id,

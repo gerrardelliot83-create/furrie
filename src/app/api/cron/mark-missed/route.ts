@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { SCHEDULING_CONSTANTS } from '@/lib/scheduling';
 import { withRoute } from '@/server/handler';
 import { sendMissedNotices } from '../_lib/consultationNotices';
+import { revalidateConsultationPages } from '@/app/api/vet/_lib/completeConsultation';
 
 /**
  * GET /api/cron/mark-missed   (every 5 minutes, vercel.json)
@@ -75,6 +76,7 @@ export const GET = withRoute(async function GET(request: Request) {
       false
     );
 
+    revalidateConsultationPages(consultation.id);
     results.push({ consultationId: consultation.id, action: 'marked_missed' });
     console.log(`Consultation ${consultation.id} marked as missed`);
   }

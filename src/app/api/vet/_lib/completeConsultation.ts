@@ -1,6 +1,7 @@
 import 'server-only';
 
 import * as Sentry from '@sentry/nextjs';
+import { revalidatePath } from 'next/cache';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { createNotification } from '@/lib/notifications/createNotification';
 import { sendConsultationCompletedEmail, sendFollowUpAvailableEmail } from '@/lib/email';
@@ -20,6 +21,30 @@ export type CompletionTrigger = 'vet' | 'system';
 interface EmailResult {
   success: boolean;
   error?: string;
+}
+
+/**
+ * Drop cached copies of the pages that show this consultation, after it
+ * closes or its notes are sent (CTO review item 6). Internal paths: the
+ * portals are served from vet./app. hosts through rewrites. Call it from the
+ * request or cron handler itself, not from inside after().
+ */
+export function revalidateConsultationPages(consultationId: string): void {
+  const paths = [
+    `/vet-portal/consultations/${consultationId}`,
+    '/vet-portal/consultations',
+    '/vet-portal/dashboard',
+    `/customer-portal/consultations/${consultationId}`,
+    '/customer-portal/consultations',
+    '/customer-portal/dashboard',
+  ];
+  for (const path of paths) {
+    try {
+      revalidatePath(path);
+    } catch (err) {
+      console.warn(`[completion] revalidatePath(${path}) failed:`, err);
+    }
+  }
 }
 
 /** True when a saved note has what the "notes are ready" email promises. */

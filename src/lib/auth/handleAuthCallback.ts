@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { EmailOtpType } from '@supabase/supabase-js';
 
 import { createClient } from '@/lib/supabase/server';
+import { safeNextPath } from '@/lib/auth/safeRedirect';
 
 /**
  * Shared handler for the browser-facing `/auth/callback` endpoint.
@@ -70,13 +71,11 @@ export async function handleAuthCallback(request: Request): Promise<NextResponse
     );
   }
 
-  // Only ever redirect to a path on this origin — never to a caller-supplied
-  // absolute URL, and never to a protocol-relative `//host` path.
-  const requested = params.get('next');
-  const destination =
-    requested && requested.startsWith('/') && !requested.startsWith('//')
-      ? requested
-      : '/dashboard';
+  // Only ever redirect to a path on this origin (see safeNextPath). A vet's
+  // password-recovery link with no `next` lands on the set-password page.
+  const fallback =
+    params.get('type') === 'recovery' && url.hostname.startsWith('vet.') ? '/set-password' : '/dashboard';
+  const destination = safeNextPath(params.get('next'), url.origin, fallback);
 
   return NextResponse.redirect(new URL(destination, url.origin));
 }

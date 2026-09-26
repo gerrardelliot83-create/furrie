@@ -35,6 +35,28 @@ export interface DaySlots {
   times: AvailableSlot[];
 }
 
+/**
+ * Drop vets whose account an admin deactivated (profiles.is_active = false,
+ * C-03). Agent S blocks their sign-in; this keeps them out of slot listing
+ * and matching. Throws if the check itself fails, so an error is never
+ * read as "all active".
+ */
+async function onlyActiveVets<T extends { id: string }>(vets: T[]): Promise<T[]> {
+  if (vets.length === 0) return vets;
+  const { data, error } = await supabaseAdmin
+    .from('profiles')
+    .select('id, is_active')
+    .in(
+      'id',
+      vets.map((vet) => vet.id)
+    );
+  if (error) {
+    throw new Error(`Failed to check vet accounts: ${error.message}`);
+  }
+  const active = new Set((data ?? []).filter((p) => p.is_active !== false).map((p) => p.id));
+  return vets.filter((vet) => active.has(vet.id));
+}
+
 export interface ComputeSlotsOptions {
   fromDate?: Date;
   toDate?: Date;
@@ -59,8 +81,8 @@ export async function computeAvailableSlots(
   const fromDate = options.fromDate || new Date(now.getTime() + MIN_LEAD_TIME_MS);
   const toDate = options.toDate || new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
-  // 1. Get all verified, available vets with their schedules
-  const { data: vets, error: vetsError } = await supabaseAdmin
+  // 1. Get all verified, available vets with their schedules (active accounts only)
+  const { data: vetRows, error: vetsError } = await supabaseAdmin
     .from('vet_profiles')
     .select('id, availability_schedule')
     .eq('is_verified', true)
@@ -70,6 +92,8 @@ export async function computeAvailableSlots(
     console.error('Error fetching vets:', vetsError);
     throw new Error('Failed to fetch available vets');
   }
+
+  const vets = await onlyActiveVets(vetRows ?? []);
 
   if (!vets || vets.length === 0) {
     return [];
@@ -193,10 +217,18 @@ export async function findAvailableVetForSlot(
     query = query.not('id', 'in', `(${excludeVetIds.join(',')})`);
   }
 
-  const { data: vets, error } = await query;
+  const { data: vetRows, error } = await query;
 
-  if (error || !vets) {
+  if (error || !vetRows) {
     console.error('Error fetching vets for slot:', error);
+    return null;
+  }
+
+  let vets: typeof vetRows;
+  try {
+    vets = await onlyActiveVets(vetRows);
+  } catch (activeError) {
+    console.error('Error checking vet accounts for slot:', activeError);
     return null;
   }
 

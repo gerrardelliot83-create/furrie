@@ -1,7 +1,15 @@
 import { NextResponse } from 'next/server';
+import * as Sentry from '@sentry/nextjs';
 import { getRequestUser } from '@/lib/auth/withAuth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { createRoom, generateToken, DAILY_DOMAIN } from '@/lib/daily';
+import {
+  DAILY_DOMAIN,
+  clearRoomForJoin,
+  generateToken,
+  prepareConsultationRoom,
+  roomExpiryFor,
+  type PreparedRoom,
+} from '@/lib/daily';
 import { canJoinConsultation } from '@/lib/scheduling';
 import { withRoute } from '@/server/handler';
 
@@ -14,7 +22,11 @@ import { withRoute } from '@/server/handler';
  * Access Rules:
  * - Customer: Must be the consultation's customer_id
  * - Vet: Must be the consultation's vet_id
- * - Both: Must be within join window (5 min before to 45 min after scheduled_at)
+ * - Both: Must be within join window (lib/scheduling/joinWindow: 10 min before
+ *   to 45 min after scheduled_at)
+ *
+ * Every call makes sure the room is open until the booking time + 90 min and
+ * removes the caller's own earlier sessions from it (VC-1).
  *
  * Response:
  * {
@@ -129,36 +141,63 @@ export const POST = withRoute(async function POST(
       );
     }
 
-    // Create room just-in-time if it doesn't exist. A-04: a consultation's
-    // room is always `furrie-<consultation id>` (lib/daily createRoom); a
-    // stored name that differs is ignored rather than trusted.
-    const expectedRoomName = `furrie-${id}`;
-    let roomName = consultation.daily_room_name === expectedRoomName ? consultation.daily_room_name : null;
-    let roomUrl = roomName ? consultation.daily_room_url : null;
-
-    if (!roomName || !roomUrl) {
-      try {
-        const room = await createRoom(id, consultation.duration_minutes || 30);
-        roomName = room.name;
-        roomUrl = room.url;
-
-        // Update consultation with room info
-        await supabaseAdmin
-          .from('consultations')
-          .update({
-            daily_room_name: roomName,
-            daily_room_url: roomUrl,
-            room_created_at: new Date().toISOString(),
-          })
-          .eq('id', id);
-      } catch (roomError) {
-        console.error('Error creating Daily.co room:', roomError);
-        return NextResponse.json(
-          { error: 'Failed to create video room', code: 'ROOM_ERROR' },
-          { status: 500 }
-        );
-      }
+    // Make sure the room exists and stays open long enough (VC-1). A-04: a
+    // consultation's room is always `furrie-<consultation id>`; the stored
+    // name is never trusted. Before VC-1 the room was created on the first
+    // join with a 35-minute life, and once it closed the same dead room kept
+    // being handed out.
+    let room: PreparedRoom;
+    try {
+      room = await prepareConsultationRoom(id, roomExpiryFor(consultation.scheduled_at, Date.now()));
+    } catch (roomError) {
+      console.error('Error preparing Daily.co room:', roomError);
+      return NextResponse.json(
+        { error: 'Failed to create video room', code: 'ROOM_ERROR' },
+        { status: 500 }
+      );
     }
+    const roomName = room.name;
+    const roomUrl = room.url;
+
+    if (
+      room.action === 'created' ||
+      consultation.daily_room_name !== roomName ||
+      consultation.daily_room_url !== roomUrl
+    ) {
+      await supabaseAdmin
+        .from('consultations')
+        .update({
+          daily_room_name: roomName,
+          daily_room_url: roomUrl,
+          ...(room.action === 'created' || !consultation.room_created_at
+            ? { room_created_at: new Date().toISOString() }
+            : {}),
+        })
+        .eq('id', id);
+    }
+
+    // The pet parent always gets in (L1 + L4): remove this caller's earlier
+    // sessions (a reload, a second tab, a dropped connection), older copies of
+    // the other participant, and anyone else. On 7 Oct the vet's earlier
+    // session stayed 9 minutes and the pet parent was refused four times.
+    const cleanup = await clearRoomForJoin(roomName, {
+      callerUserId: user.id,
+      otherUserId: isVet ? consultation.customer_id : consultation.vet_id,
+    });
+    if (cleanup.otherSessions > 0) {
+      // Someone else's duplicate was in the room: exactly what used to lock
+      // the pet parent out. Worth knowing about even though it's handled.
+      Sentry.captureMessage('video-call: duplicate sessions cleared on join', {
+        level: 'warning',
+        tags: { area: 'video-call', 'call.role': isVet ? 'vet' : 'customer' },
+        extra: { consultationId: id, ...cleanup },
+      });
+    }
+
+    // No personal data: ids and what happened, for the Vercel logs.
+    console.log(
+      `[join] consultation=${id} role=${isVet ? 'vet' : 'customer'} room=${room.action} open_until=${new Date(room.expiresAt * 1000).toISOString()} cleanup=${cleanup.method} own=${cleanup.ownSessions} others=${cleanup.otherSessions} ejected=${cleanup.ejected}`
+    );
 
     // Display name from the profile getRequestUser() already loaded.
     const userName = profile?.full_name || (isVet ? 'Veterinarian' : 'Pet Parent');

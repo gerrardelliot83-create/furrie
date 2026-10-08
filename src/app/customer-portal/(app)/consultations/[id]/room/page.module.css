@@ -233,6 +233,14 @@
   justify-content: flex-end;
 }
 
+/* Why Join is greyed out (VC-1) */
+.consentHint {
+  margin: var(--space-3) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  text-align: right;
+}
+
 /* Desktop */
 @media (min-width: 768px) {
   .readyScreen {

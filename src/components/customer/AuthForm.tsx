@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/Input';
 import { OTPInput } from './OTPInput';
 import { OTP_LENGTH } from '@/lib/auth/otpConfig';
 import { ACCOUNT_ERROR_MESSAGES } from '@/lib/auth/loginErrors';
+import { postSignInPath } from '@/lib/auth/safeRedirect';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/components/ui/Toast';
 import styles from './AuthForm.module.css';
@@ -227,14 +228,15 @@ export function AuthForm() {
     toast(t('otpSent'), 'success');
   };
 
-  // Navigate to the dashboard, and arm a fallback so a stalled navigation
+  // Navigate to the dashboard (or back to the consultation the person was
+  // sent here from, VC-1), and arm a fallback so a stalled navigation
   // can't leave the user staring at a spinner with no way out. If the
   // navigation lands, this component unmounts and the cleanup clears it.
   const goToDashboard = useCallback(() => {
     setIsSubmitting(true);
     setOtpError('');
     setNavStalled(false);
-    router.replace('/dashboard');
+    router.replace(postSignInPath(searchParams.get('redirectTo'), window.location.origin));
 
     if (navTimerRef.current) clearTimeout(navTimerRef.current);
     navTimerRef.current = setTimeout(() => {
@@ -242,7 +244,7 @@ export function AuthForm() {
       setNavStalled(true);
       setOtpError(t('signedInNavStalled'));
     }, NAV_STALL_TIMEOUT);
-  }, [router, t]);
+  }, [router, searchParams, t]);
 
   const handleVerifyOtp = useCallback(async (code: string) => {
     // Already verified: the code has been spent, so re-verifying would fail.

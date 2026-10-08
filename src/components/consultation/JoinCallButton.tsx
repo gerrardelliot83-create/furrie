@@ -3,12 +3,14 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
+import { joinWindowState } from '@/lib/scheduling/joinWindow';
 import styles from './JoinCallButton.module.css';
 
 interface JoinCallButtonProps {
   consultationId: string;
   scheduledAt: string;
   status: string;
+  /** Both roles share the join API's window (lib/scheduling/joinWindow). */
   userRole: 'customer' | 'vet';
 }
 
@@ -16,31 +18,22 @@ export function JoinCallButton({
   consultationId,
   scheduledAt,
   status,
-  userRole,
 }: JoinCallButtonProps) {
   const [canJoin, setCanJoin] = useState(false);
   const [timeUntilJoin, setTimeUntilJoin] = useState('');
 
   useEffect(() => {
     const checkJoinWindow = () => {
-      const now = new Date();
-      const scheduled = new Date(scheduledAt);
+      // The same window the join API enforces, for the vet too (it used to
+      // show the vet a Join button the server then refused).
+      const joinWindow = joinWindowState(scheduledAt, Date.now());
 
-      // Vet can join anytime after booking, customer 5 min before scheduled time
-      const joinWindowStart =
-        userRole === 'vet'
-          ? new Date(0) // Vet can always join
-          : new Date(scheduled.getTime() - 5 * 60 * 1000); // Customer: 5 min before
-
-      const joinWindowEnd = new Date(scheduled.getTime() + 45 * 60 * 1000); // 45 min after
-
-      if (now >= joinWindowStart && now <= joinWindowEnd) {
+      if (joinWindow.phase === 'open') {
         setCanJoin(true);
         setTimeUntilJoin('');
-      } else if (now < joinWindowStart) {
+      } else if (joinWindow.phase === 'early') {
         setCanJoin(false);
-        const diffMs = joinWindowStart.getTime() - now.getTime();
-        const diffMins = Math.ceil(diffMs / 60000);
+        const diffMins = Math.ceil(joinWindow.opensInMs / 60000);
 
         if (diffMins > 60) {
           const hours = Math.floor(diffMins / 60);
@@ -62,7 +55,7 @@ export function JoinCallButton({
     checkJoinWindow();
     const interval = setInterval(checkJoinWindow, 10000); // Check every 10 seconds
     return () => clearInterval(interval);
-  }, [scheduledAt, userRole]);
+  }, [scheduledAt]);
 
   const roomPath = `/consultations/${consultationId}/room`;
 

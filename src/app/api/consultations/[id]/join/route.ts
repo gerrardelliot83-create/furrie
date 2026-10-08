@@ -11,6 +11,7 @@ import {
   type PreparedRoom,
 } from '@/lib/daily';
 import { canJoinConsultation } from '@/lib/scheduling';
+import { canJoinNow } from '@/lib/scheduling/joinWindow';
 import { withRoute } from '@/server/handler';
 
 /**
@@ -129,8 +130,10 @@ export const POST = withRoute(async function POST(
       );
     }
 
+    // A call in progress can be rejoined until its room closes (VC-1); a
+    // scheduled one only inside the join window.
     const joinCheck = canJoinConsultation(consultation.scheduled_at);
-    if (!joinCheck.canJoin) {
+    if (!canJoinNow(consultation.scheduled_at, consultation.status, Date.now())) {
       return NextResponse.json(
         {
           error: joinCheck.reason,

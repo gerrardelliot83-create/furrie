@@ -10,6 +10,21 @@ export const JOIN_WINDOW_AFTER_MINUTES = 45;
 export const JOIN_WINDOW_BEFORE_MS = JOIN_WINDOW_BEFORE_MINUTES * 60 * 1000;
 export const JOIN_WINDOW_AFTER_MS = JOIN_WINDOW_AFTER_MINUTES * 60 * 1000;
 
+/**
+ * A call already in progress ('active') can be rejoined until the room closes
+ * (lib/daily/roomLife: booking + 90 min). Without this, a drop or a reload
+ * after start + 45 min locked both people out of a call that was still open.
+ */
+export const REJOIN_ACTIVE_UNTIL_MINUTES = 90;
+
+/** Whether someone may (re)join now, given the consultation's status. */
+export function canJoinNow(scheduledAt: string | Date, status: string, nowMs: number): boolean {
+  if (status === 'active') {
+    return nowMs <= new Date(scheduledAt).getTime() + REJOIN_ACTIVE_UNTIL_MINUTES * 60 * 1000;
+  }
+  return joinWindowState(scheduledAt, nowMs).phase === 'open';
+}
+
 export type JoinWindowState =
   | { phase: 'early'; opensInMs: number }
   | { phase: 'open' }

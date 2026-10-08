@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { ROOM_MAX_PARTICIPANTS, roomExpiryFor, roomNeedsUpdate } from '../roomLife';
 import { parsePresence, sessionsToEject, type PresenceSession } from '../roomCleanup';
 import { describeCameraError, describeFatalError } from '../callErrors';
-import { joinWindowState, JOIN_WINDOW_BEFORE_MINUTES } from '../../scheduling/joinWindow';
+import { canJoinNow, joinWindowState, JOIN_WINDOW_BEFORE_MINUTES } from '../../scheduling/joinWindow';
 import { chromeIntentUrl, detectInAppBrowser } from '../../utils/inAppBrowser';
 import { postSignInPath } from '../../auth/safeRedirect';
 
@@ -128,6 +128,16 @@ test(`the call opens ${JOIN_WINDOW_BEFORE_MINUTES} minutes early and closes 45 m
   assert.deepEqual(joinWindowState(START, start - 10 * 60 * 1000), { phase: 'open' });
   assert.deepEqual(joinWindowState(START, start + 45 * 60 * 1000), { phase: 'open' });
   assert.deepEqual(joinWindowState(START, start + 46 * 60 * 1000), { phase: 'over' });
+});
+
+test('a call in progress can be rejoined until its room closes (start + 90 min); a scheduled one cannot after +45', () => {
+  const start = Date.parse(START);
+  assert.equal(canJoinNow(START, 'active', start + 46 * 60 * 1000), true);
+  assert.equal(canJoinNow(START, 'active', start + 90 * 60 * 1000), true);
+  assert.equal(canJoinNow(START, 'active', start + 91 * 60 * 1000), false);
+  assert.equal(canJoinNow(START, 'scheduled', start + 46 * 60 * 1000), false);
+  assert.equal(canJoinNow(START, 'scheduled', start - 10 * 60 * 1000), true);
+  assert.equal(canJoinNow(START, 'scheduled', start - 11 * 60 * 1000), false);
 });
 
 // ── In-app browsers ───────────────────────────────────────────────────

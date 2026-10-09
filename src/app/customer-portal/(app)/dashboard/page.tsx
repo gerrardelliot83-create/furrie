@@ -151,15 +151,18 @@ export default async function CustomerDashboard() {
   // Sign-in side-effects the user isn't waiting for. `after()` runs these once
   // the response has been streamed, so they cost the page nothing. They used to
   // be two fire-and-forget fetches racing the navigation out of the OTP form.
-  // All are idempotent, so running them on every dashboard render is safe.
+  // All are idempotent, so running them on every dashboard render is safe
+  // (the welcome email goes once per account, CX-1).
   // The founding claim is here too so a waitlist member whose first dashboard
   // visit comes more than 30 minutes after sign-up still gets their credit.
   after(async () => {
     await Promise.allSettled([
       maybeSendWelcomeEmail({
+        userId: user.id,
         email: profile?.email ?? user.email,
         fullName: profile?.full_name,
         createdAt: profile?.created_at,
+        appMetadata: user.app_metadata,
       }),
       maybeRedeemInvite(supabase, user),
       maybeClaimFoundingCredit(user.id),

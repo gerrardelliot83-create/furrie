@@ -2,6 +2,7 @@ import { Resend } from 'resend';
 import * as templates from './templates';
 import * as Sentry from '@sentry/nextjs';
 import { formatInr, packLabel } from '@/lib/pricing/packs';
+import { escapeHtml, plainSubject } from './escape';
 
 // Lazy initialization to avoid build-time errors when env var is not available
 let resend: Resend | null = null;
@@ -30,21 +31,38 @@ export interface SendEmailOptions {
     filename: string;
     content: Buffer;
   }>;
+  /**
+   * Resend sends one email per key within 24 hours, even when two requests
+   * race (CX-1: the welcome email). A repeat returns the first result.
+   */
+  idempotencyKey?: string;
 }
 
 export async function sendEmail(options: SendEmailOptions) {
   try {
     const client = getResendClient();
-    const { data, error } = await client.emails.send({
-      from: options.from || FROM_NOTIFICATIONS,
-      to: options.to,
-      subject: options.subject,
-      html: options.html,
-      attachments: options.attachments,
-    });
+    const { data, error } = await client.emails.send(
+      {
+        from: options.from || FROM_NOTIFICATIONS,
+        to: options.to,
+        // Subjects carry names people typed: keep them on one line (CX-1).
+        subject: plainSubject(options.subject),
+        html: options.html,
+        attachments: options.attachments,
+      },
+      options.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : undefined
+    );
 
     if (error) {
       const resendError = error as { statusCode?: number; name?: string; message: string };
+      if (
+        resendError.name === 'concurrent_idempotent_requests' ||
+        resendError.name === 'invalid_idempotent_request'
+      ) {
+        // Another request with the same key is sending (or sent) this email.
+        console.info('[EMAIL DUPLICATE SKIPPED]', { to: options.to, key: options.idempotencyKey });
+        return { success: false, error: error.message, duplicate: true };
+      }
       console.error('[EMAIL ERROR]', {
         to: options.to,
         subject: options.subject,
@@ -89,6 +107,10 @@ export async function sendTreatmentPlanEmail(params: {
   planNumber: string;
   pdfBuffer: Buffer;
 }) {
+  // Names come from what people typed: escaped before they go in the HTML (CX-1).
+  const customer = escapeHtml(params.customerName);
+  const vet = escapeHtml(params.vetName);
+  const pet = escapeHtml(params.petName);
   const html = `
     <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 0 auto; padding: 0; background: #FAFBFD;">
       <div style="background: #1E5081; padding: 28px 24px 20px 24px; text-align: center;">
@@ -99,14 +121,14 @@ export async function sendTreatmentPlanEmail(params: {
       <div style="height: 4px; background: #c8d69b;"></div>
 
       <div style="padding: 32px 24px; background: #ffffff;">
-        <p style="font-size: 16px; color: #0E1A2B; line-height: 1.6; margin: 0 0 16px 0;">Dear ${params.customerName},</p>
+        <p style="font-size: 16px; color: #0E1A2B; line-height: 1.6; margin: 0 0 16px 0;">Dear ${customer},</p>
         <p style="font-size: 15px; color: #0E1A2B; line-height: 1.65; margin: 0 0 20px 0;">
-          Dr. ${params.vetName} has prepared a detailed treatment plan for <strong>${params.petName}</strong>. The complete plan — including observations, diagnosis, recommended lab tests, medications, diet and home care — is attached to this email as a PDF.
+          Dr. ${vet} has prepared a detailed treatment plan for <strong>${pet}</strong>. The complete plan — including observations, diagnosis, recommended lab tests, medications, diet and home care — is attached to this email as a PDF.
         </p>
 
         <div style="background: #E8EFF7; border-left: 4px solid #3971B8; padding: 14px 16px; margin: 20px 0; border-radius: 4px;">
           <p style="margin: 0 0 4px 0; color: #1E5081; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; font-weight: 700;">Plan Reference</p>
-          <p style="margin: 0; color: #0E1A2B; font-size: 18px; font-weight: 700; font-family: monospace;">${params.planNumber}</p>
+          <p style="margin: 0; color: #0E1A2B; font-size: 18px; font-weight: 700; font-family: monospace;">${escapeHtml(params.planNumber)}</p>
         </div>
 
         <h3 style="font-size: 14px; color: #1E5081; margin: 24px 0 8px 0; letter-spacing: 0.3px;">What to do next</h3>
@@ -118,12 +140,12 @@ export async function sendTreatmentPlanEmail(params: {
         </ul>
 
         <p style="font-size: 14px; color: #55637A; line-height: 1.6; margin: 20px 0;">
-          You can also access this treatment plan any time from ${params.petName}&apos;s profile in the Furrie app. If anything is unclear, reach out to Dr. ${params.vetName} through your follow-up thread.
+          You can also access this treatment plan any time from ${pet}&apos;s profile in the Furrie app. If anything is unclear, reach out to Dr. ${vet} through your follow-up thread.
         </p>
 
         <div style="border-top: 1px solid #E2E6EE; margin-top: 24px; padding-top: 16px;">
           <p style="font-size: 12px; color: #8892A5; line-height: 1.55; margin: 0 0 8px 0;">
-            <strong style="color: #55637A;">Important:</strong> This treatment plan was prepared based on a teleconsultation. Teleconsultation has inherent limitations. If ${params.petName}&apos;s condition changes, worsens, or does not improve as expected, please seek in-person veterinary care immediately.
+            <strong style="color: #55637A;">Important:</strong> This treatment plan was prepared based on a teleconsultation. Teleconsultation has inherent limitations. If ${pet}&apos;s condition changes, worsens, or does not improve as expected, please seek in-person veterinary care immediately.
           </p>
         </div>
 
@@ -168,6 +190,9 @@ export async function sendPrescriptionEmail(params: {
   prescriptionNumber: string;
   pdfBuffer: Buffer;
 }) {
+  const customer = escapeHtml(params.customerName);
+  const vet = escapeHtml(params.vetName);
+  const pet = escapeHtml(params.petName);
   const html = `
     <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 0 auto; padding: 0;">
       <div style="background: #1E5081; padding: 24px; text-align: center;">
@@ -175,19 +200,19 @@ export async function sendPrescriptionEmail(params: {
         <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 14px;">Veterinary Teleconsultation</p>
       </div>
       <div style="padding: 32px 24px; background: #ffffff;">
-        <p style="font-size: 16px; color: #333; line-height: 1.6; margin: 0 0 16px 0;">Dear ${params.customerName},</p>
+        <p style="font-size: 16px; color: #333; line-height: 1.6; margin: 0 0 16px 0;">Dear ${customer},</p>
         <p style="font-size: 16px; color: #333; line-height: 1.6; margin: 0 0 16px 0;">
-          Dr. ${params.vetName} has prepared a treatment plan for ${params.petName}. The complete plan is attached to this email as a PDF.
+          Dr. ${vet} has prepared a treatment plan for ${pet}. The complete plan is attached to this email as a PDF.
         </p>
         <div style="background: #f8f8f8; border-left: 4px solid #1E5081; padding: 16px; margin: 24px 0;">
           <p style="margin: 0 0 4px 0; color: #666; font-size: 13px;">Treatment Plan</p>
-          <p style="margin: 0; color: #333; font-size: 18px; font-weight: 600;">${params.prescriptionNumber}</p>
+          <p style="margin: 0; color: #333; font-size: 18px; font-weight: 600;">${escapeHtml(params.prescriptionNumber)}</p>
         </div>
         <p style="font-size: 16px; color: #333; line-height: 1.6; margin: 0 0 16px 0;">
-          Please review the plan carefully. It includes medication details, dosages, frequency, and any special instructions. If anything is unclear, reach out to Dr. ${params.vetName} through your follow-up thread or book a follow-up consultation.
+          Please review the plan carefully. It includes medication details, dosages, frequency, and any special instructions. If anything is unclear, reach out to Dr. ${vet} through your follow-up thread or book a follow-up consultation.
         </p>
         <p style="font-size: 16px; color: #333; line-height: 1.6; margin: 0 0 16px 0;">
-          You can also access this treatment plan anytime from ${params.petName}'s profile in your Furrie dashboard.
+          You can also access this treatment plan anytime from ${pet}'s profile in your Furrie dashboard.
         </p>
         <p style="font-size: 13px; color: #666; line-height: 1.6; margin: 24px 0 0 0; border-top: 1px solid #eee; padding-top: 16px;">
           This treatment plan was prepared by a licensed veterinarian based on a teleconsultation. If your pet's condition changes or worsens, please seek in-person veterinary care immediately.
@@ -223,9 +248,13 @@ export async function sendPrescriptionEmail(params: {
 // Convenience send functions for each template
 // =============================================================================
 
-export async function sendWelcomeEmail(to: string, params: Parameters<typeof templates.welcomeEmail>[0]) {
+export async function sendWelcomeEmail(
+  to: string,
+  params: Parameters<typeof templates.welcomeEmail>[0],
+  options?: { idempotencyKey?: string }
+) {
   const { subject, html } = templates.welcomeEmail(params);
-  return sendEmail({ to, subject, html });
+  return sendEmail({ to, subject, html, idempotencyKey: options?.idempotencyKey });
 }
 
 export async function sendBookingConfirmationEmail(to: string, params: Parameters<typeof templates.bookingConfirmationEmail>[0]) {
@@ -317,9 +346,9 @@ export async function sendCreditRequestReceivedEmail(params: {
       </div>
       <div style="height: 4px; background: #c8d69b;"></div>
       <div style="padding: 32px 24px; background: #ffffff;">
-        <p style="font-size: 16px; color: #0E1A2B; margin: 0 0 16px;">Dear ${params.customerName},</p>
+        <p style="font-size: 16px; color: #0E1A2B; margin: 0 0 16px;">Dear ${escapeHtml(params.customerName)},</p>
         <p style="font-size: 15px; color: #0E1A2B; line-height: 1.65; margin: 0 0 20px;">
-          We received your request for <strong>${params.quantity} consultation${params.quantity === 1 ? '' : 's'}</strong>.
+          We received your request for <strong>${escapeHtml(params.quantity)} consultation${params.quantity === 1 ? '' : 's'}</strong>.
           Our team will reach out to you shortly to coordinate the details.
         </p>
         <p style="font-size: 14px; color: #55637A; line-height: 1.5; margin: 0 0 24px;">
@@ -365,12 +394,12 @@ export async function sendCreditRequestInternalEmail(params: {
       </div>
       <div style="padding: 24px; background: #fff; border: 1px solid #E2E6EE;">
         <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
-          <tr><td style="padding: 6px 0; color: #55637A; width: 130px;">Customer</td><td style="padding: 6px 0; color: #0E1A2B;">${params.customerName}</td></tr>
-          <tr><td style="padding: 6px 0; color: #55637A;">Email</td><td style="padding: 6px 0;">${params.customerEmail}</td></tr>
-          <tr><td style="padding: 6px 0; color: #55637A;">Phone</td><td style="padding: 6px 0;">${params.customerPhone || '—'}</td></tr>
-          <tr><td style="padding: 6px 0; color: #55637A;">Quantity</td><td style="padding: 6px 0; font-weight: 700;">${params.quantity} consultations</td></tr>
-          <tr><td style="padding: 6px 0; color: #55637A;">Contact via</td><td style="padding: 6px 0;">${params.preferredContact || '—'}</td></tr>
-          ${params.note ? `<tr><td style="padding: 6px 0; color: #55637A; vertical-align: top;">Note</td><td style="padding: 6px 0;">${params.note}</td></tr>` : ''}
+          <tr><td style="padding: 6px 0; color: #55637A; width: 130px;">Customer</td><td style="padding: 6px 0; color: #0E1A2B;">${escapeHtml(params.customerName)}</td></tr>
+          <tr><td style="padding: 6px 0; color: #55637A;">Email</td><td style="padding: 6px 0;">${escapeHtml(params.customerEmail)}</td></tr>
+          <tr><td style="padding: 6px 0; color: #55637A;">Phone</td><td style="padding: 6px 0;">${escapeHtml(params.customerPhone) || '—'}</td></tr>
+          <tr><td style="padding: 6px 0; color: #55637A;">Quantity</td><td style="padding: 6px 0; font-weight: 700;">${escapeHtml(params.quantity)} consultations</td></tr>
+          <tr><td style="padding: 6px 0; color: #55637A;">Contact via</td><td style="padding: 6px 0;">${escapeHtml(params.preferredContact) || '—'}</td></tr>
+          ${params.note ? `<tr><td style="padding: 6px 0; color: #55637A; vertical-align: top;">Note</td><td style="padding: 6px 0;">${escapeHtml(params.note)}</td></tr>` : ''}
         </table>
         <p style="margin: 20px 0 0; font-size: 13px; color: #55637A;">
           Go to Admin Portal → Credit Requests to process this request.
@@ -407,7 +436,7 @@ export async function sendInviteRedeemedEmail(params: {
       </div>
       <div style="height: 4px; background: #c8d69b;"></div>
       <div style="padding: 32px 24px; background: #ffffff;">
-        <p style="font-size: 16px; color: #0E1A2B; margin: 0 0 16px;">Welcome to Furrie, ${params.inviteeName}!</p>
+        <p style="font-size: 16px; color: #0E1A2B; margin: 0 0 16px;">Welcome to Furrie, ${escapeHtml(params.inviteeName)}!</p>
         <p style="font-size: 15px; color: #0E1A2B; line-height: 1.65; margin: 0 0 20px;">
           You have been gifted <strong>1 free vet consultation</strong>. Your credit is ready — book any time within the next 60 days.
         </p>
@@ -446,13 +475,13 @@ export async function sendInviteUsedReferrerEmail(params: {
       </div>
       <div style="height: 4px; background: #c8d69b;"></div>
       <div style="padding: 32px 24px; background: #ffffff;">
-        <p style="font-size: 16px; color: #0E1A2B; margin: 0 0 16px;">Hi ${params.referrerName},</p>
+        <p style="font-size: 16px; color: #0E1A2B; margin: 0 0 16px;">Hi ${escapeHtml(params.referrerName)},</p>
         <p style="font-size: 15px; color: #0E1A2B; line-height: 1.65; margin: 0 0 20px;">
-          <strong>${params.inviteeFirstName}</strong> signed up using your invite!
+          <strong>${escapeHtml(params.inviteeFirstName)}</strong> signed up using your invite!
           They have received their free consultation.
         </p>
         <p style="font-size: 14px; color: #55637A; line-height: 1.55; margin: 0 0 20px;">
-          When ${params.inviteeFirstName} completes their first consultation,
+          When ${escapeHtml(params.inviteeFirstName)} completes their first consultation,
           you will receive a free consultation too as a thank-you.
         </p>
         <p style="font-size: 15px; color: #0E1A2B; margin: 24px 0 0;"><strong>Team Furrie</strong></p>
@@ -484,7 +513,7 @@ export async function sendInviteRewardEmail(params: {
       </div>
       <div style="height: 4px; background: #c8d69b;"></div>
       <div style="padding: 32px 24px; background: #ffffff;">
-        <p style="font-size: 16px; color: #0E1A2B; margin: 0 0 16px;">Hi ${params.referrerName},</p>
+        <p style="font-size: 16px; color: #0E1A2B; margin: 0 0 16px;">Hi ${escapeHtml(params.referrerName)},</p>
         <p style="font-size: 15px; color: #0E1A2B; line-height: 1.65; margin: 0 0 20px;">
           Your friend completed their first vet consultation. As a thank-you,
           <strong>1 free consultation</strong> has been added to your account!
@@ -521,9 +550,9 @@ export async function sendCreditsAddedEmail(params: {
       </div>
       <div style="height: 4px; background: #c8d69b;"></div>
       <div style="padding: 32px 24px; background: #ffffff;">
-        <p style="font-size: 16px; color: #0E1A2B; margin: 0 0 16px;">Dear ${params.customerName},</p>
+        <p style="font-size: 16px; color: #0E1A2B; margin: 0 0 16px;">Dear ${escapeHtml(params.customerName)},</p>
         <p style="font-size: 15px; color: #0E1A2B; line-height: 1.65; margin: 0 0 20px;">
-          <strong>${params.quantity} consultation${params.quantity === 1 ? '' : 's'}</strong>
+          <strong>${escapeHtml(params.quantity)} consultation${params.quantity === 1 ? '' : 's'}</strong>
           ${params.quantity === 1 ? 'has' : 'have'} been added to your account. You can start booking right away!
         </p>
         <div style="text-align: center; margin: 24px 0;">
@@ -548,16 +577,8 @@ export async function sendCreditsAddedEmail(params: {
 
 // ---- L1 ----
 // Credits sprint L1 (2026-09-25): UPI purchase, payment claims, grants and
-// booking alerts. Every value a customer typed is HTML-escaped here.
-
-function escapeHtml(value: string | null | undefined): string {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+// booking alerts. Every value a customer typed is HTML-escaped here
+// (escapeHtml from ./escape since CX-1).
 
 function istDateTime(iso: string): string {
   try {
@@ -804,5 +825,16 @@ export async function sendVetSetPasswordEmail(
   params: Parameters<typeof templates.vetSetPasswordEmail>[0]
 ) {
   const { subject, html } = templates.vetSetPasswordEmail(params);
+  return sendEmail({ to, subject, html });
+}
+
+// ---- CX-1 ----
+
+/** Vet: the pet parent cancelled a booked consultation. */
+export async function sendVetConsultationCancelledEmail(
+  to: string,
+  params: Parameters<typeof templates.vetConsultationCancelledEmail>[0]
+) {
+  const { subject, html } = templates.vetConsultationCancelledEmail(params);
   return sendEmail({ to, subject, html });
 }

@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import {
@@ -6,11 +6,88 @@ import {
   parseCustomerConsultationPatch,
 } from '@/lib/utils/consultationMapper';
 import { releaseConsultationCredit } from '@/lib/credits/releaseCredit';
+import { cancelReturnsCredit } from '@/lib/credits/cancelCredit';
+import { createNotification } from '@/lib/notifications/createNotification';
+import { sendVetConsultationCancelledEmail } from '@/lib/email';
+import { formatScheduledTimeShort } from '@/lib/utils';
 import { withRoute } from '@/server/handler';
 
 const CANCELLABLE_STATUSES = ['pending', 'scheduled'];
-/** Cancelling earlier than this before the start gives the credit back (Terms §7.3). */
-const CREDIT_BACK_MIN_NOTICE_MS = 5 * 60 * 1000;
+
+/**
+ * Tell the assigned vet that the customer cancelled (CX-1: they used to hear
+ * nothing and could wait in an empty call). Same channels as a new booking:
+ * a Broadcast to the open vet portal, an in-app notification and an email.
+ * Runs after the response; never throws.
+ */
+async function notifyVetOfCancellation(consultation: {
+  id: string;
+  vet_id: string;
+  pet_id: string;
+  customer_id: string;
+  scheduled_at: string;
+  consultation_number: string;
+}): Promise<void> {
+  const [{ data: pet }, { data: vet }, { data: customer }] = await Promise.all([
+    supabaseAdmin.from('pets').select('name, species').eq('id', consultation.pet_id).maybeSingle(),
+    supabaseAdmin.from('profiles').select('full_name, email').eq('id', consultation.vet_id).maybeSingle(),
+    supabaseAdmin.from('profiles').select('full_name').eq('id', consultation.customer_id).maybeSingle(),
+  ]);
+  const petName = pet?.name || 'A pet';
+  const when = formatScheduledTimeShort(consultation.scheduled_at);
+
+  const tasks: Promise<unknown>[] = [];
+
+  // The vet portal refreshes its lists and shows a toast (VetAlerts).
+  tasks.push(
+    (async () => {
+      const channel = supabaseAdmin.channel(`vet:${consultation.vet_id}:notifications`);
+      await channel.send({
+        type: 'broadcast',
+        event: 'consultation_cancelled',
+        payload: { consultationId: consultation.id, petName, scheduledAt: consultation.scheduled_at },
+      });
+      await supabaseAdmin.removeChannel(channel);
+    })()
+  );
+
+  tasks.push(
+    createNotification({
+      user_id: consultation.vet_id,
+      type: 'consultation_cancelled',
+      title: 'Consultation cancelled',
+      body: `${petName} · was booked for ${when}. The pet parent cancelled.`,
+      channel: 'in_app',
+      data: {
+        consultationId: consultation.id,
+        petName,
+        scheduledAt: consultation.scheduled_at,
+      },
+    })
+  );
+
+  if (vet?.email) {
+    tasks.push(
+      sendVetConsultationCancelledEmail(vet.email, {
+        vetName: vet.full_name || '',
+        petName,
+        petSpecies: pet?.species ?? null,
+        customerName: customer?.full_name && customer.full_name !== 'User' ? customer.full_name : 'The pet parent',
+        scheduledAt: consultation.scheduled_at,
+        consultationNumber: consultation.consultation_number,
+      })
+    );
+  }
+
+  const results = await Promise.allSettled(tasks);
+  for (const r of results) {
+    if (r.status === 'rejected') {
+      console.error('[cancel] vet notification failed:', r.reason);
+    } else if (r.value && typeof r.value === 'object' && 'success' in r.value && r.value.success === false) {
+      console.error('[cancel] vet cancellation email failed:', (r.value as { error?: string }).error);
+    }
+  }
+}
 
 // GET /api/consultations/[id] - Get single consultation
 export const GET = withRoute(async function GET(
@@ -396,15 +473,26 @@ export const PATCH = withRoute(async function PATCH(
       }
 
       // Terms §7.3 (L1 seam 2): the credit comes back when a booked
-      // consultation is cancelled more than 5 minutes before it starts.
+      // consultation is cancelled more than 5 minutes before it starts. The
+      // customer's cancel screens show the same rule (cancelCredit.ts, CX-1).
       let creditReturned = false;
-      if (
-        existing.status === 'scheduled' &&
-        existing.scheduled_at &&
-        new Date(existing.scheduled_at).getTime() - Date.now() > CREDIT_BACK_MIN_NOTICE_MS
-      ) {
+      if (existing.status === 'scheduled' && cancelReturnsCredit(existing.scheduled_at)) {
         const release = await releaseConsultationCredit(id);
         creditReturned = release.released;
+      }
+
+      // Only a confirmed booking was ever announced to the vet; a 'pending'
+      // one never got that far, so there is nothing to take back.
+      if (existing.status === 'scheduled' && updated.vet_id && updated.scheduled_at) {
+        const cancelled = {
+          id: updated.id,
+          vet_id: updated.vet_id,
+          pet_id: updated.pet_id,
+          customer_id: updated.customer_id,
+          scheduled_at: updated.scheduled_at,
+          consultation_number: updated.consultation_number,
+        };
+        after(() => notifyVetOfCancellation(cancelled));
       }
 
       return NextResponse.json({ consultation: updated, creditReturned });

@@ -6,6 +6,7 @@
  */
 
 import { JOIN_WINDOW_BEFORE_MINUTES, JOIN_WINDOW_BEFORE_MS } from '@/lib/scheduling/joinWindow';
+import { escapeHtml } from './escape';
 
 const LOGO_URL = 'https://app.furrie.in/assets/logo/furrie-logo-dark-blue.png';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://app.furrie.in';
@@ -45,12 +46,29 @@ const textStyle = 'font-size: 16px; color: #333; line-height: 1.6; margin: 0 0 1
 const labelStyle = 'margin: 0 0 4px 0; color: #666; font-size: 13px;';
 const valueStyle = 'margin: 0 0 12px 0; color: #333; font-size: 16px; font-weight: 600;';
 
-/** Generate a personalized greeting, falling back to generic "Hey there," for unknown names */
+/**
+ * Every value a person typed (names, pet details, plan titles, links built
+ * from them) goes through this before it is placed in the HTML. The V block
+ * below always did; the older templates now do too (CX-1).
+ */
+function vEscape(value: string | number | null | undefined): string {
+  return escapeHtml(value);
+}
+
+/**
+ * The name to greet someone by, or null when there isn't a real one: no name,
+ * or the 'User' placeholder that a code sign-in stores as full_name.
+ */
+function greetingName(name: string | null | undefined): string | null {
+  const trimmed = (name ?? '').trim();
+  if (!trimmed || trimmed === 'there' || trimmed === 'User') return null;
+  return trimmed;
+}
+
+/** Generate a personalized greeting, falling back to generic "Hey there," for unknown names. Escape the result. */
 function emailGreeting(name: string): string {
-  if (!name || name === 'there' || name === 'User') {
-    return 'Hey there,';
-  }
-  return `Hey ${name},`;
+  const known = greetingName(name);
+  return known ? `Hey ${known},` : 'Hey there,';
 }
 
 function formatDateTime(isoDate: string): string {
@@ -91,10 +109,12 @@ function formatDate(isoDate: string): string {
 export function welcomeEmail(params: {
   customerName: string;
 }): { subject: string; html: string } {
+  // A code sign-in stores 'User' as the name: no "Welcome to Furrie, User" (CX-1).
+  const name = greetingName(params.customerName);
   return {
-    subject: `Welcome to Furrie, ${params.customerName}`,
+    subject: name ? `Welcome to Furrie, ${name}` : 'Welcome to Furrie',
     html: wrapEmailBody(`
-      <p style="${textStyle}">${emailGreeting(params.customerName)}</p>
+      <p style="${textStyle}">${vEscape(emailGreeting(params.customerName))}</p>
       <p style="${textStyle}">
         Welcome to Furrie. You can book a video consultation with a vet for your dog or cat.
       </p>
@@ -126,18 +146,19 @@ export function bookingConfirmationEmail(params: {
   scheduledAt: string;
   consultationNumber: string;
 }): { subject: string; html: string } {
+  const pet = vEscape(params.petName);
   return {
     subject: `Confirmed — ${params.petName}'s consultation with Dr. ${params.vetName}`,
     html: wrapEmailBody(`
-      <p style="${textStyle}">${emailGreeting(params.customerName)}</p>
+      <p style="${textStyle}">${vEscape(emailGreeting(params.customerName))}</p>
       <p style="${textStyle}">
-        You're all set. ${params.petName}'s consultation has been booked.
+        You're all set. ${pet}'s consultation has been booked.
       </p>
       <div style="${infoBox}">
         <p style="${labelStyle}">Consultation</p>
-        <p style="${valueStyle}">${params.consultationNumber}</p>
+        <p style="${valueStyle}">${vEscape(params.consultationNumber)}</p>
         <p style="${labelStyle}">Vet</p>
-        <p style="${valueStyle}">Dr. ${params.vetName}</p>
+        <p style="${valueStyle}">Dr. ${vEscape(params.vetName)}</p>
         <p style="${labelStyle}">Scheduled</p>
         <p style="margin: 0; color: #333; font-size: 16px; font-weight: 600;">${formatDateTime(params.scheduledAt)} IST</p>
       </div>
@@ -146,7 +167,7 @@ export function bookingConfirmationEmail(params: {
       </p>
       <p style="${textStyle}"><strong>A few things that help:</strong></p>
       <ul style="font-size: 16px; color: #333; margin: 0 0 24px 0; padding-left: 20px; line-height: 1.8;">
-        <li>Have ${params.petName} nearby during the call</li>
+        <li>Have ${pet} nearby during the call</li>
         <li>Find a quiet spot with stable internet</li>
         <li>If you have any previous health records or photos of symptoms, keep them handy</li>
       </ul>
@@ -177,15 +198,15 @@ export function paymentReceiptEmail(params: {
   return {
     subject: `Payment received — ${params.consultationNumber}`,
     html: wrapEmailBody(`
-      <p style="${textStyle}">${emailGreeting(params.customerName)}</p>
+      <p style="${textStyle}">${vEscape(emailGreeting(params.customerName))}</p>
       <p style="${textStyle}">Your payment has been received. Here are the details for your records.</p>
       <div style="${infoBox}">
         <p style="${labelStyle}">Consultation</p>
-        <p style="${valueStyle}">${params.consultationNumber} (${params.petName})</p>
+        <p style="${valueStyle}">${vEscape(params.consultationNumber)} (${vEscape(params.petName)})</p>
         <p style="${labelStyle}">Amount</p>
-        <p style="${valueStyle}">Rs. ${params.amount}</p>
+        <p style="${valueStyle}">Rs. ${vEscape(params.amount)}</p>
         <p style="${labelStyle}">Payment ID</p>
-        <p style="${valueStyle}">${params.paymentId}</p>
+        <p style="${valueStyle}">${vEscape(params.paymentId)}</p>
         <p style="${labelStyle}">Date</p>
         <p style="margin: 0; color: #333; font-size: 16px; font-weight: 600;">${formatDate(params.paidAt)} IST</p>
       </div>
@@ -223,18 +244,18 @@ export function vetNewBookingEmail(params: {
   return {
     subject: `New consultation assigned — ${params.consultationNumber}`,
     html: wrapEmailBody(`
-      <p style="${textStyle}">Dear Dr. ${params.vetName},</p>
+      <p style="${textStyle}">Dear Dr. ${vEscape(params.vetName)},</p>
       <p style="${textStyle}">
         A new consultation has been assigned to you.
       </p>
       ${priorityBlock}
       <div style="${infoBox}">
         <p style="${labelStyle}">Consultation</p>
-        <p style="${valueStyle}">${params.consultationNumber}</p>
+        <p style="${valueStyle}">${vEscape(params.consultationNumber)}</p>
         <p style="${labelStyle}">Pet Parent</p>
-        <p style="${valueStyle}">${params.customerName}</p>
+        <p style="${valueStyle}">${vEscape(params.customerName)}</p>
         <p style="${labelStyle}">Pet</p>
-        <p style="${valueStyle}">${params.petName} (${params.petSpecies})</p>
+        <p style="${valueStyle}">${vEscape(params.petName)} (${vEscape(params.petSpecies)})</p>
         <p style="${labelStyle}">Scheduled</p>
         <p style="margin: 0; color: #333; font-size: 16px; font-weight: 600;">${formatDateTime(params.scheduledAt)} IST</p>
       </div>
@@ -260,12 +281,13 @@ export function customerOneHourReminderEmail(params: {
   vetName: string;
   scheduledAt: string;
 }): { subject: string; html: string } {
+  const pet = vEscape(params.petName);
   return {
     subject: `1 hour to go — ${params.petName}'s consultation with Dr. ${params.vetName}`,
     html: wrapEmailBody(`
-      <p style="${textStyle}">${emailGreeting(params.customerName)}</p>
+      <p style="${textStyle}">${vEscape(emailGreeting(params.customerName))}</p>
       <p style="${textStyle}">
-        Quick reminder &mdash; ${params.petName}'s consultation with Dr. ${params.vetName} is in about an hour.
+        Quick reminder &mdash; ${pet}'s consultation with Dr. ${vEscape(params.vetName)} is in about an hour.
       </p>
       <div style="${infoBox}">
         <p style="${labelStyle}">Time</p>
@@ -274,7 +296,7 @@ export function customerOneHourReminderEmail(params: {
       <p style="${textStyle}">A couple of things to get ready:</p>
       <ul style="font-size: 16px; color: #333; margin: 0 0 24px 0; padding-left: 20px; line-height: 1.8;">
         <li>Find a quiet spot with stable wifi</li>
-        <li>Have ${params.petName} nearby (or at least within reach)</li>
+        <li>Have ${pet} nearby (or at least within reach)</li>
         <li>Keep any health records, medication details, or symptom photos handy</li>
       </ul>
       <p style="${textStyle}">
@@ -299,9 +321,9 @@ export function vetOneHourReminderEmail(params: {
   return {
     subject: `1 hour to go — consultation for ${params.petName}`,
     html: wrapEmailBody(`
-      <p style="${textStyle}">Dear Dr. ${params.vetName},</p>
+      <p style="${textStyle}">Dear Dr. ${vEscape(params.vetName)},</p>
       <p style="${textStyle}">
-        Your consultation for ${params.petName} (${params.customerName}) is scheduled in about 1 hour.
+        Your consultation for ${vEscape(params.petName)} (${vEscape(params.customerName)}) is scheduled in about 1 hour.
       </p>
       <div style="${infoBox}">
         <p style="${labelStyle}">Time</p>
@@ -329,21 +351,23 @@ export function customerFifteenMinReminderEmail(params: {
   vetName: string;
   consultationId: string;
 }): { subject: string; html: string } {
+  const pet = vEscape(params.petName);
+  const vet = vEscape(params.vetName);
   return {
     subject: `Starting soon — ${params.petName}'s consultation`,
     html: wrapEmailBody(`
-      <p style="${textStyle}">${emailGreeting(params.customerName)}</p>
+      <p style="${textStyle}">${vEscape(emailGreeting(params.customerName))}</p>
       <p style="${textStyle}">
-        ${params.petName}'s consultation with Dr. ${params.vetName} starts in about 15 minutes.
+        ${pet}'s consultation with Dr. ${vet} starts in about 15 minutes.
       </p>
       <p style="${textStyle}">
         When you're ready, tap the button below to join the video call.
       </p>
       <div style="text-align: center; margin: 32px 0;">
-        <a href="${APP_URL}/consultations/${params.consultationId}/video" style="${btnPrimary}">Join Video Call</a>
+        <a href="${APP_URL}/consultations/${encodeURIComponent(params.consultationId)}/video" style="${btnPrimary}">Join Video Call</a>
       </div>
       <p style="${textStyle}">
-        Make sure ${params.petName} is with you and you're somewhere with a stable connection. Dr. ${params.vetName} will be waiting.
+        Make sure ${pet} is with you and you're somewhere with a stable connection. Dr. ${vet} will be waiting.
       </p>
       <p style="${textStyle}">
         <strong>Team Furrie</strong>
@@ -364,12 +388,12 @@ export function vetFifteenMinReminderEmail(params: {
   return {
     subject: `Starting soon — consultation for ${params.petName}`,
     html: wrapEmailBody(`
-      <p style="${textStyle}">Dear Dr. ${params.vetName},</p>
+      <p style="${textStyle}">Dear Dr. ${vEscape(params.vetName)},</p>
       <p style="${textStyle}">
-        Your consultation for ${params.petName} (${params.customerName}) starts in about 15 minutes.
+        Your consultation for ${vEscape(params.petName)} (${vEscape(params.customerName)}) starts in about 15 minutes.
       </p>
       <div style="text-align: center; margin: 32px 0;">
-        <a href="${VET_URL}/consultations/${params.consultationId}" style="${btnPrimary}">Open Consultation</a>
+        <a href="${VET_URL}/consultations/${encodeURIComponent(params.consultationId)}" style="${btnPrimary}">Open Consultation</a>
       </div>
       <p style="${textStyle}">
         <strong>Team Furrie</strong>
@@ -387,27 +411,29 @@ export function consultationCompletedEmail(params: {
   vetName: string;
   consultationId: string;
 }): { subject: string; html: string } {
+  const pet = vEscape(params.petName);
+  const vet = vEscape(params.vetName);
   return {
     subject: `${params.petName}'s consultation with Dr. ${params.vetName} — complete`,
     html: wrapEmailBody(`
-      <p style="${textStyle}">${emailGreeting(params.customerName)}</p>
+      <p style="${textStyle}">${vEscape(emailGreeting(params.customerName))}</p>
       <p style="${textStyle}">
-        ${params.petName}'s consultation with Dr. ${params.vetName} is now complete, and the notes from your session are ready.
+        ${pet}'s consultation with Dr. ${vet} is now complete, and the notes from your session are ready.
       </p>
       <p style="${textStyle}">
-        You can view the full consultation details &mdash; including Dr. ${params.vetName}'s notes and any recommendations &mdash; in your dashboard.
+        You can view the full consultation details &mdash; including Dr. ${vet}'s notes and any recommendations &mdash; in your dashboard.
       </p>
       <div style="text-align: center; margin: 32px 0;">
-        <a href="${APP_URL}/consultations/${params.consultationId}" style="${btnPrimary}">View Details</a>
+        <a href="${APP_URL}/consultations/${encodeURIComponent(params.consultationId)}" style="${btnPrimary}">View Details</a>
       </div>
       <p style="${textStyle}">
-        If Dr. ${params.vetName} has prescribed any medication or created a care plan, you'll find those in your dashboard too. And if a follow-up thread has been opened, you'll receive a separate email about that shortly.
+        If Dr. ${vet} has prescribed any medication or created a care plan, you'll find those in your dashboard too. And if a follow-up thread has been opened, you'll receive a separate email about that shortly.
       </p>
       <p style="${textStyle}">
-        One last thing &mdash; if you have a moment, we'd appreciate your feedback on the consultation. It helps us keep the care quality high and helps Dr. ${params.vetName} continue to improve.
+        One last thing &mdash; if you have a moment, we'd appreciate your feedback on the consultation. It helps us keep the care quality high and helps Dr. ${vet} continue to improve.
       </p>
       <p style="${textStyle}">
-        Thank you for trusting Furrie with ${params.petName}'s care.
+        Thank you for trusting Furrie with ${pet}'s care.
       </p>
       <p style="${textStyle}">
         <strong>Team Furrie</strong>
@@ -426,12 +452,13 @@ export function followUpAvailableEmail(params: {
   expiresAt: string;
   consultationId: string;
 }): { subject: string; html: string } {
+  const vet = vEscape(params.vetName);
   return {
     subject: `Follow-up open — stay in touch with Dr. ${params.vetName} about ${params.petName}`,
     html: wrapEmailBody(`
-      <p style="${textStyle}">${emailGreeting(params.customerName)}</p>
+      <p style="${textStyle}">${vEscape(emailGreeting(params.customerName))}</p>
       <p style="${textStyle}">
-        Dr. ${params.vetName} has opened a follow-up thread for ${params.petName}. This means you can continue the conversation &mdash; share progress updates, ask follow-up questions, or flag anything new &mdash; without booking another consultation.
+        Dr. ${vet} has opened a follow-up thread for ${vEscape(params.petName)}. This means you can continue the conversation &mdash; share progress updates, ask follow-up questions, or flag anything new &mdash; without booking another consultation.
       </p>
       <div style="${infoBox}">
         <p style="${labelStyle}">Follow-up available until</p>
@@ -444,10 +471,10 @@ export function followUpAvailableEmail(params: {
         <li>"Quick question about the care plan"</li>
       </ul>
       <div style="text-align: center; margin: 32px 0;">
-        <a href="${APP_URL}/consultations/${params.consultationId}" style="${btnPrimary}">Open Follow-Up</a>
+        <a href="${APP_URL}/consultations/${encodeURIComponent(params.consultationId)}" style="${btnPrimary}">Open Follow-Up</a>
       </div>
       <p style="${textStyle}">
-        Dr. ${params.vetName} will respond within the follow-up window. If anything feels urgent before then, you can always book a new consultation.
+        Dr. ${vet} will respond within the follow-up window. If anything feels urgent before then, you can always book a new consultation.
       </p>
       <p style="${textStyle}">
         <strong>Team Furrie</strong>
@@ -464,18 +491,19 @@ export function missedAppointmentEmail(params: {
   petName: string;
   scheduledAt: string;
 }): { subject: string; html: string } {
+  const pet = vEscape(params.petName);
   return {
     subject: `We missed you — ${params.petName}'s consultation`,
     html: wrapEmailBody(`
-      <p style="${textStyle}">${emailGreeting(params.customerName)}</p>
+      <p style="${textStyle}">${vEscape(emailGreeting(params.customerName))}</p>
       <p style="${textStyle}">
-        It looks like ${params.petName}'s consultation scheduled for ${formatDateTime(params.scheduledAt)} IST didn't happen &mdash; no one joined the call.
+        It looks like ${pet}'s consultation scheduled for ${formatDateTime(params.scheduledAt)} IST didn't happen &mdash; no one joined the call.
       </p>
       <p style="${textStyle}">
         No worries at all. Things come up.
       </p>
       <p style="${textStyle}">
-        If ${params.petName} still needs to see a vet, you can book a new consultation whenever you're ready.
+        If ${pet} still needs to see a vet, you can book a new consultation whenever you're ready.
       </p>
       <div style="text-align: center; margin: 32px 0;">
         <a href="${APP_URL}/connect" style="${btnPrimary}">Book New Consultation</a>
@@ -498,12 +526,13 @@ export function plusActivatedEmail(params: {
   petName: string;
   expiresAt: string;
 }): { subject: string; html: string } {
+  const pet = vEscape(params.petName);
   return {
     subject: `Furrie Plus is active for ${params.petName}`,
     html: wrapEmailBody(`
-      <p style="${textStyle}">${emailGreeting(params.customerName)}</p>
+      <p style="${textStyle}">${vEscape(emailGreeting(params.customerName))}</p>
       <p style="${textStyle}">
-        Great news &mdash; Furrie Plus is now active for ${params.petName}.
+        Great news &mdash; Furrie Plus is now active for ${pet}.
       </p>
       <div style="${infoBox}">
         <p style="${labelStyle}">Plan</p>
@@ -511,12 +540,12 @@ export function plusActivatedEmail(params: {
         <p style="${labelStyle}">Active until</p>
         <p style="margin: 0; color: #333; font-size: 16px; font-weight: 600;">${formatDate(params.expiresAt)} IST</p>
       </div>
-      <p style="${textStyle}">Here's what this means for ${params.petName}:</p>
+      <p style="${textStyle}">Here's what this means for ${pet}:</p>
       <ul style="font-size: 16px; color: #333; margin: 0 0 24px 0; padding-left: 20px; line-height: 1.8;">
         <li><strong>Unlimited consultations</strong> &mdash; Talk to a vet as often as you need. No per-consultation charges.</li>
         <li><strong>Priority vet matching</strong> &mdash; You're moved to the front of the queue when booking.</li>
         <li><strong>Extended follow-up</strong> &mdash; Longer follow-up windows with your vet after every consultation.</li>
-        <li><strong>Custom care plans</strong> &mdash; Every consultation includes a personalised plan for ${params.petName}.</li>
+        <li><strong>Custom care plans</strong> &mdash; Every consultation includes a personalised plan for ${pet}.</li>
       </ul>
       <p style="${textStyle}">
         The best way to make the most of Plus is to book a consultation whenever something comes up &mdash; even for small questions. That's what it's for.
@@ -539,12 +568,13 @@ export function subscriptionExpiredEmail(params: {
   petName: string;
   expiredAt: string;
 }): { subject: string; html: string } {
+  const pet = vEscape(params.petName);
   return {
     subject: `Your Furrie Plus plan for ${params.petName} has ended`,
     html: wrapEmailBody(`
-      <p style="${textStyle}">${emailGreeting(params.customerName)}</p>
+      <p style="${textStyle}">${vEscape(emailGreeting(params.customerName))}</p>
       <p style="${textStyle}">
-        Just a heads up &mdash; ${params.petName}'s Furrie Plus subscription ended on ${formatDate(params.expiredAt)} IST.
+        Just a heads up &mdash; ${pet}'s Furrie Plus subscription ended on ${formatDate(params.expiredAt)} IST.
       </p>
       <p style="${textStyle}">
         This means unlimited consultations and priority matching are no longer active. But you can still book consultations at our standard rate anytime.
@@ -556,7 +586,7 @@ export function subscriptionExpiredEmail(params: {
         <a href="${APP_URL}/dashboard" style="${btnPrimary}">Go to Dashboard</a>
       </div>
       <p style="${textStyle}">
-        We're still here for ${params.petName} whenever you need us.
+        We're still here for ${pet} whenever you need us.
       </p>
       <p style="${textStyle}">
         <strong>Team Furrie</strong>
@@ -576,7 +606,7 @@ export function vetWelcomeEmail(params: {
   return {
     subject: `Welcome to Furrie, Dr. ${params.vetName} — your account is ready`,
     html: wrapEmailBody(`
-      <p style="${textStyle}">Dear Dr. ${params.vetName},</p>
+      <p style="${textStyle}">Dear Dr. ${vEscape(params.vetName)},</p>
       <p style="${textStyle}">
         Welcome to Furrie. We're glad to have you on the platform.
       </p>
@@ -585,9 +615,9 @@ export function vetWelcomeEmail(params: {
       </p>
       <div style="${infoBox}">
         <p style="${labelStyle}">Email</p>
-        <p style="${valueStyle}">${params.email}</p>
+        <p style="${valueStyle}">${vEscape(params.email)}</p>
         <p style="${labelStyle}">Temporary Password</p>
-        <p style="margin: 0; color: #333; font-size: 16px; font-weight: 600; font-family: monospace;">${params.temporaryPassword}</p>
+        <p style="margin: 0; color: #333; font-size: 16px; font-weight: 600; font-family: monospace;">${vEscape(params.temporaryPassword)}</p>
       </div>
       <div style="background: #FEF2F2; border-left: 4px solid #DC2626; padding: 12px 16px; margin: 0 0 24px 0;">
         <p style="margin: 0; color: #991B1B; font-size: 14px; font-weight: 600;">
@@ -619,13 +649,13 @@ export function passwordResetEmail(params: {
   return {
     subject: 'Reset your Furrie password',
     html: wrapEmailBody(`
-      <p style="${textStyle}">Hi ${params.name},</p>
+      <p style="${textStyle}">Hi ${vEscape(params.name)},</p>
       <p style="${textStyle}">
-        A Furrie administrator has started a password reset for your ${params.portalName} account.
+        A Furrie administrator has started a password reset for your ${vEscape(params.portalName)} account.
         Use the button below to sign in securely; the link works once and expires in one hour.
       </p>
       <div style="text-align: center; margin: 32px 0;">
-        <a href="${params.link}" style="${btnPrimary}">Sign in to Furrie</a>
+        <a href="${vEscape(params.link)}" style="${btnPrimary}">Sign in to Furrie</a>
       </div>
       <p style="${textStyle}">
         If you did not expect this email, you can ignore it and your password will stay as it is.
@@ -647,30 +677,32 @@ export function carePlanCreatedEmail(params: {
   stepCount: number;
   petId: string;
 }): { subject: string; html: string } {
-  const { customerName, petName, vetName, planTitle, planCategory, stepCount, petId } = params;
+  const { customerName, petName, planTitle, planCategory, stepCount, petId } = params;
+  const pet = vEscape(petName);
+  const vet = vEscape(params.vetName);
   return {
     subject: `${petName}'s new care plan — ${planTitle}`,
     html: wrapEmailBody(`
-      <p style="${textStyle}">${emailGreeting(customerName)}</p>
+      <p style="${textStyle}">${vEscape(emailGreeting(customerName))}</p>
       <p style="${textStyle}">
-        Dr. ${vetName} has created a new care plan for ${petName}.
+        Dr. ${vet} has created a new care plan for ${pet}.
       </p>
       <div style="${infoBox}">
         <p style="${labelStyle}">Plan</p>
-        <p style="${valueStyle}">${planTitle}</p>
+        <p style="${valueStyle}">${vEscape(planTitle)}</p>
         <p style="${labelStyle}">Category</p>
-        <p style="${valueStyle}">${planCategory.charAt(0).toUpperCase() + planCategory.slice(1)}</p>
+        <p style="${valueStyle}">${vEscape(planCategory.charAt(0).toUpperCase() + planCategory.slice(1))}</p>
         <p style="${labelStyle}">Steps</p>
         <p style="${valueStyle}">${stepCount} step${stepCount !== 1 ? 's' : ''}</p>
       </div>
       <p style="${textStyle}">
-        This plan was built specifically for ${petName} based on your consultation. You'll find each step laid out clearly in your dashboard &mdash; what to do, when to do it, and what to watch for.
+        This plan was built specifically for ${pet} based on your consultation. You'll find each step laid out clearly in your dashboard &mdash; what to do, when to do it, and what to watch for.
       </p>
       <div style="text-align: center; margin: 32px 0;">
-        <a href="${APP_URL}/pets/${petId}" style="${btnPrimary}">View Care Plan</a>
+        <a href="${APP_URL}/pets/${encodeURIComponent(petId)}" style="${btnPrimary}">View Care Plan</a>
       </div>
       <p style="${textStyle}">
-        If you have questions about any of the steps, you can use your follow-up thread or book a quick consultation with Dr. ${vetName}.
+        If you have questions about any of the steps, you can use your follow-up thread or book a quick consultation with Dr. ${vet}.
       </p>
       <p style="${textStyle}">
         <strong>Team Furrie</strong>
@@ -681,16 +713,8 @@ export function carePlanCreatedEmail(params: {
 
 // ---- V ----
 // Agent V (vets, reminders, the consultation), 2026-09-27. Times are India
-// time. Names and other values people typed are HTML-escaped here.
-
-function vEscape(value: string | null | undefined): string {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+// time. Names and other values people typed are HTML-escaped here (vEscape,
+// defined at the top of the file since CX-1).
 
 /** Customer did not join (V rule set): replaces missedAppointmentEmail for the crons. */
 export function customerMissedConsultationEmail(params: {
@@ -876,6 +900,66 @@ export function vetSetPasswordEmail(params: {
       ${isWelcome
         ? `<p style="${textStyle}">Once you are signed in, set your weekly hours on the Schedule page and turn on Available, so customers can book you.</p>`
         : `<p style="${textStyle}">If you did not ask for this, you can ignore this email; your password stays as it is.</p>`}
+      <p style="${textStyle}">
+        <strong>Team Furrie</strong>
+      </p>
+    `),
+  };
+}
+
+// ---- CX-1 ----
+// Customer fixes batch, 2026-10-09.
+
+/** "Fri, 10 Oct, 4:00 pm" in India time. */
+function cxShortDateTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } catch {
+    return iso;
+  }
+}
+
+/** Vet: the pet parent cancelled a booked consultation (the vet used to hear nothing). */
+export function vetConsultationCancelledEmail(params: {
+  vetName: string;
+  petName: string;
+  petSpecies: string | null;
+  customerName: string;
+  scheduledAt: string;
+  consultationNumber: string;
+}): { subject: string; html: string } {
+  const when = `${cxShortDateTime(params.scheduledAt)} IST`;
+  const pet = params.petSpecies
+    ? `${vEscape(params.petName)} (${vEscape(params.petSpecies)})`
+    : vEscape(params.petName);
+  return {
+    subject: `Consultation cancelled: ${params.petName}, ${when}`,
+    html: wrapEmailBody(`
+      <p style="${textStyle}">Dear ${vEscape(vVetName(params.vetName))},</p>
+      <p style="${textStyle}">
+        The pet parent has cancelled this consultation. You don't need to do anything; the time is open for other bookings again.
+      </p>
+      <div style="${infoBox}">
+        <p style="${labelStyle}">Was booked for</p>
+        <p style="${valueStyle}">${when}</p>
+        <p style="${labelStyle}">Pet</p>
+        <p style="${valueStyle}">${pet}</p>
+        <p style="${labelStyle}">Pet parent</p>
+        <p style="${valueStyle}">${vEscape(params.customerName)}</p>
+        <p style="${labelStyle}">Consultation</p>
+        <p style="margin: 0; color: #333; font-size: 16px; font-weight: 600;">${vEscape(params.consultationNumber)}</p>
+      </div>
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="${VET_URL}/consultations" style="${btnPrimary}">Open your consultations</a>
+      </div>
       <p style="${textStyle}">
         <strong>Team Furrie</strong>
       </p>

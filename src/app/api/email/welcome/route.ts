@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
-import { sendWelcomeEmail } from '@/lib/email';
+import { sendWelcomeEmailOnce } from '@/lib/auth/postSignInTasks';
+import { shouldSendWelcomeEmail } from '@/lib/auth/welcomeEmailRule';
 import { withRoute } from '@/server/handler';
 
 /**
@@ -28,20 +29,24 @@ export const POST = withRoute(async function POST() {
       );
     }
 
-    // Only send welcome email for new users (created within last 30 minutes)
-    if (profile?.created_at) {
-      const createdAt = new Date(profile.created_at);
-      const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000);
-      if (createdAt < thirtyMinAgo) {
-        return NextResponse.json({ success: true, skipped: 'returning_user' });
-      }
+    // Only for new users (created within the last 30 minutes), and only once
+    // per account: the dashboard sends it too (CX-1).
+    if (
+      !shouldSendWelcomeEmail({
+        email,
+        createdAt: profile?.created_at ?? user.created_at,
+        appMetadata: user.app_metadata,
+      })
+    ) {
+      return NextResponse.json({ success: true, skipped: 'returning_user' });
     }
 
-    const result = await sendWelcomeEmail(email, {
-      customerName: profile?.full_name || 'there',
-    });
+    const result = await sendWelcomeEmailOnce(user.id, email, profile?.full_name || 'there');
 
     if (!result.success) {
+      if ('duplicate' in result && result.duplicate) {
+        return NextResponse.json({ success: true, skipped: 'already_sent' });
+      }
       return NextResponse.json(
         { error: result.error, code: 'EMAIL_SEND_FAILED' },
         { status: 502 }

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
+import { postSignInPath } from '@/lib/auth/safeRedirect';
 
 type Portal = 'customer' | 'vet' | 'admin';
 
@@ -213,10 +214,19 @@ export async function middleware(request: NextRequest) {
       return redirectToLoginSignedOut(request, 'wrong_account');
     }
 
-    // If authenticated user tries to access login/signup, redirect to dashboard
+    // If authenticated user tries to access login/signup, redirect to the
+    // dashboard, or straight to the consultation they were sent to sign in
+    // from (VC-1; customer portal only).
     if (isPublicRoute && !pathname.includes('/auth/callback')) {
       const url = request.nextUrl.clone();
       url.pathname = '/dashboard';
+      if (portal === 'customer') {
+        const next = postSignInPath(request.nextUrl.searchParams.get('redirectTo'), request.nextUrl.origin);
+        if (next !== '/dashboard') {
+          url.pathname = next;
+          url.search = '';
+        }
+      }
       return NextResponse.redirect(url);
     }
   }

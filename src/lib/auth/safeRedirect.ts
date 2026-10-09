@@ -39,3 +39,15 @@ export function safeNextPath(
   // The caller resolves `result` against the origin again: it must stay here.
   return new URL(result, origin).origin === ownOrigin ? result : fallback;
 }
+
+/**
+ * Where the customer sign-in form goes after the code (VC-1): back to a
+ * consultation the person was sent to sign in from (a reminder email's
+ * "Open your consultation"), otherwise the dashboard. Only consultation pages:
+ * the dashboard's first render also runs the sign-in tasks (welcome email,
+ * invite, founding credit), so other pages keep going there first.
+ */
+export function postSignInPath(raw: string | null | undefined, origin: string): string {
+  const path = safeNextPath(raw, origin);
+  return /^\/consultations\/[0-9a-f-]{36}(\/room)?$/i.test(path) ? path : '/dashboard';
+}

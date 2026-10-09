@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Spinner } from '@/components/ui/Spinner';
 import { useToast } from '@/components/ui/Toast';
+import { JoinCallButton } from '@/components/consultation/JoinCallButton';
 import styles from './ConsultationDetailContent.module.css';
 
 interface ConsultationDetailContentProps {
@@ -205,14 +206,16 @@ export function ConsultationDetailContent({ consultationId, onCancelSuccess, onO
         <Badge variant={statusVariant} size="md">{statusText}</Badge>
       </div>
 
-      {/* Join Call */}
-      {isScheduledOrActive && (
+      {/* Join Call: live only inside the join window, with a countdown before
+          it (VC-1; it used to be clickable at any time and then refuse). */}
+      {isScheduledOrActive && consultation.scheduled_at && (
         <div className={styles.section}>
-          <Link href={`/consultations/${consultation.id}/room`}>
-            <Button variant="primary" size="md" className={styles.fullWidthButton}>
-              Join Consultation
-            </Button>
-          </Link>
+          <JoinCallButton
+            consultationId={consultation.id}
+            scheduledAt={consultation.scheduled_at}
+            status={consultation.status}
+            userRole="customer"
+          />
         </div>
       )}
 

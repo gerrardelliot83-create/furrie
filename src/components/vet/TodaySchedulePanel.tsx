@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { createClient } from '@/lib/supabase/client';
 import { formatIstTime, istDayRange } from '@/lib/time/ist';
+import { JOIN_WINDOW_AFTER_MS, JOIN_WINDOW_BEFORE_MS } from '@/lib/scheduling/joinWindow';
 import { VET_CONSULTATIONS_CHANGED_EVENT } from '@/components/layouts/VetLayout/vetEvents';
 import type { Consultation, ConsultationStatus } from '@/types';
 import styles from './TodaySchedulePanel.module.css';
@@ -38,9 +39,9 @@ function getAppointmentStatus(consultation: ScheduledConsultation): AppointmentS
   }
   const scheduledAt = new Date(consultation.scheduledAt);
 
-  // Join window: 5 min before to 45 min after
-  const joinWindowStart = new Date(scheduledAt.getTime() - 5 * 60 * 1000);
-  const joinWindowEnd = new Date(scheduledAt.getTime() + 45 * 60 * 1000);
+  // Join window: the join API's (lib/scheduling/joinWindow)
+  const joinWindowStart = new Date(scheduledAt.getTime() - JOIN_WINDOW_BEFORE_MS);
+  const joinWindowEnd = new Date(scheduledAt.getTime() + JOIN_WINDOW_AFTER_MS);
 
   // Check closed status with outcome
   if (consultation.status === 'closed') {

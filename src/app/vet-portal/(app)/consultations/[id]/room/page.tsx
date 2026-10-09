@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/Button';
+import { CallProblemPanel } from '@/components/consultation/CallProblemPanel';
+import { useConsultationRoom } from '@/components/consultation/useConsultationRoom';
 import { createClient } from '@/lib/supabase/client';
 import styles from './page.module.css';
 
@@ -18,57 +20,8 @@ const VideoRoom = dynamic(
   { ssr: false }
 );
 
-// Retry helper for handling race conditions in consultation fetch
-async function fetchWithRetry(
-  url: string,
-  options?: RequestInit,
-  maxRetries = 3,
-  initialDelay = 500
-): Promise<Response> {
-  let lastError: Error | null = null;
-
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    if (attempt > 0) {
-      const delay = initialDelay * Math.pow(2, attempt - 1);
-      console.log(`Retry attempt ${attempt + 1} after ${delay}ms...`);
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
-
-    try {
-      const response = await fetch(url, options);
-      if (response.ok || (response.status !== 404 && response.status !== 500)) {
-        return response;
-      }
-      if (attempt < maxRetries - 1) {
-        console.log(`Request returned ${response.status}, retrying...`);
-        continue;
-      }
-      return response;
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err));
-      if (attempt === maxRetries - 1) throw lastError;
-    }
-  }
-
-  throw lastError || new Error('Request failed after retries');
-}
-
-type RoomState = 'loading' | 'error' | 'ready' | 'in-call' | 'left';
-
-interface TokenResponse {
-  token: string;
-  roomUrl: string;
-  roomName: string;
-  isOwner: boolean;
-  userName: string;
-}
-
-interface ConsultationInfo {
-  id: string;
+interface ConsultationDetails {
   customerName: string | null;
-  petName: string;
-  petSpecies: string;
-  petBreed: string;
   concern: string | null;
   symptoms: string[];
 }
@@ -78,125 +31,54 @@ export default function VetVideoRoomPage() {
   const router = useRouter();
   const consultationId = params.id as string;
 
-  const [roomState, setRoomState] = useState<RoomState>('loading');
-  const [error, setError] = useState<string | null>(null);
-  const [tokenData, setTokenData] = useState<TokenResponse | null>(null);
-  const [consultationInfo, setConsultationInfo] = useState<ConsultationInfo | null>(null);
+  const { phase, problem, info, join, callObject, enterCall, retry, joined, fail, markLeft } = useConsultationRoom(
+    consultationId,
+    'vet'
+  );
+  const [details, setDetails] = useState<ConsultationDetails | null>(null);
   const [recordingConsent, setRecordingConsent] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [callObject, setCallObject] = useState<any>(null);
 
-  // Join consultation - single call that handles room creation, token, and validation
+  // The join response has no concern or pet-parent name, so read them with
+  // the vet's own session (assigned consultations only). If they can't be
+  // read, the lines are hidden rather than filled with made-up text.
   useEffect(() => {
-    const joinConsultation = async () => {
+    let cancelled = false;
+    (async () => {
       try {
-        // Single call to join endpoint - handles room creation, token, and validation
-        const joinResponse = await fetchWithRetry(`/api/consultations/${consultationId}/join`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        const supabase = createClient();
+        const { data: row } = await supabase
+          .from('consultations')
+          .select('concern_text, symptom_categories, profiles!consultations_customer_id_fkey (full_name)')
+          .eq('id', consultationId)
+          .maybeSingle();
+        if (cancelled || !row) return;
+        const customer = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+        setDetails({
+          concern: row.concern_text?.trim() || null,
+          symptoms: row.symptom_categories ?? [],
+          customerName: customer?.full_name?.trim() || null,
         });
-
-        if (!joinResponse.ok) {
-          const data = await joinResponse.json();
-          throw new Error(data.error || 'Failed to join consultation');
-        }
-
-        const data = await joinResponse.json();
-
-        // The join response has no concern or pet-parent name, so read them with
-        // the vet's own session (assigned consultations only). If they can't be
-        // read, the lines are hidden rather than filled with made-up text.
-        let details: { concern: string | null; symptoms: string[]; customerName: string | null } = {
-          concern: null,
-          symptoms: [],
-          customerName: null,
-        };
-        try {
-          const supabase = createClient();
-          const { data: row } = await supabase
-            .from('consultations')
-            .select('concern_text, symptom_categories, profiles!consultations_customer_id_fkey (full_name)')
-            .eq('id', consultationId)
-            .maybeSingle();
-          if (row) {
-            const customer = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
-            details = {
-              concern: row.concern_text?.trim() || null,
-              symptoms: row.symptom_categories ?? [],
-              customerName: customer?.full_name?.trim() || null,
-            };
-          }
-        } catch (detailsError) {
-          console.warn('Could not load consultation details for the room:', detailsError);
-        }
-
-        setConsultationInfo({
-          id: data.consultation.id,
-          customerName: details.customerName,
-          petName: data.consultation.pet?.name || 'Pet',
-          petSpecies: data.consultation.pet?.species || 'Unknown',
-          petBreed: data.consultation.pet?.breed || 'Unknown',
-          concern: details.concern,
-          symptoms: details.symptoms,
-        });
-
-        // Set token data from join response
-        setTokenData({
-          token: data.token,
-          roomUrl: data.roomUrl,
-          roomName: data.roomName,
-          isOwner: data.participant.isOwner,
-          userName: data.participant.name,
-        });
-
-        setRoomState('ready');
-      } catch (err) {
-        console.error('Failed to setup video room:', err);
-        setError(err instanceof Error ? err.message : 'Failed to setup video room');
-        setRoomState('error');
+      } catch (detailsError) {
+        console.warn('Could not load consultation details for the room:', detailsError);
       }
+    })();
+    return () => {
+      cancelled = true;
     };
-
-    joinConsultation();
   }, [consultationId]);
 
-  // Create Daily call object — SDK loaded dynamically only when needed
-  useEffect(() => {
-    if (tokenData && !callObject) {
-      import('@daily-co/daily-js').then((DailyModule) => {
-        const daily = DailyModule.default.createCallObject({
-          showLeaveButton: false,
-          showFullscreenButton: false,
-        });
-        setCallObject(daily);
-      });
-    }
+  const backToConsultations = useCallback(() => {
+    router.push('/consultations');
+  }, [router]);
 
-    return () => {
-      if (callObject) {
-        callObject.destroy();
-      }
-    };
-  }, [tokenData, callObject]);
-
-  const handleJoin = useCallback(() => {
-    setRoomState('in-call');
-  }, []);
-
-  const handleLeave = useCallback(async () => {
-    setRoomState('left');
+  const handleLeave = useCallback(() => {
+    markLeft();
     // Navigate to SOAP notes page
     router.push(`/consultations/${consultationId}/soap`);
-  }, [router, consultationId]);
-
-  const handleError = useCallback((err: Error) => {
-    console.error('Video room error:', err);
-    setError(err.message);
-    setRoomState('error');
-  }, []);
+  }, [markLeft, router, consultationId]);
 
   // Loading state
-  if (roomState === 'loading') {
+  if (phase === 'loading') {
     return (
       <div className={styles.container}>
         <div className={styles.loading}>
@@ -207,28 +89,22 @@ export default function VetVideoRoomPage() {
     );
   }
 
-  // Error state
-  if (roomState === 'error') {
+  // Problem: what happened, Try again
+  if (phase === 'problem') {
     return (
       <div className={styles.container}>
-        <div className={styles.error}>
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="8" x2="12" y2="12" />
-            <line x1="12" y1="16" x2="12.01" y2="16" />
-          </svg>
-          <h2>Unable to Join</h2>
-          <p>{error || 'Something went wrong. Please try again.'}</p>
-          <button onClick={() => router.push('/consultations')}>
-            Back to Consultations
-          </button>
-        </div>
+        <CallProblemPanel
+          problem={problem}
+          onRetry={retry}
+          onBack={backToConsultations}
+          backLabel="Back to Consultations"
+        />
       </div>
     );
   }
 
   // Left state
-  if (roomState === 'left') {
+  if (phase === 'left') {
     return (
       <div className={styles.container}>
         <div className={styles.left}>
@@ -243,8 +119,13 @@ export default function VetVideoRoomPage() {
     );
   }
 
-  // Ready state - show patient info before joining
-  if (roomState === 'ready' && tokenData && consultationInfo) {
+  // Ready state - show patient info before joining. Nothing has started: the
+  // ticket is fetched (and the call marked as started) when Join is pressed.
+  if (phase === 'ready') {
+    const pet = info?.pet;
+    const petName = pet?.name || 'Pet';
+    const petSpecies = pet?.species || 'Unknown';
+    const petBreed = pet?.breed || 'Unknown';
     return (
       <div className={styles.container}>
         <div className={styles.readyScreen}>
@@ -254,39 +135,39 @@ export default function VetVideoRoomPage() {
             <div className={styles.patientHeader}>
               <div className={styles.petAvatar}>
                 <Image
-                  src={consultationInfo.petSpecies === 'dog' ? '/assets/dog-avatar.png' : '/assets/cat-avatar.png'}
-                  alt={consultationInfo.petSpecies === 'dog' ? 'Dog' : 'Cat'}
+                  src={petSpecies === 'dog' ? '/assets/dog-avatar.png' : '/assets/cat-avatar.png'}
+                  alt={petSpecies === 'dog' ? 'Dog' : 'Cat'}
                   width={48}
                   height={48}
                   className={styles.petAvatarImg}
                 />
               </div>
               <div>
-                <h2 className={styles.petName}>{consultationInfo.petName}</h2>
+                <h2 className={styles.petName}>{petName}</h2>
                 <p className={styles.petBreed}>
-                  {consultationInfo.petBreed} ({consultationInfo.petSpecies})
+                  {petBreed} ({petSpecies})
                 </p>
               </div>
             </div>
 
             <div className={styles.patientDetails}>
-              {consultationInfo.customerName && (
+              {details?.customerName && (
                 <div className={styles.detailRow}>
                   <span className={styles.detailLabel}>Pet Parent:</span>
-                  <span className={styles.detailValue}>{consultationInfo.customerName}</span>
+                  <span className={styles.detailValue}>{details.customerName}</span>
                 </div>
               )}
-              {consultationInfo.concern && (
+              {details?.concern && (
                 <div className={styles.detailRow}>
                   <span className={styles.detailLabel}>Concern:</span>
-                  <span className={styles.detailValue}>{consultationInfo.concern}</span>
+                  <span className={styles.detailValue}>{details.concern}</span>
                 </div>
               )}
-              {consultationInfo.symptoms.length > 0 && (
+              {details && details.symptoms.length > 0 && (
                 <div className={styles.detailRow}>
                   <span className={styles.detailLabel}>Symptoms:</span>
                   <div className={styles.symptomTags}>
-                    {consultationInfo.symptoms.map((symptom) => (
+                    {details.symptoms.map((symptom) => (
                       <span key={symptom} className={styles.symptomTag}>
                         {symptom.replace(/_/g, ' ')}
                       </span>
@@ -319,10 +200,10 @@ export default function VetVideoRoomPage() {
           </label>
 
           <div className={styles.actions}>
-            <Button variant="ghost" onClick={() => router.push('/consultations')}>
+            <Button variant="ghost" onClick={backToConsultations}>
               Cancel
             </Button>
-            <Button variant="primary" onClick={handleJoin} disabled={!recordingConsent}>
+            <Button variant="primary" onClick={enterCall} disabled={!recordingConsent}>
               Join Consultation
             </Button>
           </div>
@@ -332,20 +213,32 @@ export default function VetVideoRoomPage() {
   }
 
   // In-call state
-  if (roomState === 'in-call' && tokenData && callObject) {
+  if (phase === 'in-call' && join && callObject) {
     return (
       <DailyProvider callObject={callObject}>
         <VideoRoom
-          roomUrl={tokenData.roomUrl}
-          token={tokenData.token}
-          userName={tokenData.userName}
+          roomUrl={join.roomUrl}
+          token={join.token}
+          userName={join.participant.name}
+          consultationId={consultationId}
+          userId={join.participant.id}
           isVet={true}
           onLeave={handleLeave}
-          onError={handleError}
+          onJoined={joined}
+          onFatal={fail}
+          onRetry={retry}
         />
       </DailyProvider>
     );
   }
 
-  return null;
+  // Between a fresh ticket and its call object
+  return (
+    <div className={styles.container}>
+      <div className={styles.loading}>
+        <div className={styles.spinner} />
+        <p>Connecting...</p>
+      </div>
+    </div>
+  );
 }

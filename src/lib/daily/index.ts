@@ -1,8 +1,12 @@
 // Daily.co video integration helpers for Furrie teleconsultations
 
+import * as Sentry from '@sentry/nextjs';
 import { roomNameForConsultation } from './rooms';
+import { ROOM_MAX_PARTICIPANTS, roomNeedsUpdate } from './roomLife';
+import { parsePresence, sessionsToEject, type PresenceSession } from './roomCleanup';
 
 export { roomNameForConsultation, consultationIdFromRoom } from './rooms';
+export { roomExpiryFor } from './roomLife';
 
 export const DAILY_DOMAIN = process.env.NEXT_PUBLIC_DAILY_DOMAIN;
 const DAILY_API_KEY = process.env.DAILY_API_KEY;
@@ -21,10 +25,12 @@ const DEFAULT_ROOM_PROPERTIES = {
   // Disable screenshare for teleconsultations
   enable_screenshare: false,
 
-  // Max participants: 2 (customer + vet)
-  max_participants: 2,
+  // The pet parent and the vet, plus spare places for a reload or a dropped
+  // connection that Daily hasn't cleared yet (VC-1, ./roomLife).
+  max_participants: ROOM_MAX_PARTICIPANTS,
 
-  // Room expiry (Unix timestamp) - set dynamically per room
+  // Room expiry (Unix timestamp) - set per room from the booking time
+  // (./roomLife roomExpiryFor)
   exp: 0,
 
   // Eject all participants when room expires
@@ -59,16 +65,207 @@ interface DailyError {
   info?: string;
 }
 
+export interface PreparedRoom {
+  name: string;
+  url: string;
+  /** Unix seconds the room is open until. */
+  expiresAt: number;
+  /** How many people the room admits right now. */
+  maxParticipants: number;
+  /** 'created' now, 'updated' (expiry pushed out / cap raised) or 'ready' as it was. */
+  action: 'created' | 'updated' | 'ready';
+}
+
 /**
- * Creates a Daily.co room for a consultation
- * @param consultationId - Used as unique room identifier
- * @param durationMinutes - Room expiry time in minutes (default 30)
- * @returns Room details including name and URL
+ * The consultation's room, ready for someone to join right now (VC-1): it
+ * exists, stays open until at least `expiresAt` and has the current
+ * participant cap. Rooms made before VC-1 (35-minute life, 2 places), and
+ * rooms that already closed, are updated rather than handed out as they are.
  */
-export async function createRoom(
+export async function prepareConsultationRoom(
   consultationId: string,
-  durationMinutes: number = 30
-): Promise<{ name: string; url: string; expiresAt: number }> {
+  expiresAt: number
+): Promise<PreparedRoom> {
+  const roomName = roomNameForConsultation(consultationId);
+
+  let existing = await getRoom(roomName);
+  if (!existing) {
+    const created = await createRoom(consultationId, expiresAt);
+    if (created) return { ...created, maxParticipants: ROOM_MAX_PARTICIPANTS, action: 'created' };
+    // Someone else created it between our GET and POST (both people joining at once).
+    existing = await getRoom(roomName);
+    if (!existing) throw new Error(`Daily room ${roomName} could not be created or found`);
+  }
+
+  if (!roomNeedsUpdate(existing.config, expiresAt)) {
+    return {
+      name: existing.name,
+      url: existing.url,
+      expiresAt: existing.config.exp,
+      maxParticipants: existing.config.max_participants,
+      action: 'ready',
+    };
+  }
+
+  const currentExp = existing.config?.exp ?? 0;
+  const newExp = Math.max(currentExp, expiresAt);
+  try {
+    await updateRoomProperties(roomName, {
+      exp: newExp,
+      eject_at_room_exp: true,
+      max_participants: ROOM_MAX_PARTICIPANTS,
+    });
+  } catch (error) {
+    // A blip or a refused change must not lock people out of a room that is
+    // still open: hand out the room as it is when it has time left.
+    if (currentExp * 1000 > Date.now() + 10 * 60 * 1000) {
+      console.error(`[daily] room ${roomName} update failed; using it as it is:`, error);
+      Sentry.captureException(error, { tags: { area: 'video-call', 'call.kind': 'room-update-failed' } });
+      return {
+        name: existing.name,
+        url: existing.url,
+        expiresAt: currentExp,
+        maxParticipants: existing.config?.max_participants || 2,
+        action: 'ready',
+      };
+    }
+    throw error;
+  }
+  return { name: existing.name, url: existing.url, expiresAt: newExp, maxParticipants: ROOM_MAX_PARTICIPANTS, action: 'updated' };
+}
+
+/** POST /rooms/:name — change a room's properties. */
+async function updateRoomProperties(roomName: string, properties: Record<string, unknown>): Promise<void> {
+  if (!DAILY_API_KEY) {
+    throw new Error('DAILY_API_KEY is not configured');
+  }
+  const response = await fetch(`${DAILY_API_URL}/rooms/${encodeURIComponent(roomName)}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${DAILY_API_KEY}`,
+    },
+    body: JSON.stringify({ properties }),
+  });
+  if (!response.ok) {
+    const error: DailyError = await response.json().catch(() => ({}));
+    throw new Error(`Failed to update Daily room: ${error.error || error.info || `HTTP ${response.status}`}`);
+  }
+}
+
+/**
+ * Who is in the room right now, or null if Daily can't be asked.
+ * https://docs.daily.co/reference/rest-api/rooms/get-room-presence
+ */
+export async function getRoomPresence(roomName: string): Promise<PresenceSession[] | null> {
+  if (!DAILY_API_KEY) return null;
+  try {
+    const response = await fetch(`${DAILY_API_URL}/rooms/${encodeURIComponent(roomName)}/presence`, {
+      headers: { Authorization: `Bearer ${DAILY_API_KEY}` },
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!response.ok) {
+      console.error(`[daily] presence for room ${roomName} failed: HTTP ${response.status}`);
+      return null;
+    }
+    return parsePresence(await response.json().catch(() => null));
+  } catch (error) {
+    console.error(`[daily] presence for room ${roomName} failed:`, error);
+    return null;
+  }
+}
+
+/**
+ * Ejects sessions (by Daily session id) or everyone signed in as a user (by
+ * our user id). Best effort: logs and returns 0 on failure.
+ * https://docs.daily.co/reference/rest-api/rooms/eject
+ */
+async function ejectFromRoom(
+  roomName: string,
+  target: { ids?: string[]; userIds?: string[] }
+): Promise<number> {
+  if (!DAILY_API_KEY) return 0;
+  const body: Record<string, string[]> = {};
+  if (target.ids?.length) body.ids = target.ids;
+  if (target.userIds?.length) body.user_ids = target.userIds;
+  if (!body.ids && !body.user_ids) return 0;
+  try {
+    const response = await fetch(`${DAILY_API_URL}/rooms/${encodeURIComponent(roomName)}/eject`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${DAILY_API_KEY}`,
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!response.ok) {
+      console.error(`[daily] eject for room ${roomName} failed: HTTP ${response.status}`);
+      return 0;
+    }
+    const data = (await response.json().catch(() => null)) as { ejectedIds?: unknown } | null;
+    return Array.isArray(data?.ejectedIds) ? data.ejectedIds.length : 0;
+  } catch (error) {
+    console.error(`[daily] eject for room ${roomName} failed:`, error);
+    return 0;
+  }
+}
+
+export interface RoomCleanup {
+  /** Sessions removed. */
+  ejected: number;
+  /** How many of the removed sessions were the caller's own earlier ones. */
+  ownSessions: number;
+  /** How many were someone else's (an older duplicate, or not one of ours). */
+  otherSessions: number;
+  /** 'presence' = checked who was in the room; 'fallback' = Daily presence failed, caller's sessions only. */
+  method: 'presence' | 'fallback';
+}
+
+/**
+ * Clears the room before `callerUserId` joins (VC-1, L1 + L4; rules in
+ * ./roomCleanup): the caller's earlier sessions and anyone else; the other
+ * participant's older sessions only if the room would still be full.
+ * `maxParticipants` is the room's actual cap. Never throws: the join goes ahead.
+ */
+export async function clearRoomForJoin(
+  roomName: string,
+  opts: { callerUserId: string; otherUserId: string | null; maxParticipants: number }
+): Promise<RoomCleanup> {
+  const presence = await getRoomPresence(roomName);
+  if (presence === null) {
+    const ejected = await ejectFromRoom(roomName, { userIds: [opts.callerUserId] });
+    return { ejected, ownSessions: ejected, otherSessions: 0, method: 'fallback' };
+  }
+
+  const ids = sessionsToEject(presence, opts);
+  if (ids.length === 0) return { ejected: 0, ownSessions: 0, otherSessions: 0, method: 'presence' };
+
+  const own = new Set(presence.filter((s) => s.userId === opts.callerUserId).map((s) => s.id));
+  const ownSessions = ids.filter((id) => own.has(id)).length;
+  const ejected = await ejectFromRoom(roomName, { ids });
+  return { ejected, ownSessions, otherSessions: ids.length - ownSessions, method: 'presence' };
+}
+
+/**
+ * Removes one session when its page closes (VC-1, L3), but only if Daily
+ * says it belongs to `userId`, so a caller can't remove someone else.
+ */
+export async function ejectOwnSession(roomName: string, sessionId: string, userId: string): Promise<boolean> {
+  const presence = await getRoomPresence(roomName);
+  if (!presence?.some((s) => s.id === sessionId && s.userId === userId)) return false;
+  return (await ejectFromRoom(roomName, { ids: [sessionId] })) > 0;
+}
+
+/**
+ * Creates a Daily.co room for a consultation, open until `expiresAt` (Unix
+ * seconds). Returns null if the room already exists (409): use
+ * prepareConsultationRoom, which handles that.
+ */
+async function createRoom(
+  consultationId: string,
+  expiresAt: number
+): Promise<{ name: string; url: string; expiresAt: number } | null> {
   if (!DAILY_API_KEY) {
     console.error('DAILY_API_KEY is not configured. Check Vercel environment variables.');
     throw new Error('DAILY_API_KEY is not configured');
@@ -76,9 +273,6 @@ export async function createRoom(
 
   // Room name: furrie-{consultation_id}
   const roomName = roomNameForConsultation(consultationId);
-
-  // Expiry: current time + duration + 5 min buffer
-  const expiresAt = Math.floor(Date.now() / 1000) + (durationMinutes + 5) * 60;
 
   // Build request body
   // Note: 'privacy' is a top-level property, not inside 'properties'
@@ -103,17 +297,10 @@ export async function createRoom(
     body: JSON.stringify(requestBody),
   });
 
-  // Handle room already exists (409 Conflict) - return existing room
+  // Room already exists (409 Conflict): the caller fetches and updates it.
   if (response.status === 409) {
-    console.log(`Room ${roomName} already exists, fetching existing room`);
-    const existingRoom = await getRoom(roomName);
-    if (existingRoom) {
-      return {
-        name: existingRoom.name,
-        url: existingRoom.url,
-        expiresAt: existingRoom.config.exp,
-      };
-    }
+    console.log(`Room ${roomName} already exists`);
+    return null;
   }
 
   if (!response.ok) {
@@ -124,6 +311,12 @@ export async function createRoom(
       errorData = JSON.parse(responseText);
     } catch {
       errorData = { rawResponse: responseText };
+    }
+
+    // Daily may answer a duplicate name with 400 "... already exists".
+    if (/already exists/i.test(String(errorData.info ?? errorData.error ?? ''))) {
+      console.log(`Room ${roomName} already exists`);
+      return null;
     }
 
     console.error('Daily.co API error - FULL RESPONSE:', {

@@ -1,9 +1,12 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/Button';
+import { CallProblemPanel } from '@/components/consultation/CallProblemPanel';
+import { InAppBrowserNotice } from '@/components/consultation/InAppBrowserNotice';
+import { useConsultationRoom } from '@/components/consultation/useConsultationRoom';
 import { formatVetName } from '@/lib/utils';
 import styles from './page.module.css';
 
@@ -17,53 +20,26 @@ const VideoRoom = dynamic(
   { ssr: false }
 );
 
-// Retry helper for handling race conditions in consultation fetch
-async function fetchWithRetry(
-  url: string,
-  options?: RequestInit,
-  maxRetries = 3,
-  initialDelay = 500
-): Promise<Response> {
-  let lastError: Error | null = null;
+/** Recording consent is remembered for this consultation, so a retry or a reload doesn't ask again (VC-1). */
+function consentKey(consultationId: string) {
+  return `furrie:recording-consent:${consultationId}`;
+}
 
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    if (attempt > 0) {
-      const delay = initialDelay * Math.pow(2, attempt - 1);
-      console.log(`Retry attempt ${attempt + 1} after ${delay}ms...`);
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
-
-    try {
-      const response = await fetch(url, options);
-      if (response.ok || (response.status !== 404 && response.status !== 500)) {
-        return response;
-      }
-      if (attempt < maxRetries - 1) {
-        console.log(`Request returned ${response.status}, retrying...`);
-        continue;
-      }
-      return response;
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err));
-      if (attempt === maxRetries - 1) throw lastError;
-    }
+function readConsent(consultationId: string): boolean {
+  try {
+    return window.localStorage.getItem(consentKey(consultationId)) === 'yes';
+  } catch {
+    return false;
   }
-
-  throw lastError || new Error('Request failed after retries');
 }
 
-type RoomState = 'loading' | 'error' | 'ready' | 'in-call' | 'left';
-
-interface TokenResponse {
-  token: string;
-  roomUrl: string;
-  roomName: string;
-  isOwner: boolean;
-  userName: string;
-}
-
-interface VetInfo {
-  name: string;
+function writeConsent(consultationId: string, value: boolean) {
+  try {
+    if (value) window.localStorage.setItem(consentKey(consultationId), 'yes');
+    else window.localStorage.removeItem(consentKey(consultationId));
+  } catch {
+    // Private browsing: the box just has to be ticked again next time.
+  }
 }
 
 export default function CustomerVideoRoomPage() {
@@ -71,102 +47,36 @@ export default function CustomerVideoRoomPage() {
   const router = useRouter();
   const consultationId = params.id as string;
 
-  const [roomState, setRoomState] = useState<RoomState>('loading');
-  const [error, setError] = useState<string | null>(null);
-  const [tokenData, setTokenData] = useState<TokenResponse | null>(null);
-  const [vetInfo, setVetInfo] = useState<VetInfo | null>(null);
+  const { phase, problem, info, join, callObject, enterCall, retry, joined, fail, markLeft } = useConsultationRoom(
+    consultationId,
+    'customer'
+  );
   const [recordingConsent, setRecordingConsent] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [callObject, setCallObject] = useState<any>(null);
 
-  // Join consultation - single call that handles room creation, token, and validation
   useEffect(() => {
-    const joinConsultation = async () => {
-      try {
-        // Single call to join endpoint - handles room creation, token, and validation
-        const joinResponse = await fetchWithRetry(`/api/consultations/${consultationId}/join`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-        });
-
-        if (!joinResponse.ok) {
-          const data = await joinResponse.json();
-          throw new Error(data.error || 'Failed to join consultation');
-        }
-
-        const data = await joinResponse.json();
-
-        // Set token data from join response
-        setTokenData({
-          token: data.token,
-          roomUrl: data.roomUrl,
-          roomName: data.roomName,
-          isOwner: data.participant.isOwner,
-          userName: data.participant.name,
-        });
-
-        // Set vet info from join response
-        if (data.consultation?.vet) {
-          setVetInfo({ name: data.consultation.vet.name });
-        }
-
-        setRoomState('ready');
-      } catch (err) {
-        console.error('Failed to setup video room:', err);
-        setError(err instanceof Error ? err.message : 'Failed to setup video room');
-        setRoomState('error');
-      }
-    };
-
-    joinConsultation();
+    if (readConsent(consultationId)) setRecordingConsent(true); // eslint-disable-line react-hooks/set-state-in-effect -- restore once from storage
   }, [consultationId]);
 
-  // Create Daily call object — SDK loaded dynamically only when needed
-  useEffect(() => {
-    if (tokenData && !callObject) {
-      import('@daily-co/daily-js').then((DailyModule) => {
-        const daily = DailyModule.default.createCallObject({
-          showLeaveButton: false,
-          showFullscreenButton: false,
-          iframeStyle: {
-            width: '100%',
-            height: '100%',
-          },
-        });
-        setCallObject(daily);
-      });
-    }
+  const onConsentChange = useCallback(
+    (checked: boolean) => {
+      setRecordingConsent(checked);
+      writeConsent(consultationId, checked);
+    },
+    [consultationId]
+  );
 
-    // Cleanup on unmount
-    return () => {
-      if (callObject) {
-        callObject.destroy();
-      }
-    };
-  }, [tokenData, callObject]);
-
-  const handleJoin = useCallback(() => {
-    setRoomState('in-call'); // Direct transition, no intermediate state
-  }, []);
+  const backToConsultation = useCallback(() => {
+    router.push(`/consultations/${consultationId}`);
+  }, [router, consultationId]);
 
   const handleLeave = useCallback(() => {
-    setRoomState('left');
+    markLeft();
     // Navigate back to consultation details
     router.push(`/consultations/${consultationId}`);
-  }, [router, consultationId]);
-
-  const handleCancel = useCallback(() => {
-    router.push(`/consultations/${consultationId}`);
-  }, [router, consultationId]);
-
-  const handleError = useCallback((err: Error) => {
-    console.error('Video room error:', err);
-    setError(err.message);
-    setRoomState('error');
-  }, []);
+  }, [markLeft, router, consultationId]);
 
   // Loading state
-  if (roomState === 'loading') {
+  if (phase === 'loading') {
     return (
       <div className={styles.container}>
         <div className={styles.loading}>
@@ -177,28 +87,19 @@ export default function CustomerVideoRoomPage() {
     );
   }
 
-  // Error state
-  if (roomState === 'error') {
+  // Problem: what happened, Try again
+  if (phase === 'problem') {
     return (
       <div className={styles.container}>
-        <div className={styles.error}>
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="8" x2="12" y2="12" />
-            <line x1="12" y1="16" x2="12.01" y2="16" />
-          </svg>
-          <h2>Unable to Join</h2>
-          <p>{error || 'Something went wrong. Please try again.'}</p>
-          <button onClick={() => router.push(`/consultations/${consultationId}`)}>
-            Go Back
-          </button>
-        </div>
+        <CallProblemPanel problem={problem} onRetry={retry} onBack={backToConsultation}>
+          <InAppBrowserNotice />
+        </CallProblemPanel>
       </div>
     );
   }
 
   // Left state
-  if (roomState === 'left') {
+  if (phase === 'left') {
     return (
       <div className={styles.container}>
         <div className={styles.left}>
@@ -213,12 +114,16 @@ export default function CustomerVideoRoomPage() {
     );
   }
 
-  // Ready state - simple screen without video preview
-  if (roomState === 'ready' && tokenData) {
+  // Ready state - simple screen without video preview. Nothing has started:
+  // the ticket is fetched (and the call marked as started) when Join is pressed.
+  if (phase === 'ready') {
+    const vetName = info?.vetName;
     return (
       <div className={styles.container}>
         <div className={styles.readyScreen}>
           <h1 className={styles.readyTitle}>Ready to Join</h1>
+
+          <InAppBrowserNotice />
 
           <div className={styles.vetCard}>
             <div className={styles.vetAvatar}>
@@ -230,7 +135,7 @@ export default function CustomerVideoRoomPage() {
             <div className={styles.vetInfo}>
               <p className={styles.vetLabel}>Your Veterinarian</p>
               <h2 className={styles.vetName}>
-                {vetInfo?.name ? formatVetName(vetInfo.name) : 'Your vet'}
+                {vetName ? formatVetName(vetName) : 'Your vet'}
               </h2>
               <p className={styles.vetStatus}>will join you in this video call</p>
             </div>
@@ -249,7 +154,7 @@ export default function CustomerVideoRoomPage() {
             <input
               type="checkbox"
               checked={recordingConsent}
-              onChange={(e) => setRecordingConsent(e.target.checked)}
+              onChange={(e) => onConsentChange(e.target.checked)}
               className={styles.consentCheckbox}
             />
             <span className={styles.consentText}>
@@ -258,33 +163,48 @@ export default function CustomerVideoRoomPage() {
           </label>
 
           <div className={styles.actions}>
-            <Button variant="ghost" onClick={handleCancel}>
+            <Button variant="ghost" onClick={backToConsultation}>
               Cancel
             </Button>
-            <Button variant="primary" onClick={handleJoin} disabled={!recordingConsent}>
+            <Button variant="primary" onClick={enterCall} disabled={!recordingConsent}>
               Join Consultation
             </Button>
           </div>
+          {!recordingConsent && (
+            <p className={styles.consentHint}>Tick the box above to join.</p>
+          )}
         </div>
       </div>
     );
   }
 
   // In-call state
-  if (roomState === 'in-call' && tokenData && callObject) {
+  if (phase === 'in-call' && join && callObject) {
     return (
       <DailyProvider callObject={callObject}>
         <VideoRoom
-          roomUrl={tokenData.roomUrl}
-          token={tokenData.token}
-          userName={tokenData.userName}
+          roomUrl={join.roomUrl}
+          token={join.token}
+          userName={join.participant.name}
+          consultationId={consultationId}
+          userId={join.participant.id}
           isVet={false}
           onLeave={handleLeave}
-          onError={handleError}
+          onJoined={joined}
+          onFatal={fail}
+          onRetry={retry}
         />
       </DailyProvider>
     );
   }
 
-  return null;
+  // Between a fresh ticket and its call object
+  return (
+    <div className={styles.container}>
+      <div className={styles.loading}>
+        <div className={styles.spinner} />
+        <p>Connecting...</p>
+      </div>
+    </div>
+  );
 }

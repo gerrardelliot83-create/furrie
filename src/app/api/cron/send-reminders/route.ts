@@ -43,8 +43,9 @@ interface Delivery {
  * can't send twice. If nothing reached the customer, the flag is released
  * so the next run retries, and the failure goes to Sentry.
  *
- * Times are India time. The join window opens 5 minutes before the start,
- * and the 15-minute texts say so. Fails closed without CRON_SECRET
+ * Times are India time. The join window opens JOIN_WINDOW_BEFORE_MINUTES
+ * (10) before the start (lib/scheduling/joinWindow), and the 15-minute texts
+ * say so. Fails closed without CRON_SECRET
  * (lib/cron/auth.ts).
  */
 export const GET = withRoute(async function GET(request: Request) {

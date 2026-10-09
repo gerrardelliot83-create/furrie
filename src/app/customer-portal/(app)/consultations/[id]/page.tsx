@@ -35,7 +35,8 @@ export default async function ConsultationDetailPage({ params }: ConsultationDet
   const { user, error: authError, supabase } = await getCurrentUser();
 
   if (authError || !user) {
-    redirect('/login');
+    // Come back here after signing in (VC-1: reminder-email links).
+    redirect(`/login?redirectTo=${encodeURIComponent(`/consultations/${id}`)}`);
   }
 
   // Fetch consultation with relations

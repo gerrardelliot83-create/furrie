@@ -1,26 +1,48 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ComponentRef } from 'react';
+import type { DailyEventObject } from '@daily-co/daily-js';
 import {
   useDaily,
+  useDailyEvent,
   useLocalSessionId,
   useParticipantIds,
+  useParticipantProperty,
   useRecording,
   useMeetingState,
+  DailyAudio,
   DailyVideo,
 } from '@daily-co/daily-react';
+import { describeCameraError, describeFatalError, DISCONNECTED, type CallProblem } from '@/lib/daily/callErrors';
+import { reportCallProblem } from '@/lib/daily/reportCallProblem';
 import { CallControls } from './CallControls';
 import { RecordingNotice } from './RecordingNotice';
 import { cn } from '@/lib/utils';
 import styles from './VideoRoom.module.css';
 
+/** DailyAudio's ref handle (the type itself isn't exported). */
+type AudioPlayers = ComponentRef<typeof DailyAudio>;
+
 interface VideoRoomProps {
   roomUrl: string;
   token: string;
   userName: string;
+  consultationId: string;
+  /** Our user id (the meeting token's user_id): this person's other tabs are never shown as "the other person". */
+  userId: string;
   isVet?: boolean;
+  /** The person pressed End call. */
   onLeave: () => void;
-  onError?: (error: Error) => void;
+  /** Daily confirmed the person is in the call. */
+  onJoined?: () => void;
+  /**
+   * The call stopped and can't continue on its own (Daily's 'error' event, a
+   * failed join, or the call ending without End being pressed). The page
+   * shows the problem with Try again, or retries by itself for a full room.
+   */
+  onFatal: (problem: CallProblem) => void;
+  /** Fetch a fresh ticket and rejoin (used by the camera banner). */
+  onRetry: () => void;
   className?: string;
 }
 
@@ -28,51 +50,131 @@ export function VideoRoom({
   roomUrl,
   token,
   userName,
+  consultationId,
+  userId,
   isVet = false,
   onLeave,
-  onError,
+  onJoined,
+  onFatal,
+  onRetry,
   className,
 }: VideoRoomProps) {
   const daily = useDaily();
   const localSessionId = useLocalSessionId();
-  const remoteParticipantIds = useParticipantIds({ filter: 'remote' });
+  // The other person only (never this person's own other tab), newest last:
+  // if an older session of theirs is still around, show the newest one
+  // rather than a frozen picture (VC-1, L6).
+  const isOtherPerson = useCallback(
+    (p: { local: boolean; user_id: string }) => !p.local && p.user_id !== userId,
+    [userId]
+  );
+  const remoteParticipantIds = useParticipantIds({ filter: isOtherPerson, sort: 'joined_at' });
+  const remoteParticipantId = remoteParticipantIds[remoteParticipantIds.length - 1];
+  const remoteName = useParticipantProperty(remoteParticipantId ?? '', 'user_name');
   const { isRecording } = useRecording();
   const meetingState = useMeetingState();
+  const role = isVet ? 'vet' : 'customer';
 
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
-  const [showChat, setShowChat] = useState(false);
-  const [joinError, setJoinError] = useState<string | null>(null);
+  const [mediaProblem, setMediaProblem] = useState<CallProblem | null>(null);
+  // Per connection (signaling / media): one coming back must not hide the other still down.
+  const [interrupted, setInterrupted] = useState<Record<string, boolean>>({});
+  const reconnecting = Object.values(interrupted).some(Boolean);
+  const [audioBlocked, setAudioBlocked] = useState(false);
+  const audioRef = useRef<AudioPlayers>(null);
+
+  // Set when the person presses End, a fatal error was already reported, or
+  // this screen is going away, so the 'left-meeting' (or rejected join) that
+  // follows isn't treated as a dropped call.
+  const endingRef = useRef(false);
+  useEffect(
+    () => () => {
+      endingRef.current = true;
+    },
+    []
+  );
+
+  const fail = useCallback(
+    (problem: CallProblem) => {
+      if (endingRef.current) return;
+      endingRef.current = true;
+      onFatal(problem);
+    },
+    [onFatal]
+  );
 
   // Join the call on mount
   useEffect(() => {
-    if (!daily || !roomUrl || !token) return;
+    if (!daily || !roomUrl || !token || meetingState !== 'new') return;
+    daily
+      .join({ url: roomUrl, token, userName, startVideoOff: false, startAudioOff: false })
+      .catch((error: unknown) => {
+        // A fatal join failure also raises the 'error' event; whichever
+        // arrives first is shown. daily-js rejects with the whole error event
+        // ({ error: { type } }), so read the nested type first.
+        const e = error as { error?: { type?: string }; type?: string } | null;
+        fail(describeFatalError(e?.error?.type ?? e?.type ?? null));
+      });
+  }, [daily, roomUrl, token, userName, meetingState, fail]);
 
-    const joinCall = async () => {
-      try {
-        await daily.join({
-          url: roomUrl,
-          token,
-          userName,
-          startVideoOff: false,
-          startAudioOff: false,
-        });
-      } catch (error) {
-        console.error('Failed to join call:', error);
-        setJoinError('Failed to join the consultation. Please try again.');
-        onError?.(error instanceof Error ? error : new Error('Failed to join'));
-      }
-    };
+  useDailyEvent(
+    'joined-meeting',
+    useCallback(() => {
+      onJoined?.();
+    }, [onJoined])
+  );
 
-    if (meetingState === 'new') {
-      joinCall();
-    }
-  }, [daily, roomUrl, token, userName, meetingState, onError]);
+  // Daily's fatal errors: room full, expired, removed, connection lost…
+  useDailyEvent(
+    'error',
+    useCallback(
+      (ev: DailyEventObject<'error'>) => {
+        fail(describeFatalError(ev.error?.type ?? null));
+      },
+      [fail]
+    )
+  );
+
+  // The call ended without End being pressed and without an error.
+  useDailyEvent(
+    'left-meeting',
+    useCallback(() => {
+      fail(DISCONNECTED);
+    }, [fail])
+  );
+
+  // Camera or microphone blocked / busy / missing. The call may still be
+  // connected, so this is a banner with Try again.
+  useDailyEvent(
+    'camera-error',
+    useCallback(
+      (ev: DailyEventObject<'camera-error'>) => {
+        const problem = describeCameraError(ev.error?.type ?? null);
+        setMediaProblem(problem);
+        reportCallProblem(problem.kind, { consultationId, role, level: 'warning', detail: ev.errorMsg?.errorMsg ?? null });
+      },
+      [consultationId, role]
+    )
+  );
+
+  // Network drop: Daily reconnects by itself; say so instead of freezing.
+  useDailyEvent(
+    'network-connection',
+    useCallback((ev: DailyEventObject<'network-connection'>) => {
+      // Media is either peer-to-peer or through Daily's server (sfu), and Daily
+      // can switch between them; either coming back means media is back.
+      const key = ev.type === 'signaling' ? 'signaling' : 'media';
+      if (ev.event === 'interrupted') setInterrupted((prev) => ({ ...prev, [key]: true }));
+      if (ev.event === 'connected') setInterrupted((prev) => ({ ...prev, [key]: false }));
+    }, [])
+  );
 
   // Handle leave
   const handleLeave = useCallback(async () => {
+    endingRef.current = true;
     if (daily) {
-      await daily.leave();
+      await daily.leave().catch(() => undefined);
     }
     onLeave();
   }, [daily, onLeave]);
@@ -95,30 +197,20 @@ export function VideoRoom({
     }
   }, [daily, isCameraOff]);
 
-  // Toggle chat (placeholder for future implementation)
-  const toggleChat = useCallback(() => {
-    setShowChat((prev) => !prev);
+  // Browsers can refuse to start sound without a tap (mostly iPhones).
+  const handleAudioPlayFailed = useCallback(() => {
+    setAudioBlocked(true);
   }, []);
 
-  // Error state
-  if (joinError) {
-    return (
-      <div className={cn(styles.container, styles.error, className)}>
-        <div className={styles.errorContent}>
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="8" x2="12" y2="12" />
-            <line x1="12" y1="16" x2="12.01" y2="16" />
-          </svg>
-          <h3>Connection Error</h3>
-          <p>{joinError}</p>
-          <button onClick={onLeave} className={styles.errorButton}>
-            Go Back
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const enableSound = useCallback(() => {
+    const players = audioRef.current?.getAllAudio() ?? [];
+    Promise.all(players.map((audio) => audio.play().catch(() => undefined))).finally(() => setAudioBlocked(false));
+  }, []);
+
+  const retryMedia = useCallback(() => {
+    endingRef.current = true;
+    onRetry();
+  }, [onRetry]);
 
   // Loading state
   if (meetingState === 'new' || meetingState === 'loading' || meetingState === 'joining-meeting') {
@@ -132,13 +224,39 @@ export function VideoRoom({
     );
   }
 
-  // Get remote participant for display
-  const remoteParticipantId = remoteParticipantIds[0];
-
   return (
     <div className={cn(styles.container, className)}>
+      {/* Plays the other person's voice. Without it calls had no sound (VC-1). */}
+      <DailyAudio ref={audioRef} onPlayFailed={handleAudioPlayFailed} />
+
       {/* Recording notice */}
       <RecordingNotice isRecording={isRecording} />
+
+      {(reconnecting || mediaProblem || audioBlocked) && (
+        <div className={styles.banners} role="status" aria-live="polite">
+          {reconnecting && (
+            <div className={styles.banner}>
+              <span>Connection lost. Reconnecting…</span>
+            </div>
+          )}
+          {audioBlocked && (
+            <div className={styles.banner}>
+              <span>Sound is off.</span>
+              <button type="button" className={styles.bannerButton} onClick={enableSound}>
+                Turn on sound
+              </button>
+            </div>
+          )}
+          {mediaProblem && (
+            <div className={cn(styles.banner, styles.bannerWarning)}>
+              <span>{mediaProblem.message}</span>
+              <button type="button" className={styles.bannerButton} onClick={retryMedia}>
+                Try again
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Main video area */}
       <div className={styles.videoGrid}>
@@ -152,7 +270,7 @@ export function VideoRoom({
               className={styles.video}
             />
             <div className={styles.participantName}>
-              {isVet ? 'Customer' : 'Dr. Veterinarian'}
+              {remoteName || (isVet ? 'Pet parent' : 'Your vet')}
             </div>
           </div>
         ) : (
@@ -163,7 +281,8 @@ export function VideoRoom({
                 <span />
                 <span />
               </div>
-              <p>Waiting for {isVet ? 'customer' : 'veterinarian'} to join...</p>
+              <p>Waiting for {isVet ? 'the pet parent' : 'your vet'} to join...</p>
+              <p className={styles.waitingHint}>Keep this screen open. You don&apos;t need to reload.</p>
             </div>
           </div>
         )}
@@ -199,27 +318,8 @@ export function VideoRoom({
         onToggleMute={toggleMute}
         onToggleCamera={toggleCamera}
         onEndCall={handleLeave}
-        onToggleChat={toggleChat}
         showChatButton={false}
       />
-
-      {/* Chat panel (placeholder) */}
-      {showChat && (
-        <div className={styles.chatPanel}>
-          <div className={styles.chatHeader}>
-            <span>Chat</span>
-            <button onClick={toggleChat} className={styles.closeChat}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-          </div>
-          <div className={styles.chatMessages}>
-            <p className={styles.chatPlaceholder}>Chat coming soon...</p>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

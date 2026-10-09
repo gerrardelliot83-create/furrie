@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
+import { JOIN_WINDOW_BEFORE_MINUTES } from '@/lib/scheduling/joinWindow';
 import styles from './BookingConfirmation.module.css';
 
 interface BookingConfirmationProps {
@@ -156,7 +157,7 @@ END:VCALENDAR`;
           </svg>
         </div>
         <p className={styles.infoText}>
-          You&apos;ll be able to join the video call 5 minutes before your scheduled time.
+          You&apos;ll be able to join the video call {JOIN_WINDOW_BEFORE_MINUTES} minutes before your scheduled time.
           Make sure you have a stable internet connection and your camera/microphone ready.
         </p>
       </div>

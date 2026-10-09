@@ -15,6 +15,7 @@ import {
   occupiedMinutes,
   slotFitsBlocks,
 } from './slotFit';
+import { JOIN_WINDOW_AFTER_MS, JOIN_WINDOW_BEFORE_MINUTES, JOIN_WINDOW_BEFORE_MS } from './joinWindow';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const OPEN_STATUSES = ['pending', 'scheduled', 'active'];
@@ -49,9 +50,8 @@ const SLOT_DURATION_MINUTES = 30;
 // Minimum lead time before booking (in milliseconds)
 const MIN_LEAD_TIME_MS = 15 * 60 * 1000; // 15 minutes
 
-// Join window (how early/late participants can join)
-const JOIN_WINDOW_BEFORE_MS = 5 * 60 * 1000; // 5 minutes before
-const JOIN_WINDOW_AFTER_MS = 45 * 60 * 1000; // 45 minutes after
+// Join window (how early/late participants can join): ./joinWindow, shared
+// with the client components.
 
 // Missed consultation threshold
 const MISSED_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes after scheduled time
@@ -342,12 +342,12 @@ export function canJoinConsultation(scheduledAt: string): {
   const scheduledTime = new Date(scheduledAt);
   const diffMs = scheduledTime.getTime() - now.getTime();
 
-  // Too early (more than 5 minutes before)
+  // Too early (more than JOIN_WINDOW_BEFORE_MINUTES before)
   if (diffMs > JOIN_WINDOW_BEFORE_MS) {
     const minutesUntil = Math.ceil(diffMs / 60000);
     return {
       canJoin: false,
-      reason: `Consultation starts in ${minutesUntil} minutes. You can join 5 minutes before the scheduled time.`,
+      reason: `Consultation starts in ${minutesUntil} minutes. You can join ${JOIN_WINDOW_BEFORE_MINUTES} minutes before the scheduled time.`,
       minutesUntilStart: minutesUntil,
     };
   }

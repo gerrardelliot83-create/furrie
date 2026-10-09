@@ -5,6 +5,8 @@
  * Logo is loaded from the production domain as an absolute URL.
  */
 
+import { JOIN_WINDOW_BEFORE_MINUTES, JOIN_WINDOW_BEFORE_MS } from '@/lib/scheduling/joinWindow';
+
 const LOGO_URL = 'https://app.furrie.in/assets/logo/furrie-logo-dark-blue.png';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://app.furrie.in';
 const VET_URL = 'https://vet.furrie.in';
@@ -772,10 +774,10 @@ function vTime(iso: string): string {
 }
 
 function vJoinLine(params: { scheduledAt: string; canJoinNow: boolean }): string {
-  const joinFrom = vTime(new Date(new Date(params.scheduledAt).getTime() - 5 * 60 * 1000).toISOString());
+  const joinFrom = vTime(new Date(new Date(params.scheduledAt).getTime() - JOIN_WINDOW_BEFORE_MS).toISOString());
   return params.canJoinNow
     ? 'You can join the video call now.'
-    : `You can join the video call from ${joinFrom} IST, 5 minutes before the start.`;
+    : `You can join the video call from ${joinFrom} IST, ${JOIN_WINDOW_BEFORE_MINUTES} minutes before the start.`;
 }
 
 /**

@@ -38,6 +38,15 @@ export function mapPetFromDB(row: PetRow): Pet {
 }
 
 /**
+ * A form field left empty arrives as ''. The database needs null: a DATE or
+ * number column rejects '', so a pet without a date of birth (the form says
+ * "Leave empty if unknown") could not be saved (HF2). 0 is kept.
+ */
+export function emptyToNull<T>(value: T | '' | null | undefined): T | null {
+  return value === '' || value === undefined ? null : value;
+}
+
+/**
  * Convert TypeScript interface to database insert format
  */
 export function mapPetToDB(pet: Partial<Pet>, ownerId: string): PetInsert {
@@ -47,9 +56,9 @@ export function mapPetToDB(pet: Partial<Pet>, ownerId: string): PetInsert {
     species: pet.species!,
     breed: pet.breed!,
     gender: pet.gender!,
-    date_of_birth: pet.dateOfBirth ?? null,
-    approximate_age_months: pet.approximateAgeMonths ?? null,
-    weight_kg: pet.weightKg ?? null,
+    date_of_birth: emptyToNull(pet.dateOfBirth),
+    approximate_age_months: emptyToNull(pet.approximateAgeMonths),
+    weight_kg: emptyToNull(pet.weightKg),
     is_neutered: pet.isNeutered ?? false,
     color_markings: pet.colorMarkings ?? null,
     microchip_number: pet.microchipNumber ?? null,
@@ -76,9 +85,9 @@ export function mapPetUpdateToDB(pet: Partial<Pet>): PetUpdate {
   if (pet.species !== undefined) update.species = pet.species;
   if (pet.breed !== undefined) update.breed = pet.breed;
   if (pet.gender !== undefined) update.gender = pet.gender;
-  if (pet.dateOfBirth !== undefined) update.date_of_birth = pet.dateOfBirth;
-  if (pet.approximateAgeMonths !== undefined) update.approximate_age_months = pet.approximateAgeMonths;
-  if (pet.weightKg !== undefined) update.weight_kg = pet.weightKg;
+  if (pet.dateOfBirth !== undefined) update.date_of_birth = emptyToNull(pet.dateOfBirth);
+  if (pet.approximateAgeMonths !== undefined) update.approximate_age_months = emptyToNull(pet.approximateAgeMonths);
+  if (pet.weightKg !== undefined) update.weight_kg = emptyToNull(pet.weightKg);
   if (pet.isNeutered !== undefined) update.is_neutered = pet.isNeutered;
   if (pet.colorMarkings !== undefined) update.color_markings = pet.colorMarkings;
   if (pet.microchipNumber !== undefined) update.microchip_number = pet.microchipNumber;

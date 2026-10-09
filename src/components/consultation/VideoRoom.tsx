@@ -13,7 +13,13 @@ import {
   DailyAudio,
   DailyVideo,
 } from '@daily-co/daily-react';
-import { describeCameraError, describeFatalError, DISCONNECTED, type CallProblem } from '@/lib/daily/callErrors';
+import {
+  describeCameraError,
+  describeFatalError,
+  DISCONNECTED,
+  mediaPermissionHint,
+  type CallProblem,
+} from '@/lib/daily/callErrors';
 import { reportCallProblem } from '@/lib/daily/reportCallProblem';
 import { CallControls } from './CallControls';
 import { RecordingNotice } from './RecordingNotice';
@@ -212,13 +218,57 @@ export function VideoRoom({
     onRetry();
   }, [onRetry]);
 
+  const connecting = meetingState === 'new' || meetingState === 'loading' || meetingState === 'joining-meeting';
+
+  // While connecting, say when the browser is waiting for camera/microphone
+  // permission or has them blocked (VC-1b: on 9 Oct a call sat on
+  // "Connecting…" because nobody noticed Chrome's small permission bubble).
+  // Re-checked every second until the call connects or this screen goes.
+  const [permissionHint, setPermissionHint] = useState<ReturnType<typeof mediaPermissionHint>>(null);
+  useEffect(() => {
+    if (!connecting || typeof navigator === 'undefined' || !navigator.permissions?.query) return;
+    let stopped = false;
+    // Not every browser knows 'camera' / 'microphone' here (Firefox throws): null = can't tell.
+    const stateOf = async (name: string): Promise<string | null> => {
+      try {
+        return (await navigator.permissions.query({ name: name as PermissionName })).state;
+      } catch {
+        return null;
+      }
+    };
+    const check = async () => {
+      const [camera, microphone] = await Promise.all([stateOf('camera'), stateOf('microphone')]);
+      if (!stopped) setPermissionHint(mediaPermissionHint(camera, microphone));
+    };
+    void check();
+    const timer = setInterval(() => void check(), 1000);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
+  }, [connecting]);
+
   // Loading state
-  if (meetingState === 'new' || meetingState === 'loading' || meetingState === 'joining-meeting') {
+  if (connecting) {
     return (
       <div className={cn(styles.container, styles.loading, className)}>
         <div className={styles.loadingContent}>
           <div className={styles.spinner} />
           <p>Connecting to consultation...</p>
+          {permissionHint && (
+            <div
+              className={cn(styles.permissionHint, permissionHint.kind === 'denied' && styles.permissionHintBlocked)}
+              role="status"
+              aria-live="polite"
+            >
+              <p>{permissionHint.message}</p>
+              {permissionHint.kind === 'denied' && (
+                <button type="button" className={styles.bannerButton} onClick={() => window.location.reload()}>
+                  Reload page
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     );

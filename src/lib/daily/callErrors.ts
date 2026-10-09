@@ -98,6 +98,33 @@ export function describeCameraError(type: string | null | undefined): CallProble
   };
 }
 
+/**
+ * What to say under "Connecting…" from the browser's camera and microphone
+ * permission states (navigator.permissions; null where the browser can't
+ * tell). On 9 Oct a test call sat on "Connecting to consultation…" because
+ * nobody noticed Chrome's small permission bubble (VC-1b).
+ */
+export function mediaPermissionHint(
+  camera: string | null,
+  microphone: string | null
+): { kind: 'prompt' | 'denied'; message: string } | null {
+  if (camera === 'denied' || microphone === 'denied') {
+    return {
+      kind: 'denied',
+      message:
+        'Your camera or microphone is blocked. Tap the lock or settings icon next to the web address, allow the camera and microphone, then reload this page.',
+    };
+  }
+  if (camera === 'prompt' || microphone === 'prompt') {
+    return {
+      kind: 'prompt',
+      message:
+        'Your browser is asking to use your camera and microphone. Click Allow — on a computer the request appears near the address bar.',
+    };
+  }
+  return null;
+}
+
 /** The call ended without the person pressing End (dropped, closed by Daily). */
 export const DISCONNECTED: CallProblem = {
   title: 'You were disconnected',

@@ -284,13 +284,13 @@ export function SOAPForm({
   };
 
   const handleComplete = async () => {
-    // Validate required fields
-    if (!formData.chiefComplaint) {
-      toast('Please enter the chief complaint', 'error');
-      return;
-    }
-    if (!formData.provisionalDiagnosis) {
-      toast('Please enter a provisional diagnosis', 'error');
+    // No chief complaint / diagnosis check here (VC-1b): a vet whose pet
+    // parent never came must not have to write fake notes to reach Finish.
+    // The server asks what happened first and requires the notes only for a
+    // consultation that happened (NOTES_REQUIRED brings her back here).
+    const hasRequiredNotes = !!formData.chiefComplaint.trim() && !!formData.provisionalDiagnosis.trim();
+    if (!hasRequiredNotes) {
+      await executeComplete();
       return;
     }
 

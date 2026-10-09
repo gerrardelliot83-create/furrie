@@ -13,8 +13,8 @@ import { formatVetName } from '@/lib/utils';
 /**
  * Who closed the consultation as a success:
  *   'vet'    — the vet pressed Finish (POST /api/vet/consultations/[id]/complete);
- *   'system' — the stale-call cron closed it because Daily showed both the vet
- *              and the customer in the room (V rule set, A-07).
+ *   'system' — the stale-call cron closed it because Daily showed the vet and
+ *              the customer in the call together (V rule set, A-07, VC-1b).
  */
 export type CompletionTrigger = 'vet' | 'system';
 

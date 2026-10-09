@@ -87,6 +87,7 @@ export async function sendMissedNotices(consultation: ClosedConsultation): Promi
 
 const FAILED_REASON_TEXT: Record<FailedReason, string> = {
   vet_no_show: 'The customer joined the video room, but the vet did not.',
+  never_together: 'Both joined, but never at the same time.',
   nobody_connected: 'Neither the vet nor the customer was in the video room.',
   daily_unreachable:
     'Daily could not be reached for 3 hours after the start, so we could not tell who joined.',

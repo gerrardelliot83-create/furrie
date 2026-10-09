@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { verifyCronRequest } from '@/lib/cron/auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { getRoomAttendance, roomNameForConsultation, type RoomAttendance } from '@/lib/daily';
+import { getRoomAttendance, roomNameForConsultation, secondsTogether, type RoomAttendance } from '@/lib/daily';
 import { decideStaleActiveOutcome } from '@/lib/scheduling/outcomes';
 import type { Database } from '@/lib/database.types';
 import { withRoute } from '@/server/handler';
@@ -41,12 +41,13 @@ function callMinutes(attendance: RoomAttendance | null): number {
  *
  * Closes 'active' consultations the vet never finished, by the V rule set
  * (src/lib/scheduling/outcomes.ts, A-07). Who was in the call comes from
- * Daily's Meetings API (participants' user ids = our user ids):
- *   - still in the room          → leave it
- *   - vet and customer           → success (+ follow-up, emails, invite reward)
- *   - vet only                   → missed (the customer didn't come)
- *   - customer only / nobody     → failed (+ ops email)
- *   - Daily unreachable          → retry; failed (+ ops email) after 3 hours
+ * Daily's Meetings API (participants' user ids = our user ids, join times):
+ *   - still in the room              → leave it
+ *   - vet and customer together ≥60 s → success (+ follow-up, emails, invite reward)
+ *   - vet only                       → missed (the customer didn't come)
+ *   - both, but never together (VC-1b), customer only, nobody
+ *                                    → failed (+ ops email)
+ *   - Daily unreachable              → retry; failed (+ ops email) after 3 hours
  *
  * This is the only job that closes 'active' consultations; mark-missed only
  * handles 'scheduled' ones. The vet's Finish can close it too; both updates
@@ -96,7 +97,12 @@ export const GET = withRoute(async function GET(request: Request) {
     );
 
     const decision = decideStaleActiveOutcome({
-      attendance,
+      attendance: attendance && {
+        ongoing: attendance.ongoing,
+        participantUserIds: attendance.participantUserIds,
+        // VC-1b: together, not just "both seen at some point".
+        secondsTogether: secondsTogether(attendance.records, consultation.vet_id, consultation.customer_id),
+      },
       vetId: consultation.vet_id,
       customerId: consultation.customer_id,
       msSinceStart,

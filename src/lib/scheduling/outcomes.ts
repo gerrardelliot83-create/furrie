@@ -7,11 +7,15 @@
  *   missed    — the customer did not come: Daily shows only the vet, or the
  *               vet says so when pressing Finish.
  *   failed    — the vet did not come, or it could not go ahead, or we cannot
- *               tell: Daily shows only the customer, or nobody; nobody pressed
- *               Join by the end of the join window (T+45); the vet reports a
- *               technical problem; or Daily was unreachable for 3 hours after
- *               the start. Ops is emailed so an admin can make it right.
+ *               tell: Daily shows only the customer, or nobody, or both but
+ *               never together; nobody pressed Join by the end of the join
+ *               window (T+45); the vet reports a technical problem; or Daily
+ *               was unreachable for 3 hours after the start. Ops is emailed so
+ *               an admin can make it right.
  *   cancelled — before the start, by the customer or an admin (not here).
+ *
+ * The principle (founder, VC-1b): when we can't show the pet parent simply
+ * didn't come, it is 'failed' with an ops email, never 'missed'.
  *
  * The vet's Finish (POST /api/vet/consultations/[id]/complete) uses
  * decideFinishOutcome; the stale-call cron uses decideStaleActiveOutcome for
@@ -19,19 +23,31 @@
  * consultation nobody opened with NEVER_OPENED_OUTCOME.
  */
 
-export type NoShowReason = 'customer_no_show' | 'vet_no_show' | 'nobody_connected' | 'daily_unreachable';
+export type NoShowReason =
+  | 'customer_no_show'
+  | 'vet_no_show'
+  | 'never_together'
+  | 'nobody_connected'
+  | 'daily_unreachable';
 
 /** Why a consultation was closed as 'failed' (the ops email says which). */
 export type FailedReason = Exclude<NoShowReason, 'customer_no_show'> | 'technical_problem';
 
 export type StaleActiveDecision =
   | { action: 'wait'; reason: 'call_ongoing' | 'daily_unreachable' }
-  | { action: 'close'; outcome: 'success'; reason: 'both_joined' }
+  | { action: 'close'; outcome: 'success'; reason: 'seen_together' }
   | { action: 'close'; outcome: 'missed'; reason: 'customer_no_show' }
   | { action: 'close'; outcome: 'failed'; reason: Exclude<NoShowReason, 'customer_no_show'> };
 
 /** How long the cron keeps retrying Daily before recording 'failed'. */
 export const DAILY_UNREACHABLE_GIVE_UP_MS = 3 * 60 * 60 * 1000;
+
+/**
+ * Time in the call together that counts as the consultation happening on
+ * video. A few seconds of overlap (a session Daily hadn't cleared yet, a join
+ * that dropped at once) is not a consultation.
+ */
+export const MIN_SECONDS_TOGETHER = 60;
 
 /**
  * Still 'scheduled' when the join window closed: neither the vet nor the pet
@@ -45,8 +61,12 @@ export const NEVER_OPENED_OUTCOME = { outcome: 'failed', reason: 'nobody_connect
 };
 
 export function decideStaleActiveOutcome(input: {
-  /** Who Daily saw in the room; null when Daily could not be asked. */
-  attendance: { ongoing: boolean; participantUserIds: readonly string[] } | null;
+  /**
+   * Who Daily saw in the room, and for how long the vet and the customer were
+   * in it together (lib/daily/meetings secondsTogether); null when Daily
+   * could not be asked.
+   */
+  attendance: { ongoing: boolean; participantUserIds: readonly string[]; secondsTogether: number } | null;
   vetId: string | null;
   customerId: string;
   /** Time since the consultation became active (first join). */
@@ -64,10 +84,16 @@ export function decideStaleActiveOutcome(input: {
     return { action: 'wait', reason: 'call_ongoing' };
   }
 
+  // VC-1b: "both were in the room at some point" is not a consultation; on
+  // 7 Oct the two were each in it, minutes apart.
+  if (attendance.secondsTogether >= MIN_SECONDS_TOGETHER) {
+    return { action: 'close', outcome: 'success', reason: 'seen_together' };
+  }
+
   const vetJoined = !!vetId && attendance.participantUserIds.includes(vetId);
   const customerJoined = attendance.participantUserIds.includes(customerId);
 
-  if (vetJoined && customerJoined) return { action: 'close', outcome: 'success', reason: 'both_joined' };
+  if (vetJoined && customerJoined) return { action: 'close', outcome: 'failed', reason: 'never_together' };
   if (vetJoined) return { action: 'close', outcome: 'missed', reason: 'customer_no_show' };
   if (customerJoined) return { action: 'close', outcome: 'failed', reason: 'vet_no_show' };
   return { action: 'close', outcome: 'failed', reason: 'nobody_connected' };
@@ -93,13 +119,6 @@ export const FINISH_CHOICE_OUTCOME: Record<FinishChoice, 'success' | 'missed' | 
 export function isFinishChoice(value: unknown): value is FinishChoice {
   return typeof value === 'string' && (FINISH_CHOICES as readonly string[]).includes(value);
 }
-
-/**
- * Time in the call together that counts as the consultation happening on
- * video. A few seconds of overlap (a session Daily hadn't cleared yet, a join
- * that dropped at once) is not a consultation; the vet is asked instead.
- */
-export const MIN_SECONDS_TOGETHER = 60;
 
 export type FinishDecision =
   | { action: 'close'; outcome: 'success'; reason: 'seen_together' | 'happened_elsewhere' }

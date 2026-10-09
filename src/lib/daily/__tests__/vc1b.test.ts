@@ -172,19 +172,76 @@ test('nobody pressed Join by the end of the join window: failed (not the pet par
   assert.deepEqual(NEVER_OPENED_OUTCOME, { outcome: 'failed', reason: 'nobody_connected' });
 });
 
-test('the stale-call cron rules are unchanged', () => {
-  const decide = (ids: string[], ongoing = false) =>
-    decideStaleActiveOutcome({
-      attendance: { ongoing, participantUserIds: ids },
-      vetId: VET,
-      customerId: PARENT,
-      msSinceStart: min(100) * 1000,
-    });
-  assert.deepEqual(decide([VET, PARENT]), { action: 'close', outcome: 'success', reason: 'both_joined' });
-  assert.deepEqual(decide([VET]), { action: 'close', outcome: 'missed', reason: 'customer_no_show' });
-  assert.deepEqual(decide([PARENT]), { action: 'close', outcome: 'failed', reason: 'vet_no_show' });
-  assert.deepEqual(decide([]), { action: 'close', outcome: 'failed', reason: 'nobody_connected' });
-  assert.deepEqual(decide([VET], true), { action: 'wait', reason: 'call_ongoing' });
+// ── The stale-call cron (an 'active' consultation the vet never finished) ──
+
+/** What close-stale-active does with a Daily /meetings body. */
+const staleCall = (meetingsList: Array<{ ongoing?: boolean; participants: unknown[] }>) => {
+  const records = parseMeetings({ data: meetingsList }, T + min(120));
+  const ids = [...new Set(records.flatMap((m) => m.sessions.flatMap((s) => (s.userId ? [s.userId] : []))))];
+  return decideStaleActiveOutcome({
+    attendance: {
+      ongoing: records.some((m) => m.ongoing),
+      participantUserIds: ids,
+      secondsTogether: secondsTogether(records, VET, PARENT),
+    },
+    vetId: VET,
+    customerId: PARENT,
+    msSinceStart: min(100) * 1000,
+  });
+};
+
+test('stale call: together for a real call → success', () => {
+  assert.deepEqual(staleCall([{ participants: [p(VET, 1, 20), p(PARENT, 2, 18)] }]), {
+    action: 'close',
+    outcome: 'success',
+    reason: 'seen_together',
+  });
+});
+
+test('stale call, 7 Oct shape: the pet parent 05:31–05:33 and 05:32:52–05:33:14, the vet from 05:34:58 → failed, never together', () => {
+  const at = (iso: string) => Date.parse(iso) / 1000;
+  const session = (userId: string, fromIso: string, toIso: string) => ({
+    user_id: userId,
+    join_time: at(fromIso),
+    duration: at(toIso) - at(fromIso),
+  });
+  const decision = staleCall([
+    {
+      participants: [
+        session(PARENT, '2026-10-07T05:31:00Z', '2026-10-07T05:33:00Z'),
+        session(PARENT, '2026-10-07T05:32:52Z', '2026-10-07T05:33:14Z'),
+      ],
+    },
+    { participants: [session(VET, '2026-10-07T05:34:58Z', '2026-10-07T05:50:00Z')] },
+  ]);
+  assert.deepEqual(decision, { action: 'close', outcome: 'failed', reason: 'never_together' });
+});
+
+test(`stale call: both in the room but together under ${MIN_SECONDS_TOGETHER} s → failed, never together (not missed)`, () => {
+  const decision = staleCall([{ participants: [p(VET, 0, 10), p(PARENT, 9.5, 5)] }]);
+  assert.deepEqual(decision, { action: 'close', outcome: 'failed', reason: 'never_together' });
+});
+
+test('stale call: one person only, nobody, still in the call, Daily unreachable — as before', () => {
+  assert.deepEqual(staleCall([{ participants: [p(VET, 0, 15)] }]), {
+    action: 'close',
+    outcome: 'missed',
+    reason: 'customer_no_show',
+  });
+  assert.deepEqual(staleCall([{ participants: [p(PARENT, 0, 15)] }]), {
+    action: 'close',
+    outcome: 'failed',
+    reason: 'vet_no_show',
+  });
+  assert.deepEqual(staleCall([]), { action: 'close', outcome: 'failed', reason: 'nobody_connected' });
+  assert.deepEqual(staleCall([{ ongoing: true, participants: [p(VET, 0)] }]), {
+    action: 'wait',
+    reason: 'call_ongoing',
+  });
+  const unreachable = (msSinceStart: number) =>
+    decideStaleActiveOutcome({ attendance: null, vetId: VET, customerId: PARENT, msSinceStart });
+  assert.deepEqual(unreachable(min(100) * 1000), { action: 'wait', reason: 'daily_unreachable' });
+  assert.deepEqual(unreachable(min(181) * 1000), { action: 'close', outcome: 'failed', reason: 'daily_unreachable' });
 });
 
 // ── Camera / microphone permission hint ───────────────────────────────

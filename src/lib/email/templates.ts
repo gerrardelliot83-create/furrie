@@ -6,6 +6,7 @@
  */
 
 import { JOIN_WINDOW_BEFORE_MINUTES, JOIN_WINDOW_BEFORE_MS } from '@/lib/scheduling/joinWindow';
+import { formatIstDateTime } from '@/lib/time/ist';
 import { escapeHtml } from './escape';
 
 const LOGO_URL = 'https://app.furrie.in/assets/logo/furrie-logo-dark-blue.png';
@@ -787,6 +788,11 @@ function vVetName(name: string | null | undefined): string {
   return /^dr\.?\s/i.test(trimmed) ? trimmed : `Dr. ${trimmed}`;
 }
 
+/** Who a vet email is addressed to: "Dr. Name", or "Doctor" with no name (CX-1, not "Dear your vet,"). */
+function vVetSalutation(name: string | null | undefined): string {
+  return (name ?? '').trim() ? vVetName(name) : 'Doctor';
+}
+
 /** "4:00 pm" in India time. */
 function vTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('en-IN', {
@@ -851,7 +857,7 @@ export function vetStartingSoonEmail(params: {
   return {
     subject: `Starts at ${vTime(params.scheduledAt)} IST: consultation for ${params.petName}`,
     html: wrapEmailBody(`
-      <p style="${textStyle}">Dear ${vEscape(vVetName(params.vetName))},</p>
+      <p style="${textStyle}">Dear ${vEscape(vVetSalutation(params.vetName))},</p>
       <p style="${textStyle}">
         Your consultation for ${vEscape(params.petName)} (${vEscape(params.customerName)}) starts at <strong>${vTime(params.scheduledAt)} IST</strong>.
         ${vJoinLine(params)}
@@ -881,7 +887,7 @@ export function vetSetPasswordEmail(params: {
   return {
     subject: isWelcome ? 'Welcome to Furrie: set your password' : 'Set a new password for your Furrie vet account',
     html: wrapEmailBody(`
-      <p style="${textStyle}">Dear ${vEscape(vVetName(params.vetName))},</p>
+      <p style="${textStyle}">Dear ${vEscape(vVetSalutation(params.vetName))},</p>
       <p style="${textStyle}">
         ${isWelcome
           ? 'Your Furrie vet account is ready. Set your password with the button below, then sign in at vet.furrie.in with this email address:'
@@ -910,23 +916,6 @@ export function vetSetPasswordEmail(params: {
 // ---- CX-1 ----
 // Customer fixes batch, 2026-10-09.
 
-/** "Fri, 10 Oct, 4:00 pm" in India time. */
-function cxShortDateTime(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString('en-IN', {
-      timeZone: 'Asia/Kolkata',
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
-  } catch {
-    return iso;
-  }
-}
-
 /** Vet: the pet parent cancelled a booked consultation (the vet used to hear nothing). */
 export function vetConsultationCancelledEmail(params: {
   vetName: string;
@@ -936,14 +925,14 @@ export function vetConsultationCancelledEmail(params: {
   scheduledAt: string;
   consultationNumber: string;
 }): { subject: string; html: string } {
-  const when = `${cxShortDateTime(params.scheduledAt)} IST`;
+  const when = `${formatIstDateTime(params.scheduledAt)} IST`; // "Fri, 10 Oct, 4:00 pm IST"
   const pet = params.petSpecies
     ? `${vEscape(params.petName)} (${vEscape(params.petSpecies)})`
     : vEscape(params.petName);
   return {
     subject: `Consultation cancelled: ${params.petName}, ${when}`,
     html: wrapEmailBody(`
-      <p style="${textStyle}">Dear ${vEscape(vVetName(params.vetName))},</p>
+      <p style="${textStyle}">Dear ${vEscape(vVetSalutation(params.vetName))},</p>
       <p style="${textStyle}">
         The pet parent has cancelled this consultation. You don't need to do anything; the time is open for other bookings again.
       </p>

@@ -11,8 +11,9 @@ import { getStatusVariant, getStatusDisplayText } from '@/lib/utils/statusHelper
 import {
   bookingUsesCredit,
   cancelCreditNotice,
-  cancelReturnsCredit,
   cancelledMessage,
+  cancelledToastType,
+  readCancelCreditOutcome,
 } from '@/lib/credits/cancelCredit';
 import { FEATURES } from '@/lib/config/features';
 import type { ConsultationStatus, ConsultationOutcome } from '@/types';
@@ -147,7 +148,6 @@ export function ConsultationDetailContent({ consultationId, onCancelSuccess, onO
 
   const handleCancelConsultation = useCallback(async () => {
     setCancelling(true);
-    const returnExpected = cancelReturnsCredit(scheduledAt);
     try {
       const response = await fetch(`/api/consultations/${consultationId}`, {
         method: 'PATCH',
@@ -160,13 +160,10 @@ export function ConsultationDetailContent({ consultationId, onCancelSuccess, onO
         throw new Error(data.error || 'Failed to cancel');
       }
 
-      // Say whether the credit came back (CX-1: the answer was ignored).
-      const creditReturned = data.creditReturned === true;
-      toast(
-        cancelledMessage({ creditReturned, usesCredit, returnExpected }),
-        creditReturned || !usesCredit || !returnExpected ? 'success' : 'warning',
-        7000
-      );
+      // Say what happened to the credit, as the server decided it (CX-1: the
+      // answer used to be ignored).
+      const outcome = readCancelCreditOutcome(data);
+      toast(cancelledMessage(outcome), cancelledToastType(outcome), 7000);
       setCancelModalOpen(false);
 
       if (onCancelSuccess) {
@@ -179,7 +176,7 @@ export function ConsultationDetailContent({ consultationId, onCancelSuccess, onO
     } finally {
       setCancelling(false);
     }
-  }, [consultationId, toast, onCancelSuccess, router, usesCredit, scheduledAt]);
+  }, [consultationId, toast, onCancelSuccess, router]);
 
   if (loading) {
     return (

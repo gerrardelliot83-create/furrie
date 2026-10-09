@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import type { User, Session } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
+import { clearPendingOtp } from '@/lib/auth/pendingOtp';
 
 interface AuthState {
   user: User | null;
@@ -191,6 +192,8 @@ export function useAuth(): UseAuthReturn {
   const signOut = useCallback(async () => {
     try {
       setState(prev => ({ ...prev, loading: true }));
+      // The sign-in form's "code sent" note must not outlive the session (CX-1).
+      clearPendingOtp();
       await supabase.auth.signOut();
       setState({ user: null, session: null, loading: false, error: null });
     } catch (err) {

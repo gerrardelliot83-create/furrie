@@ -4,7 +4,12 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
-import { cancelCreditNotice, cancelReturnsCredit, cancelledMessage } from '@/lib/credits/cancelCredit';
+import {
+  cancelCreditNotice,
+  cancelledMessage,
+  cancelledToastType,
+  readCancelCreditOutcome,
+} from '@/lib/credits/cancelCredit';
 import styles from './CancelConsultationButton.module.css';
 
 interface CancelConsultationButtonProps {
@@ -36,7 +41,6 @@ export function CancelConsultationButton({
   const handleCancel = async () => {
     setLoading(true);
     setError(null);
-    const returnExpected = cancelReturnsCredit(scheduledAt);
 
     try {
       const response = await fetch(`/api/consultations/${consultationId}`, {
@@ -50,12 +54,10 @@ export function CancelConsultationButton({
         throw new Error(data.error || 'Failed to cancel consultation');
       }
 
-      // Say whether the credit came back (CX-1: the answer was ignored).
-      toast(
-        cancelledMessage({ creditReturned: data.creditReturned === true, usesCredit, returnExpected }),
-        data.creditReturned === true || !usesCredit || !returnExpected ? 'success' : 'warning',
-        7000
-      );
+      // Say what happened to the credit, as the server decided it (CX-1: the
+      // answer used to be ignored).
+      const outcome = readCancelCreditOutcome(data);
+      toast(cancelledMessage(outcome), cancelledToastType(outcome), 7000);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');

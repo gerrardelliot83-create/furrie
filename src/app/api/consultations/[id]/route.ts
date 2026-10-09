@@ -1,4 +1,5 @@
 import { NextResponse, after } from 'next/server';
+import * as Sentry from '@sentry/nextjs';
 import { getRequestUser } from '@/lib/auth/withAuth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import {
@@ -6,10 +7,10 @@ import {
   parseCustomerConsultationPatch,
 } from '@/lib/utils/consultationMapper';
 import { releaseConsultationCredit } from '@/lib/credits/releaseCredit';
-import { cancelReturnsCredit } from '@/lib/credits/cancelCredit';
+import { cancelReturnsCredit, type CancelCreditOutcome } from '@/lib/credits/cancelCredit';
 import { createNotification } from '@/lib/notifications/createNotification';
 import { sendVetConsultationCancelledEmail } from '@/lib/email';
-import { formatScheduledTimeShort } from '@/lib/utils';
+import { formatIstDateTime } from '@/lib/time/ist';
 import { withRoute } from '@/server/handler';
 
 const CANCELLABLE_STATUSES = ['pending', 'scheduled'];
@@ -34,7 +35,8 @@ async function notifyVetOfCancellation(consultation: {
     supabaseAdmin.from('profiles').select('full_name').eq('id', consultation.customer_id).maybeSingle(),
   ]);
   const petName = pet?.name || 'A pet';
-  const when = formatScheduledTimeShort(consultation.scheduled_at);
+  // A date, not "Today"/"Tomorrow": the notification is read later (CX-1).
+  const when = `${formatIstDateTime(consultation.scheduled_at)} IST`;
 
   const tasks: Promise<unknown>[] = [];
 
@@ -474,12 +476,34 @@ export const PATCH = withRoute(async function PATCH(
 
       // Terms §7.3 (L1 seam 2): the credit comes back when a booked
       // consultation is cancelled more than 5 minutes before it starts. The
-      // customer's cancel screens show the same rule (cancelCredit.ts, CX-1).
-      let creditReturned = false;
-      if (existing.status === 'scheduled' && cancelReturnsCredit(existing.scheduled_at)) {
-        const release = await releaseConsultationCredit(id);
-        creditReturned = release.released;
+      // customer's screen shows creditOutcome as decided here, by the server's
+      // clock (CX-1). A booking that took a credit has one
+      // consultation_pack_uses row; Plus, free and pending bookings have none.
+      const { data: creditUse, error: creditUseError } = await supabaseAdmin
+        .from('consultation_pack_uses')
+        .select('id')
+        .eq('consultation_id', id)
+        .maybeSingle();
+      if (creditUseError) {
+        console.error('Error checking the credit use of a cancelled consultation:', creditUseError);
       }
+      // Unknown (the lookup failed): still try to give a credit back.
+      const tookCredit = Boolean(creditUse) || Boolean(creditUseError);
+
+      let creditOutcome: CancelCreditOutcome = 'no_credit_used';
+      if (tookCredit) {
+        if (existing.status === 'scheduled' && cancelReturnsCredit(existing.scheduled_at)) {
+          const release = await releaseConsultationCredit(id);
+          creditOutcome = release.released ? 'returned' : 'release_failed';
+        } else {
+          creditOutcome = 'too_late';
+        }
+      }
+      if (creditOutcome === 'release_failed') {
+        // The customer is told to contact us; make sure someone sees it.
+        Sentry.captureMessage(`Cancelled ${id} in time but its credit was not returned`, 'warning');
+      }
+      const creditReturned = creditOutcome === 'returned';
 
       // Only a confirmed booking was ever announced to the vet; a 'pending'
       // one never got that far, so there is nothing to take back.
@@ -495,7 +519,8 @@ export const PATCH = withRoute(async function PATCH(
         after(() => notifyVetOfCancellation(cancelled));
       }
 
-      return NextResponse.json({ consultation: updated, creditReturned });
+      // creditReturned is kept for the mobile apps.
+      return NextResponse.json({ consultation: updated, creditReturned, creditOutcome });
     }
 
     // Concern edit: only while the consultation is booked and not started.

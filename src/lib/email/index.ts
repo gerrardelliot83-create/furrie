@@ -33,7 +33,8 @@ export interface SendEmailOptions {
   }>;
   /**
    * Resend sends one email per key within 24 hours, even when two requests
-   * race (CX-1: the welcome email). A repeat returns the first result.
+   * race (CX-1: the welcome email). A repeat with the same email returns the
+   * first result.
    */
   idempotencyKey?: string;
 }
@@ -59,9 +60,13 @@ export async function sendEmail(options: SendEmailOptions) {
         resendError.name === 'concurrent_idempotent_requests' ||
         resendError.name === 'invalid_idempotent_request'
       ) {
-        // Another request with the same key is sending (or sent) this email.
-        console.info('[EMAIL DUPLICATE SKIPPED]', { to: options.to, key: options.idempotencyKey });
-        return { success: false, error: error.message, duplicate: true };
+        // Same key: another request is sending this email right now
+        // (in_progress), or an earlier request with the key went through
+        // (already_used). Either way nothing new was sent.
+        const idempotency =
+          resendError.name === 'concurrent_idempotent_requests' ? ('in_progress' as const) : ('already_used' as const);
+        console.info('[EMAIL DUPLICATE SKIPPED]', { to: options.to, key: options.idempotencyKey, idempotency });
+        return { success: false, error: error.message, idempotency };
       }
       console.error('[EMAIL ERROR]', {
         to: options.to,

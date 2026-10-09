@@ -7,9 +7,10 @@ import { sendWelcomeEmail } from '@/lib/email';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { FEATURES } from '@/lib/config/features';
 import {
-  WELCOME_EMAIL_SENT_KEY,
   shouldSendWelcomeEmail,
+  welcomeEmailAttempt,
   welcomeEmailIdempotencyKey,
+  welcomeEmailRecord,
 } from './welcomeEmailRule';
 
 /**
@@ -27,24 +28,32 @@ import {
  */
 
 /**
- * Send the welcome email for an account at most once (CX-1): one Resend
- * idempotency key per account (stops two renders racing), then a marker in
- * auth app_metadata so later renders don't call Resend at all. See
- * welcomeEmailRule.ts.
+ * Send the welcome email for an account at most once (CX-1): a Resend
+ * idempotency key per account and attempt (stops two renders racing), then a
+ * marker in auth app_metadata so later renders don't call Resend at all. A
+ * failed send bumps the attempt so the next render retries under a new key.
+ * See welcomeEmailRule.ts.
+ *
+ * `attempt` is the account's failed-send count from app_metadata (0 for a
+ * brand-new account).
  */
-export async function sendWelcomeEmailOnce(userId: string, email: string, customerName: string) {
+export async function sendWelcomeEmailOnce(
+  userId: string,
+  email: string,
+  customerName: string,
+  attempt = 0
+) {
   const result = await sendWelcomeEmail(
     email,
     { customerName },
-    { idempotencyKey: welcomeEmailIdempotencyKey(userId) }
+    { idempotencyKey: welcomeEmailIdempotencyKey(userId, attempt) }
   );
-  if (result.success) {
+  const record = welcomeEmailRecord(result, attempt);
+  if (record) {
     // GoTrue merges app_metadata keys, so this adds one key and keeps the rest.
     // If it fails, the idempotency key still stops a second send in the window.
     try {
-      const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
-        app_metadata: { [WELCOME_EMAIL_SENT_KEY]: new Date().toISOString() },
-      });
+      const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, { app_metadata: record });
       if (error) console.error('[postSignIn] could not record the welcome email:', error.message);
     } catch (err) {
       console.error('[postSignIn] could not record the welcome email:', err);
@@ -81,7 +90,7 @@ export async function maybeSendWelcomeEmail({
   if (!email || !shouldSendWelcomeEmail({ email, createdAt, appMetadata })) return;
 
   try {
-    await sendWelcomeEmailOnce(userId, email, fullName || 'there');
+    await sendWelcomeEmailOnce(userId, email, fullName || 'there', welcomeEmailAttempt(appMetadata));
   } catch (err) {
     // Never surface: the page has already been sent to the user.
     console.error('[postSignIn] welcome email failed:', err);

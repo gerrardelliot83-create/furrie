@@ -8,6 +8,8 @@ import {
   cancelCreditNotice,
   cancelReturnsCredit,
   cancelledMessage,
+  cancelledToastType,
+  readCancelCreditOutcome,
 } from '../cancelCredit';
 
 const START = Date.parse('2026-10-10T10:30:00.000Z');
@@ -41,21 +43,21 @@ test('the confirm dialog says which case applies', () => {
   assert.equal(cancelCreditNotice({ usesCredit: false, scheduledAt: iso, now: START - 60 * MIN }), null);
 });
 
-test('the message afterwards follows creditReturned', () => {
-  assert.match(
-    cancelledMessage({ creditReturned: true, usesCredit: true, returnExpected: true }),
-    /credit is back/
-  );
-  assert.match(
-    cancelledMessage({ creditReturned: false, usesCredit: true, returnExpected: false }),
-    /less than 5 minutes/
-  );
-  assert.match(
-    cancelledMessage({ creditReturned: false, usesCredit: true, returnExpected: true }),
-    /could not return your credit/
-  );
-  assert.equal(
-    cancelledMessage({ creditReturned: false, usesCredit: false, returnExpected: true }),
-    'Consultation cancelled.'
-  );
+test('the message afterwards follows the server outcome, not the phone clock', () => {
+  assert.match(cancelledMessage('returned'), /credit is back/);
+  assert.match(cancelledMessage('too_late'), /less than 5 minutes/);
+  assert.match(cancelledMessage('release_failed'), /could not return your credit/);
+  assert.equal(cancelledMessage('no_credit_used'), 'Consultation cancelled.');
+  assert.equal(cancelledMessage(null), 'Consultation cancelled.');
+  assert.equal(cancelledToastType('release_failed'), 'warning');
+  assert.equal(cancelledToastType('too_late'), 'success');
+});
+
+test('the outcome is read from the response; older responses fall back to creditReturned', () => {
+  assert.equal(readCancelCreditOutcome({ creditOutcome: 'too_late', creditReturned: false }), 'too_late');
+  assert.equal(readCancelCreditOutcome({ creditOutcome: 'returned', creditReturned: true }), 'returned');
+  assert.equal(readCancelCreditOutcome({ creditReturned: true }), 'returned');
+  assert.equal(readCancelCreditOutcome({ creditReturned: false }), null);
+  assert.equal(readCancelCreditOutcome({ creditOutcome: 'something else' }), null);
+  assert.equal(readCancelCreditOutcome(null), null);
 });

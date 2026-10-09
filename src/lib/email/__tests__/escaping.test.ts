@@ -92,6 +92,19 @@ test('vet cancellation email: pet and time in the subject, names escaped in the 
   assert.ok(html.includes('Dear Dr. Asha Rao,')); // no "Dr. Dr."
 });
 
+test('a vet with no name on file is "Dear Doctor,", not "Dear your vet,"', () => {
+  const { html } = vetConsultationCancelledEmail({
+    vetName: '  ',
+    petName: 'Bruno',
+    petSpecies: null,
+    customerName: 'Ravi',
+    scheduledAt: START,
+    consultationNumber: 'FUR-20261010-0001',
+  });
+  assert.ok(html.includes('Dear Doctor,'));
+  assert.ok(!html.includes('your vet'));
+});
+
 test('escapeHtml and plainSubject', () => {
   assert.equal(escapeHtml(`<"'&>`), '&lt;&quot;&#39;&amp;&gt;');
   assert.equal(escapeHtml(null), '');

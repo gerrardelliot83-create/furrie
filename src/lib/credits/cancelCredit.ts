@@ -4,7 +4,8 @@
  * One rule for the cancel route and the customer's cancel screens (CX-1):
  * the credit comes back when a booked consultation is cancelled more than
  * 5 minutes before it starts. The customer is told which case they are in
- * before they confirm, and what happened afterwards.
+ * before they confirm (from the phone's clock), and afterwards what the
+ * server actually did (creditOutcome).
  *
  * No server-only imports: the customer portal's cancel buttons use this too.
  */
@@ -39,20 +40,42 @@ export function cancelCreditNotice(input: {
     : "It's less than 5 minutes to the start, so cancelling now uses your credit.";
 }
 
-/** The message after cancelling, from the server's `creditReturned`. */
-export function cancelledMessage(input: {
-  creditReturned: boolean;
-  usesCredit: boolean;
-  /** What the rule said when the customer pressed cancel. */
-  returnExpected: boolean;
-}): string {
-  if (input.creditReturned) return 'Consultation cancelled. Your consultation credit is back in your account.';
-  if (!input.usesCredit) return 'Consultation cancelled.';
-  if (!input.returnExpected) {
-    return 'Consultation cancelled. It was less than 5 minutes to the start, so the credit was used.';
+/**
+ * What happened to the credit, decided by the cancel route (the phone's clock
+ * is only used for the hint before confirming):
+ * - returned: cancelled in time; the credit is back
+ * - too_late: 5 minutes or less before the start; the credit is used
+ * - no_credit_used: the booking never took a credit (Plus, free, or pending)
+ * - release_failed: in time, but giving the credit back failed (reported)
+ */
+export type CancelCreditOutcome = 'returned' | 'too_late' | 'no_credit_used' | 'release_failed';
+
+const OUTCOMES: readonly CancelCreditOutcome[] = ['returned', 'too_late', 'no_credit_used', 'release_failed'];
+
+/** The outcome from a cancel response; older responses only had creditReturned. */
+export function readCancelCreditOutcome(body: unknown): CancelCreditOutcome | null {
+  const data = (body ?? {}) as { creditOutcome?: unknown; creditReturned?: unknown };
+  if (typeof data.creditOutcome === 'string' && (OUTCOMES as readonly string[]).includes(data.creditOutcome)) {
+    return data.creditOutcome as CancelCreditOutcome;
   }
-  // Early enough, but the credit didn't come back (the release failed, which
-  // is reported to Sentry, or found no credit use for this booking). Say so
-  // rather than claim it did.
-  return 'Consultation cancelled, but we could not return your credit. Please contact us and we will add it back.';
+  return data.creditReturned === true ? 'returned' : null;
+}
+
+/** The message after cancelling. */
+export function cancelledMessage(outcome: CancelCreditOutcome | null): string {
+  switch (outcome) {
+    case 'returned':
+      return 'Consultation cancelled. Your consultation credit is back in your account.';
+    case 'too_late':
+      return 'Consultation cancelled. It was less than 5 minutes to the start, so the credit was used.';
+    case 'release_failed':
+      return 'Consultation cancelled, but we could not return your credit. Please contact us and we will add it back.';
+    default:
+      return 'Consultation cancelled.';
+  }
+}
+
+/** A warning only when the credit should have come back and didn't. */
+export function cancelledToastType(outcome: CancelCreditOutcome | null): 'success' | 'warning' {
+  return outcome === 'release_failed' ? 'warning' : 'success';
 }

@@ -138,8 +138,8 @@ export function OTPInput({
   return (
     <div className={styles.container}>
       {digits.map((digit, index) => (
-        // The phone offers the emailed code on the first box. No maxLength,
-        // so a whole code can land in any box and be spread (CX-1).
+        // No maxLength: a whole code offered by the phone can land in any
+        // box and is spread across all of them (CX-1).
         <input
           key={index}
           ref={(el) => {
@@ -147,7 +147,7 @@ export function OTPInput({
           }}
           type="text"
           inputMode="numeric"
-          autoComplete={index === 0 ? 'one-time-code' : 'off'}
+          autoComplete="one-time-code"
           pattern="\d*"
           value={digit}
           onChange={(e) => handleChange(index, e)}

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
 import { sendWelcomeEmailOnce } from '@/lib/auth/postSignInTasks';
-import { shouldSendWelcomeEmail } from '@/lib/auth/welcomeEmailRule';
+import { shouldSendWelcomeEmail, welcomeEmailAttempt } from '@/lib/auth/welcomeEmailRule';
 import { withRoute } from '@/server/handler';
 
 /**
@@ -41,10 +41,15 @@ export const POST = withRoute(async function POST() {
       return NextResponse.json({ success: true, skipped: 'returning_user' });
     }
 
-    const result = await sendWelcomeEmailOnce(user.id, email, profile?.full_name || 'there');
+    const result = await sendWelcomeEmailOnce(
+      user.id,
+      email,
+      profile?.full_name || 'there',
+      welcomeEmailAttempt(user.app_metadata)
+    );
 
     if (!result.success) {
-      if ('duplicate' in result && result.duplicate) {
+      if ('idempotency' in result && result.idempotency) {
         return NextResponse.json({ success: true, skipped: 'already_sent' });
       }
       return NextResponse.json(

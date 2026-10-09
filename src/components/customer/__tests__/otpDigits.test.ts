@@ -37,6 +37,18 @@ test('the code inserted next to an old digit keeps the code, not the old digit',
   assert.equal(before?.digits.join(''), '12345678');
 });
 
+test('autofill "1234 5678" into a box holding a digit drops the old digit, separators or not', () => {
+  const after = applyOtpInput({ digits: fromCode('9'), index: 0, rawValue: '91234 5678', caret: 10, length: LENGTH });
+  assert.equal(after?.digits.join(''), '12345678');
+  const before = applyOtpInput({ digits: fromCode('9'), index: 0, rawValue: '1234-56789', caret: 9, length: LENGTH });
+  assert.equal(before?.digits.join(''), '12345678');
+  // The old digit is also the code's first and last digit: the caret decides.
+  const sameAfter = applyOtpInput({ digits: fromCode('1'), index: 0, rawValue: '11234 5671', caret: 10, length: LENGTH });
+  assert.equal(sameAfter?.digits.join(''), '12345671');
+  const sameBefore = applyOtpInput({ digits: fromCode('1'), index: 0, rawValue: '1234 56711', caret: 9, length: LENGTH });
+  assert.equal(sameBefore?.digits.join(''), '12345671');
+});
+
 test('typing one digit fills one box and moves on', () => {
   const result = applyOtpInput({ digits: fromCode('12'), index: 2, rawValue: '3', caret: 1, length: LENGTH });
   assert.equal(result?.digits.join(''), '123');

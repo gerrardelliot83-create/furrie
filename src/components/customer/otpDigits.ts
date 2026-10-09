@@ -41,10 +41,17 @@ export function applyOtpInput({ digits, index, rawValue, caret, length }: OtpInp
   // A whole code: fill every box, whichever box it went into.
   if (incoming.length >= length) {
     let code = incoming.slice(0, length);
-    if (incoming.length === length + 1 && previous && caret !== null && rawValue === incoming) {
-      // Inserted next to the box's old digit instead of replacing it.
-      if (caret === incoming.length && incoming.startsWith(previous)) code = incoming.slice(1);
-      else if (incoming.endsWith(previous)) code = incoming.slice(0, length);
+    if (incoming.length === length + 1 && previous) {
+      // Inserted next to the box's old digit instead of replacing it (e.g.
+      // autofill "1234 5678" into a box holding 9 gives "91234 5678"). Drop
+      // the old digit from whichever end it is on; separators don't matter.
+      const atStart = incoming.startsWith(previous);
+      const atEnd = incoming.endsWith(previous);
+      // Both ends match: the caret ends up after the inserted code, so a caret
+      // at the very end means the code went after the old digit.
+      const insertedAfter = atStart && (!atEnd || caret === null || caret >= rawValue.length);
+      if (insertedAfter) code = incoming.slice(1);
+      else if (atEnd) code = incoming.slice(0, length);
     }
     return { digits: code.split(''), focusIndex: length - 1 };
   }

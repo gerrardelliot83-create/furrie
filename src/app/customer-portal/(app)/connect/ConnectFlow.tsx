@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -45,9 +45,14 @@ interface ConnectFlowProps {
   /** Total usable credits across all packs. */
   packCreditsRemaining?: number;
   preselectedPetId?: string | null;
+  /**
+   * The buy-credits screen, when the customer has no credit. Shown instead of
+   * the booking steps, except after a booking made in this flow (CX-1).
+   */
+  buyCredits?: ReactNode;
 }
 
-export function ConnectFlow({ initialPets, plusPetIds = [], hasPackCredit = false, packCreditsRemaining = 0, preselectedPetId }: ConnectFlowProps) {
+export function ConnectFlow({ initialPets, plusPetIds = [], hasPackCredit = false, packCreditsRemaining = 0, preselectedPetId, buyCredits }: ConnectFlowProps) {
   const tCommon = useTranslations('common');
   const router = useRouter();
 
@@ -390,6 +395,16 @@ export function ConnectFlow({ initialPets, plusPetIds = [], hasPackCredit = fals
         return null;
     }
   };
+
+  // No credit: offer to buy instead of walking through a booking the server
+  // would refuse (L1). But booking the last credit makes the balance 0, and
+  // the router.refresh() after booking re-renders the page with this screen;
+  // it used to replace the confirmation, so a successful booking looked like
+  // a payment request. A booking made here always keeps its confirmation
+  // (CX-1). ConnectFlow stays mounted across the refresh, so its state holds.
+  if (buyCredits && !bookedConsultation) {
+    return <>{buyCredits}</>;
+  }
 
   return (
     <div className={styles.container}>

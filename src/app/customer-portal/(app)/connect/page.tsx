@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/supabase/getCurrentUser';
 import { FEATURES } from '@/lib/config/features';
@@ -61,30 +62,27 @@ export default async function ConnectPage({
   const totalCredits = balance.totalCredits;
 
   // No credit (and no Plus): offer to buy instead of walking through a booking
-  // the server would refuse (L1).
-  if (totalCredits === 0 && plusPetIds.length === 0 && FEATURES.ENABLE_PACK_REQUESTS) {
+  // the server would refuse (L1). ConnectFlow shows this screen in place of
+  // the booking steps, so the page keeps the same shape either way and a
+  // refresh straight after booking the last credit keeps the confirmation
+  // on screen (CX-1).
+  const needsCredit = totalCredits === 0 && plusPetIds.length === 0 && FEATURES.ENABLE_PACK_REQUESTS;
+  let buyCredits: ReactNode = null;
+  if (needsCredit) {
     const { data: profile } = await supabase.from('profiles').select('full_name, email').eq('id', user.id).single();
     const buyState = await loadBuyState(supabase, user.id, {
       name: profile?.full_name,
       email: profile?.email ?? user.email,
     });
-    return (
-      <div className={styles.pageContainer}>
-        <header className={styles.pageHeader}>
-          <h1 className={styles.pageTitle}>Book a consultation</h1>
-          <p className={styles.pageDescription}>
-            Each booking uses one consultation credit.
-          </p>
-        </header>
-        <BuyCredits
-          quotes={PACK_QUOTES}
-          initialRequest={buyState.initialRequest}
-          legacyQuantity={buyState.legacyQuantity}
-          promise={PAYMENT_CHECK_PROMISE}
-          heading="You need a consultation credit to book"
-          intro="Buy one or more consultations by UPI. Once we have checked your payment, come back here and pick a time."
-        />
-      </div>
+    buyCredits = (
+      <BuyCredits
+        quotes={PACK_QUOTES}
+        initialRequest={buyState.initialRequest}
+        legacyQuantity={buyState.legacyQuantity}
+        promise={PAYMENT_CHECK_PROMISE}
+        heading="You need a consultation credit to book"
+        intro="Buy one or more consultations by UPI. Once we have checked your payment, come back here and pick a time."
+      />
     );
   }
 
@@ -93,7 +91,9 @@ export default async function ConnectPage({
       <header className={styles.pageHeader}>
         <h1 className={styles.pageTitle}>Book a consultation</h1>
         <p className={styles.pageDescription}>
-          Pick a time. A registered vet joins you on video.
+          {needsCredit
+            ? 'Each booking uses one consultation credit.'
+            : 'Pick a time. A registered vet joins you on video.'}
         </p>
       </header>
 
@@ -103,6 +103,7 @@ export default async function ConnectPage({
         hasPackCredit={totalCredits > 0}
         packCreditsRemaining={totalCredits}
         preselectedPetId={preselectedPetId || null}
+        buyCredits={buyCredits}
       />
     </div>
   );

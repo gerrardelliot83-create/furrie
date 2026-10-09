@@ -33,10 +33,10 @@ ALTER TABLE public.consultations
   ADD COLUMN IF NOT EXISTS vet_join_requested_at timestamptz NULL;
 
 COMMENT ON COLUMN public.consultations.customer_join_requested_at IS
-  'VC-1b: when the pet parent first pressed Join (the join route issued a call ticket). Set once by the server; NULL = never pressed, or before 2026-10.';
+  'VC-1b: when the pet parent first pressed Join (recorded by the join route before the room and ticket are prepared, so a press that then failed on our side still counts). Set once by the server; NULL = never pressed, or before 2026-10.';
 
 COMMENT ON COLUMN public.consultations.vet_join_requested_at IS
-  'VC-1b: when the vet first pressed Join (the join route issued a call ticket). Set once by the server; NULL = never pressed, or before 2026-10.';
+  'VC-1b: when the vet first pressed Join (recorded by the join route before the room and ticket are prepared, so a press that then failed on our side still counts). Set once by the server; NULL = never pressed, or before 2026-10.';
 
 -- ============================================================================
 -- Verification (the CTO runs this through the read-only connection).

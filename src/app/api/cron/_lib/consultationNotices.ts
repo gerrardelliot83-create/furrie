@@ -5,9 +5,9 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { createNotification } from '@/lib/notifications/createNotification';
 import { sendCustomerMissedConsultationEmail, sendOpsConsultationProblemEmail } from '@/lib/email';
 import { formatIstDateTime } from '@/lib/time/ist';
-import type { NoShowReason } from '@/lib/scheduling/outcomes';
+import type { FailedReason } from '@/lib/scheduling/outcomes';
 
-/** A consultation a cron has just closed (by its own guarded update). */
+/** A consultation a cron or the vet's Finish has just closed (by its own guarded update). */
 export interface ClosedConsultation {
   id: string;
   customer_id: string;
@@ -35,10 +35,11 @@ async function notice(name: string, consultationId: string, fn: () => Promise<vo
 }
 
 /**
- * Outcome 'missed': the customer did not join. `vetJoined` says whether the
- * vet was in the room (active case) or nobody opened it (scheduled case).
+ * Outcome 'missed': the vet was there and the customer did not join (Daily
+ * showed only the vet, or the vet said so at Finish). A consultation nobody
+ * opened is 'failed' since VC-1b, never 'missed'.
  */
-export async function sendMissedNotices(consultation: ClosedConsultation, vetJoined: boolean): Promise<void> {
+export async function sendMissedNotices(consultation: ClosedConsultation): Promise<void> {
   const when = `${formatIstDateTime(consultation.scheduled_at)} IST`;
   const pet = consultation.petName;
   const data = { consultationId: consultation.id, scheduledAt: consultation.scheduled_at, petName: pet };
@@ -76,9 +77,7 @@ export async function sendMissedNotices(consultation: ClosedConsultation, vetJoi
         user_id: vetId,
         type: 'consultation_missed',
         title: 'Consultation missed',
-        body: vetJoined
-          ? `The customer didn't join the call for ${pet} on ${when}. It has been marked as missed.`
-          : `Nobody joined the video call for ${pet} on ${when}. It has been marked as missed.`,
+        body: `The customer didn't join the call for ${pet} on ${when}. It has been marked as missed.`,
         channel: 'in_app',
         data,
       }));
@@ -86,25 +85,28 @@ export async function sendMissedNotices(consultation: ClosedConsultation, vetJoi
   }
 }
 
-const FAILED_REASON_TEXT: Record<Exclude<NoShowReason, 'customer_no_show'>, string> = {
+const FAILED_REASON_TEXT: Record<FailedReason, string> = {
   vet_no_show: 'The customer joined the video room, but the vet did not.',
-  nobody_connected: 'The consultation was opened, but Daily shows nobody in the video room.',
+  nobody_connected: 'Neither the vet nor the customer was in the video room.',
   daily_unreachable:
     'Daily could not be reached for 3 hours after the start, so we could not tell who joined.',
+  technical_problem: 'The vet reported that they could not connect with the customer (a technical problem).',
 };
 
 /**
- * Outcome 'failed': the vet did not come, or we cannot tell. Ops is emailed so
- * an admin can follow up (and grant a replacement credit by hand; automatic
- * credit-back is CTO backlog L1-7).
+ * Outcome 'failed': the vet did not come, it could not go ahead, or we cannot
+ * tell. Ops is emailed so an admin can follow up (and grant a replacement
+ * credit by hand; automatic credit-back is CTO backlog L1-7). `detail` adds a
+ * sentence to the reason (e.g. that nobody pressed Join at all).
  */
 export async function sendFailedNotices(
   consultation: ClosedConsultation,
-  reason: Exclude<NoShowReason, 'customer_no_show'>
+  reason: FailedReason,
+  detail?: string
 ): Promise<void> {
   const when = `${formatIstDateTime(consultation.scheduled_at)} IST`;
   const pet = consultation.petName;
-  const reasonText = FAILED_REASON_TEXT[reason];
+  const reasonText = detail ? `${FAILED_REASON_TEXT[reason]} ${detail}` : FAILED_REASON_TEXT[reason];
   const data = { consultationId: consultation.id, scheduledAt: consultation.scheduled_at, petName: pet };
 
   await notice('ops_email', consultation.id, async () => {

@@ -1,7 +1,13 @@
 import { NextResponse, after } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { getRoomAttendance, roomNameForConsultation } from '@/lib/daily';
+import { getRoomAttendance, roomNameForConsultation, secondsTogether } from '@/lib/daily';
+import {
+  decideFinishOutcome,
+  FINISH_CHOICE_OUTCOME,
+  isFinishChoice,
+  type FinishChoice,
+} from '@/lib/scheduling/outcomes';
 import { formatIstTime } from '@/lib/time/ist';
 import { withRoute } from '@/server/handler';
 import {
@@ -10,6 +16,11 @@ import {
   revalidateConsultationPages,
   runCompletionSideEffects,
 } from '@/app/api/vet/_lib/completeConsultation';
+import {
+  sendFailedNotices,
+  sendMissedNotices,
+  type ClosedConsultation,
+} from '@/app/api/cron/_lib/consultationNotices';
 
 // Same cap the web form used: a slot is 30 minutes, so anything longer means
 // the start time is stale (e.g. a browser crash left the call "active").
@@ -19,8 +30,24 @@ function capMinutes(minutes: number): number {
   return Math.min(Math.max(1, Math.ceil(minutes)), MAX_DURATION_MINUTES);
 }
 
+/** The vet's answer from the "we didn't see the call" dialog, if the body has one (VC-1b). */
+async function readChoice(request: Request): Promise<FinishChoice | null | 'invalid'> {
+  const text = await request.text().catch(() => '');
+  if (!text.trim()) return null;
+  let body: unknown;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    return 'invalid';
+  }
+  const outcome = (body as { outcome?: unknown } | null)?.outcome;
+  if (outcome === undefined || outcome === null) return null;
+  return isFinishChoice(outcome) ? outcome : 'invalid';
+}
+
 /**
  * POST /api/vet/consultations/[id]/complete
+ * Body (optional): { outcome: 'happened_elsewhere' | 'customer_no_show' | 'technical_problem' }
  *
  * The vet finishes a consultation (C-02). Replaces the two browser-side
  * writes in SOAPForm and ConsultationDetailTabs.
@@ -29,19 +56,30 @@ function capMinutes(minutes: number): number {
  *   - signed in (cookie or bearer), role vet, active account, assigned vet;
  *   - allowed from 'active', or from 'scheduled' once the start time has
  *     passed (e.g. the call happened by phone);
- *   - the saved note must have a chief complaint and a provisional diagnosis;
- *   - the status change is guarded and read back, so only one request can
- *     close it; a repeat returns { alreadyCompleted: true } and sends nothing.
+ *   - VC-1b: success only when Daily shows the vet and the pet parent in the
+ *     call together (src/lib/scheduling/outcomes.ts decideFinishOutcome).
+ *     Otherwise (not together, Daily unreachable, or nobody pressed Join)
+ *     nothing is recorded and the answer is 409 OUTCOME_NEEDED with what we
+ *     know; the vet's page asks her what happened and sends it again with
+ *     `outcome`: happened_elsewhere → success, customer_no_show → missed,
+ *     technical_problem → failed (+ ops email). On 3 and 7 Oct Finish
+ *     recorded a success although the two were never in the call together;
+ *   - a success needs the saved note's chief complaint and provisional
+ *     diagnosis; missed and failed don't (there was no consultation);
+ *   - the status change is guarded and read back, so only one request (or
+ *     cron) can close it; a repeat returns { alreadyCompleted: true } and
+ *     sends nothing.
  *   - on a consultation already closed as a success (e.g. by the stale-call
  *     cron before the vet wrote notes), the same call is "Send notes to the
  *     pet parent": if the notes now exist and haven't been sent (no
  *     follow-up thread yet), it sends them once ({ notesSent: true }).
  *
  * Writes use the service role after these checks. Follow-up chat, emails and
- * the invite reward run once, after the response (runCompletionSideEffects).
+ * the invite reward (success), or the missed / failed notices, run once,
+ * after the response.
  */
 export const POST = withRoute(async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
@@ -51,11 +89,21 @@ export const POST = withRoute(async function POST(
     return NextResponse.json({ error: 'Unauthorized', code: 'AUTH_REQUIRED' }, { status: 401 });
   }
 
+  const choice = await readChoice(request);
+  if (choice === 'invalid') {
+    return NextResponse.json(
+      { error: 'Unknown answer. Please reload the page and try again.', code: 'INVALID_OUTCOME' },
+      { status: 400 }
+    );
+  }
+
   const [profileResult, consultationResult] = await Promise.all([
     supabaseAdmin.from('profiles').select('role, is_active').eq('id', user.id).maybeSingle(),
     supabaseAdmin
       .from('consultations')
-      .select('id, vet_id, status, outcome, scheduled_at, started_at, duration_minutes, daily_room_name')
+      .select(
+        'id, vet_id, customer_id, pet_id, consultation_number, status, outcome, scheduled_at, started_at, duration_minutes, daily_room_name'
+      )
       .eq('id', id)
       .maybeSingle(),
   ]);
@@ -82,7 +130,8 @@ export const POST = withRoute(async function POST(
   }
 
   if (consultation.status === 'closed') {
-    if (consultation.outcome === 'success') {
+    const wanted = choice ? FINISH_CHOICE_OUTCOME[choice] : 'success';
+    if (consultation.outcome === 'success' && wanted === 'success') {
       // Late notes (CTO review item 1): send them now if they exist and
       // haven't been sent; otherwise this is a harmless repeat.
       const late = await deliverLateNotes(id);
@@ -96,7 +145,11 @@ export const POST = withRoute(async function POST(
         );
       }
       if (late === 'sent') revalidateConsultationPages(id);
-      return NextResponse.json({ completed: true, alreadyCompleted: true, notesSent: late === 'sent' });
+      return NextResponse.json({ completed: true, alreadyCompleted: true, notesSent: late === 'sent', outcome: 'success' });
+    }
+    if (choice && consultation.outcome === wanted) {
+      // The same answer twice (a double click): already recorded, nothing more to send.
+      return NextResponse.json({ completed: true, alreadyCompleted: true, notesSent: false, outcome: wanted });
     }
     return NextResponse.json(
       {
@@ -136,35 +189,74 @@ export const POST = withRoute(async function POST(
     );
   }
 
-  const { data: note, error: noteError } = await supabaseAdmin
-    .from('soap_notes')
-    .select('chief_complaint, provisional_diagnosis')
-    .eq('consultation_id', id)
-    .maybeSingle();
+  // Who Daily saw in the room, and the saved note, side by side. The Daily
+  // request has a 5 s timeout and returns null rather than throwing.
+  const [attendance, noteResult] = await Promise.all([
+    getRoomAttendance(consultation.daily_room_name || roomNameForConsultation(id)),
+    supabaseAdmin
+      .from('soap_notes')
+      .select('chief_complaint, provisional_diagnosis')
+      .eq('consultation_id', id)
+      .maybeSingle(),
+  ]);
 
-  if (noteError) {
-    console.error('[complete] failed to load notes:', noteError);
-    return NextResponse.json({ error: 'Failed to load notes', code: 'FETCH_ERROR' }, { status: 500 });
-  }
+  const together = attendance ? secondsTogether(attendance.records, user.id, consultation.customer_id) : 0;
+  const decision = decideFinishOutcome({
+    callOpened: consultation.status === 'active',
+    call: attendance
+      ? {
+          customerSeen: attendance.participantUserIds.includes(consultation.customer_id),
+          vetSeen: attendance.participantUserIds.includes(user.id),
+          secondsTogether: together,
+        }
+      : null,
+    choice,
+  });
 
-  if (!noteIsComplete(note)) {
+  if (decision.action === 'ask') {
+    // Nothing is recorded: the vet's page asks what happened (VC-1b).
+    console.log(
+      `[complete] consultation=${id} outcome_needed status=${consultation.status} daily=${decision.dailyReachable ? 'ok' : 'unreachable'} customer_seen=${decision.customerSeen} vet_seen=${decision.vetSeen} together=${together}s`
+    );
     return NextResponse.json(
       {
-        error: 'Add the chief complaint and a provisional diagnosis, save, then finish.',
-        code: 'NOTES_REQUIRED',
+        error: "We didn't see the pet parent on the video call. Please tell us what happened.",
+        code: 'OUTCOME_NEEDED',
+        customerSeen: decision.customerSeen,
+        vetSeen: decision.vetSeen,
+        dailyReachable: decision.dailyReachable,
+        callOpened: decision.callOpened,
       },
-      { status: 422 }
+      { status: 409 }
     );
+  }
+
+  if (decision.outcome === 'success') {
+    if (noteResult.error) {
+      console.error('[complete] failed to load notes:', noteResult.error);
+      return NextResponse.json({ error: 'Failed to load notes', code: 'FETCH_ERROR' }, { status: 500 });
+    }
+    if (!noteIsComplete(noteResult.data)) {
+      return NextResponse.json(
+        {
+          error: 'Add the chief complaint and a provisional diagnosis, save, then finish.',
+          code: 'NOTES_REQUIRED',
+        },
+        { status: 422 }
+      );
+    }
   }
 
   // The real call length (CTO review item 2; the booking stores the allotted
   // 30): Daily's meeting records for this room when available, otherwise
   // first join to now; both capped at 60. With no join at all (e.g. the call
-  // happened by phone) the allotted length is kept.
+  // happened by phone) the allotted length is kept. A missed or failed
+  // consultation records only the time Daily saw, as the stale-call cron does.
   let durationMinutes = consultation.duration_minutes;
-  const attendance = await getRoomAttendance(consultation.daily_room_name || roomNameForConsultation(id));
   if (attendance && attendance.totalSeconds > 0) {
     durationMinutes = capMinutes(attendance.totalSeconds / 60);
+  } else if (decision.outcome !== 'success') {
+    durationMinutes = 0;
   } else if (consultation.started_at) {
     durationMinutes = capMinutes((now.getTime() - new Date(consultation.started_at).getTime()) / 60000);
   }
@@ -173,7 +265,7 @@ export const POST = withRoute(async function POST(
     .from('consultations')
     .update({
       status: 'closed',
-      outcome: 'success',
+      outcome: decision.outcome,
       ended_at: now.toISOString(),
       duration_minutes: durationMinutes,
       updated_at: now.toISOString(),
@@ -200,8 +292,8 @@ export const POST = withRoute(async function POST(
       .select('status, outcome')
       .eq('id', id)
       .maybeSingle();
-    if (current?.status === 'closed' && current.outcome === 'success') {
-      return NextResponse.json({ completed: true, alreadyCompleted: true });
+    if (current?.status === 'closed' && current.outcome === decision.outcome) {
+      return NextResponse.json({ completed: true, alreadyCompleted: true, notesSent: false, outcome: decision.outcome });
     }
     return NextResponse.json(
       {
@@ -214,8 +306,38 @@ export const POST = withRoute(async function POST(
     );
   }
 
-  after(() => runCompletionSideEffects(id, 'vet'));
+  console.log(
+    `[complete] consultation=${id} closed outcome=${decision.outcome} reason=${decision.reason} together=${together}s`
+  );
+
+  if (decision.outcome === 'success') {
+    after(() => runCompletionSideEffects(id, 'vet'));
+  } else {
+    // The same notices the stale-call cron sends: missed (the pet parent
+    // didn't come) or failed (+ ops email, so an admin can make it right).
+    const outcome = decision.outcome;
+    const closedAt = now.toISOString();
+    after(async () => {
+      const { data: pet } = await supabaseAdmin.from('pets').select('name').eq('id', consultation.pet_id).maybeSingle();
+      const closed: ClosedConsultation = {
+        id,
+        customer_id: consultation.customer_id,
+        vet_id: consultation.vet_id,
+        scheduled_at: consultation.scheduled_at ?? consultation.started_at ?? closedAt,
+        consultation_number: consultation.consultation_number,
+        petName: pet?.name || 'your pet',
+      };
+      if (outcome === 'missed') await sendMissedNotices(closed);
+      else await sendFailedNotices(closed, 'technical_problem');
+    });
+  }
   revalidateConsultationPages(id);
 
-  return NextResponse.json({ completed: true, alreadyCompleted: false, consultation: updated });
+  return NextResponse.json({
+    completed: true,
+    alreadyCompleted: false,
+    notesSent: false,
+    outcome: decision.outcome,
+    consultation: updated,
+  });
 });

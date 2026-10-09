@@ -4,9 +4,11 @@ import * as Sentry from '@sentry/nextjs';
 import { roomNameForConsultation } from './rooms';
 import { ROOM_MAX_PARTICIPANTS, roomNeedsUpdate } from './roomLife';
 import { parsePresence, sessionsToEject, type PresenceSession } from './roomCleanup';
+import { parseMeetings, type MeetingRecord } from './meetings';
 
 export { roomNameForConsultation, consultationIdFromRoom } from './rooms';
 export { roomExpiryFor } from './roomLife';
+export { secondsTogether, type MeetingRecord } from './meetings';
 
 export const DAILY_DOMAIN = process.env.NEXT_PUBLIC_DAILY_DOMAIN;
 const DAILY_API_KEY = process.env.DAILY_API_KEY;
@@ -634,13 +636,16 @@ export interface RoomAttendance {
   totalSeconds: number;
   /** Our user ids (from the meeting tokens) of everyone who was in the room. */
   participantUserIds: string[];
+  /** Each meeting with who was in it and when (VC-1b: were the two in the call together?). */
+  records: MeetingRecord[];
 }
 
 /**
- * Who was in a consultation's room, across every meeting (a dropped call
- * and a rejoin are separate meetings). Returns null when Daily can't be
- * asked, so callers never mistake "unknown" for "nobody came".
- * https://docs.daily.co/reference/rest-api/meetings (participants[].user_id)
+ * Who was in a consultation's room, and when, across every meeting (a
+ * dropped call and a rejoin are separate meetings). Returns null when Daily
+ * can't be asked, so callers never mistake "unknown" for "nobody came".
+ * https://docs.daily.co/reference/rest-api/meetings (participants[].user_id,
+ * join_time, duration; parsed by ./meetings)
  */
 export async function getRoomAttendance(roomName: string): Promise<RoomAttendance | null> {
   if (!DAILY_API_KEY) {
@@ -666,31 +671,23 @@ export async function getRoomAttendance(roomName: string): Promise<RoomAttendanc
     return null;
   }
 
-  const data = (await response.json().catch(() => null)) as {
-    data?: Array<{
-      ongoing?: boolean;
-      duration?: number;
-      participants?: Array<{ user_id?: string | null }>;
-    }>;
-  } | null;
+  const data: unknown = await response.json().catch(() => null);
   if (!data) return null;
 
-  const meetings = Array.isArray(data.data) ? data.data : [];
+  const records = parseMeetings(data, Math.floor(Date.now() / 1000));
   const userIds = new Set<string>();
   let totalSeconds = 0;
   let ongoing = false;
 
-  for (const meeting of meetings) {
+  for (const meeting of records) {
     if (meeting.ongoing) ongoing = true;
-    if (typeof meeting.duration === 'number' && Number.isFinite(meeting.duration)) {
-      totalSeconds += meeting.duration;
-    }
-    for (const participant of meeting.participants ?? []) {
-      if (participant.user_id) userIds.add(participant.user_id);
+    totalSeconds += meeting.durationSec;
+    for (const session of meeting.sessions) {
+      if (session.userId) userIds.add(session.userId);
     }
   }
 
-  return { meetings: meetings.length, ongoing, totalSeconds, participantUserIds: [...userIds] };
+  return { meetings: records.length, ongoing, totalSeconds, participantUserIds: [...userIds], records };
 }
 
 /**

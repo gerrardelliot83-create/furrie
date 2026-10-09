@@ -3,15 +3,31 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
 import { SOAPForm, type SOAPFormHandle } from './SOAPForm';
-import { finishConsultation } from './finishConsultation';
+import { finishConsultation, type FinishOutcome } from './finishConsultation';
 import { formatIstTime } from '@/lib/time/ist';
+import type { FinishChoice } from '@/lib/scheduling/outcomes';
 import { TreatmentPlanBuilder } from './treatment-plan/TreatmentPlanBuilder';
 import type { SoapNote } from '@/types';
 import styles from './ConsultationDetailTabs.module.css';
 
 type TabKey = 'overview' | 'soap' | 'rx';
+
+// VC-1b: what the vet can say happened when Finish found no video call with
+// the pet parent (server: decideFinishOutcome in lib/scheduling/outcomes).
+const OUTCOME_OPTIONS: { choice: FinishChoice; label: string }[] = [
+  { choice: 'happened_elsewhere', label: 'It happened another way (phone or WhatsApp)' },
+  { choice: 'customer_no_show', label: "The pet parent didn't come" },
+  { choice: 'technical_problem', label: "We couldn't connect (technical problem)" },
+];
+
+const FINISHED_MESSAGE: Record<FinishOutcome, string> = {
+  success: 'Consultation completed',
+  missed: 'Marked as missed: the pet parent didn’t come',
+  failed: 'Closed. Our team has been told and will contact the pet parent.',
+};
 
 interface ConsultationDetailTabsProps {
   consultationId: string;
@@ -100,30 +116,46 @@ export function ConsultationDetailTabs({
 
   const soapFormRef = useRef<SOAPFormHandle>(null);
 
+  // Set while the "we didn't see the pet parent" question is open (VC-1b).
+  const [outcomeQuestion, setOutcomeQuestion] = useState<{ isDiagnosisFromList: boolean } | null>(null);
+  const [answering, setAnswering] = useState<FinishChoice | null>(null);
+
   // One finish path for both buttons (C-02): the notes are already saved when
-  // this runs; the server checks status, start time and notes, closes the
-  // consultation once, and sends the follow-up chat, emails and invite reward.
+  // this runs; the server checks status, start time, the video call and the
+  // notes, closes the consultation once, and sends what follows (follow-up
+  // chat, emails and invite reward for a success; notices otherwise).
   const completeConsultation = useCallback(
-    async (options: { isDiagnosisFromList: boolean }) => {
+    async (options: { isDiagnosisFromList: boolean; outcome?: FinishChoice }) => {
       setIsFinishing(true);
       try {
         const result = await finishConsultation(consultationId, options);
         if (result.ok) {
+          setOutcomeQuestion(null);
           setIsCompleted(true);
           setAwaitingNotes(false);
           if (result.alreadyCompleted) {
             toast(
-              result.notesSent ? 'Notes sent to the pet parent' : 'This consultation was already completed',
+              result.notesSent
+                ? 'Notes sent to the pet parent'
+                : result.outcome === 'success'
+                  ? 'This consultation was already completed'
+                  : 'This consultation was already closed',
               'success'
             );
             router.refresh();
             return;
           }
-          toast('Consultation completed', 'success');
+          toast(FINISHED_MESSAGE[result.outcome], 'success');
           router.push('/consultations');
           router.refresh();
           return;
         }
+        if (result.code === 'OUTCOME_NEEDED') {
+          // Nothing was recorded: ask the vet what happened, then send it again.
+          setOutcomeQuestion({ isDiagnosisFromList: options.isDiagnosisFromList });
+          return;
+        }
+        setOutcomeQuestion(null);
         if (result.code === 'NOTES_REQUIRED') {
           handleTabChange('soap');
         }
@@ -134,6 +166,20 @@ export function ConsultationDetailTabs({
     },
     [consultationId, handleTabChange, router, toast]
   );
+
+  const answerOutcomeQuestion = async (choice: FinishChoice) => {
+    if (!outcomeQuestion || answering) return;
+    setAnswering(choice);
+    try {
+      await completeConsultation({ ...outcomeQuestion, outcome: choice });
+    } finally {
+      setAnswering(null);
+    }
+  };
+
+  const closeOutcomeQuestion = () => {
+    if (!answering) setOutcomeQuestion(null);
+  };
 
   // Treatment Plan tab: save whatever is in the SOAP form first.
   const handleFinishConsultation = async () => {
@@ -237,6 +283,40 @@ export function ConsultationDetailTabs({
           </div>
         </div>
       </div>
+
+      {/* VC-1b: Finish didn't see the pet parent on the video call. */}
+      <Modal
+        isOpen={outcomeQuestion !== null}
+        onClose={closeOutcomeQuestion}
+        title="We didn't see the pet parent on the video call"
+        size="sm"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          <p style={{ margin: 0, color: 'var(--color-text-secondary)' }}>
+            What happened? We&apos;ll close the consultation to match. If it happened another way,
+            your notes go to the pet parent as usual.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+            {OUTCOME_OPTIONS.map((option) => (
+              <Button
+                key={option.choice}
+                variant="secondary"
+                fullWidth
+                onClick={() => answerOutcomeQuestion(option.choice)}
+                loading={answering === option.choice}
+                disabled={answering !== null && answering !== option.choice}
+              >
+                {option.label}
+              </Button>
+            ))}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Button variant="ghost" onClick={closeOutcomeQuestion} disabled={answering !== null}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

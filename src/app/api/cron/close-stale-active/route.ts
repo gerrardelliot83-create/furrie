@@ -49,7 +49,8 @@ function callMinutes(attendance: RoomAttendance | null): number {
  *   - Daily unreachable          → retry; failed (+ ops email) after 3 hours
  *
  * This is the only job that closes 'active' consultations; mark-missed only
- * handles 'scheduled' ones. Writes use the service role, guarded on status.
+ * handles 'scheduled' ones. The vet's Finish can close it too; both updates
+ * are guarded on status, so only one of them does. Writes use the service role.
  */
 export const GET = withRoute(async function GET(request: Request) {
   const denied = verifyCronRequest(request);
@@ -143,9 +144,13 @@ export const GET = withRoute(async function GET(request: Request) {
     if (decision.outcome === 'success') {
       await runCompletionSideEffects(consultation.id, 'system');
     } else if (decision.outcome === 'missed') {
-      await sendMissedNotices(closedConsultation, true);
+      await sendMissedNotices(closedConsultation);
     } else {
-      await sendFailedNotices(closedConsultation, decision.reason);
+      await sendFailedNotices(
+        closedConsultation,
+        decision.reason,
+        decision.reason === 'nobody_connected' ? 'Join was pressed, but Daily shows nobody in the room.' : undefined
+      );
     }
     revalidateConsultationPages(consultation.id);
 

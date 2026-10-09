@@ -83,8 +83,9 @@ export default async function VetConsultationsPage({ searchParams }: PageProps) 
     query = query.eq('status', 'closed').eq('outcome', 'success');
   } else if (statusFilter === 'missed') {
     // Outcome value is 'missed' (migration 004); 'no_show' never existed, so
-    // this tab was always empty (BRK-7).
-    query = query.eq('status', 'closed').eq('outcome', 'missed');
+    // this tab was always empty (BRK-7). It also lists 'failed' (VC-1b: a call
+    // nobody joined is now 'failed'), so every call that didn't go ahead is here.
+    query = query.eq('status', 'closed').in('outcome', ['missed', 'failed']);
   }
 
   // Search: consultation number, concern, pet name or pet parent's name.
@@ -167,7 +168,7 @@ export default async function VetConsultationsPage({ searchParams }: PageProps) 
             href="/consultations?status=missed"
             className={statusFilter === 'missed' ? styles.filterTabActive : styles.filterTab}
           >
-            Missed
+            Missed / failed
           </Link>
         </div>
 

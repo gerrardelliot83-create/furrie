@@ -1,12 +1,19 @@
+/* A card with its own background, so it reads the same on the pet parent's
+   dark call page and the vet's light one (VC-1.1: white text on the vet's
+   cream page was almost invisible). */
 .panel {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--space-4);
+  width: 100%;
   max-width: 420px;
   padding: var(--space-6);
   text-align: center;
-  color: var(--color-text-inverse);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
 }
 
 .panel > svg {
@@ -17,11 +24,12 @@
   margin: 0;
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
 }
 
 .panel p {
   margin: 0;
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--color-text-secondary);
   line-height: var(--line-height-relaxed);
 }
 
@@ -55,6 +63,10 @@
 
 .secondary {
   background: transparent;
-  color: var(--color-text-inverse);
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+}
+
+.secondary:hover {
+  background: var(--color-bg-secondary);
 }

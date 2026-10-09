@@ -125,7 +125,11 @@ export const POST = withRoute(async function POST(
     if (!validStatuses.includes(consultation.status)) {
       return NextResponse.json(
         {
-          error: `Cannot join consultation with status: ${consultation.status}`,
+          // Shown to the person as it is (VC-1.1): plain words, not a status code.
+          error:
+            consultation.status === 'closed'
+              ? 'This consultation has already ended, so its video call is closed.'
+              : 'This consultation isn’t confirmed yet, so its video call isn’t open.',
           code: 'INVALID_STATUS',
           currentStatus: consultation.status,
         },

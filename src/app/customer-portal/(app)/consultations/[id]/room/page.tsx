@@ -47,7 +47,7 @@ export default function CustomerVideoRoomPage() {
   const router = useRouter();
   const consultationId = params.id as string;
 
-  const { phase, problem, join, callObject, enterCall, retry, fail, markLeft } = useConsultationRoom(
+  const { phase, problem, info, join, callObject, enterCall, retry, joined, fail, markLeft } = useConsultationRoom(
     consultationId,
     'customer'
   );
@@ -114,9 +114,10 @@ export default function CustomerVideoRoomPage() {
     );
   }
 
-  // Ready state - simple screen without video preview
-  if (phase === 'ready' && join) {
-    const vetName = join.consultation.vet?.name;
+  // Ready state - simple screen without video preview. Nothing has started:
+  // the ticket is fetched (and the call marked as started) when Join is pressed.
+  if (phase === 'ready') {
+    const vetName = info?.vetName;
     return (
       <div className={styles.container}>
         <div className={styles.readyScreen}>
@@ -186,8 +187,10 @@ export default function CustomerVideoRoomPage() {
           token={join.token}
           userName={join.participant.name}
           consultationId={consultationId}
+          userId={join.participant.id}
           isVet={false}
           onLeave={handleLeave}
+          onJoined={joined}
           onFatal={fail}
           onRetry={retry}
         />

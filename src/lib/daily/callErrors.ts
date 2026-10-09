@@ -24,8 +24,10 @@ const FATAL_MESSAGES: Record<string, Omit<CallProblem, 'kind'>> = {
     message: 'An earlier connection is still being cleared. Tap Try again in a few seconds.',
   },
   ejected: {
-    title: 'Call opened somewhere else',
-    message: 'This call was opened in another tab or on another device, so it was closed here. Tap Try again to continue on this screen.',
+    // Also what Daily may send when the room's time runs out, so it doesn't
+    // claim the call was opened elsewhere.
+    title: 'The call closed on this screen',
+    message: 'This usually means the call was joined from another tab or device. Tap Try again to continue here.',
   },
   'exp-room': {
     title: 'The call link has expired',

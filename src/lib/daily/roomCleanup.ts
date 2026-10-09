@@ -6,13 +6,15 @@
  * The rule is "the pet parent always gets in":
  *   - every earlier session of the person joining now goes (a reload, a second
  *     tab, a dropped connection Daily hasn't noticed yet);
- *   - the other participant keeps only their newest session;
  *   - anyone else goes. The room is private, so only our two meeting tokens
- *     can be in it.
- * After this the room holds at most one session (the other person's newest),
- * so it can't be full however often either of them rejoined. On 7 Oct the
- * vet's earlier session stayed 9 minutes and the pet parent was refused four
- * times.
+ *     can be in it;
+ *   - the other participant's sessions are left alone while there is a free
+ *     place (a "newest" session may be a dead one and an older one live, so
+ *     removing them is a last resort). Only if the room would still be full
+ *     do their older sessions go, keeping their newest.
+ * So the room always has a place for the person joining, however often either
+ * of them rejoined. On 7 Oct the vet's earlier session stayed 9 minutes and
+ * the pet parent was refused four times.
  */
 
 export interface PresenceSession {
@@ -26,24 +28,27 @@ export interface PresenceSession {
 
 export function sessionsToEject(
   sessions: readonly PresenceSession[],
-  opts: { callerUserId: string; otherUserId: string | null }
+  opts: { callerUserId: string; otherUserId: string | null; maxParticipants: number }
 ): string[] {
   const eject: string[] = [];
-  let newestOther: PresenceSession | null = null;
+  const other: PresenceSession[] = [];
 
   for (const session of sessions) {
-    if (session.userId === opts.callerUserId) {
-      eject.push(session.id);
-    } else if (opts.otherUserId && session.userId === opts.otherUserId) {
-      if (!newestOther || isNewer(session, newestOther)) {
-        if (newestOther) eject.push(newestOther.id);
-        newestOther = session;
-      } else {
-        eject.push(session.id);
-      }
+    if (opts.otherUserId && session.userId === opts.otherUserId) {
+      other.push(session);
     } else {
+      // The caller's own earlier sessions, and anyone who isn't one of the two.
       eject.push(session.id);
     }
+  }
+
+  // A place is free for the caller: leave the other person's sessions alone.
+  if (other.length < opts.maxParticipants) return eject;
+
+  // Still full: keep only the other person's newest session.
+  const newest = other.reduce((a, b) => (isNewer(b, a) ? b : a));
+  for (const session of other) {
+    if (session !== newest) eject.push(session.id);
   }
   return eject;
 }

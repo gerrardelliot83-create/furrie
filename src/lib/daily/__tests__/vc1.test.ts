@@ -50,12 +50,17 @@ const s = (id: string, userId: string | null, joinedIso: string): PresenceSessio
   joinTimeMs: Date.parse(joinedIso),
 });
 
-test('7 Oct: the vet twice in the room, the pet parent joins — the vet keeps only her newest session', () => {
+test('7 Oct, old room (2 places): the vet twice in it, the pet parent joins — the vet keeps only her newest session', () => {
   const room = [s('vet-1', VET, '2026-10-07T05:34:58Z'), s('vet-3', VET, '2026-10-07T05:37:19Z')];
-  assert.deepEqual(sessionsToEject(room, { callerUserId: PARENT, otherUserId: VET }), ['vet-1']);
+  assert.deepEqual(sessionsToEject(room, { callerUserId: PARENT, otherUserId: VET, maxParticipants: 2 }), ['vet-1']);
 });
 
-test('the vet rejoins: all her earlier sessions go, the pet parent keeps their newest', () => {
+test('a place is free: the other person’s sessions are left alone (a "newest" one may be the dead one)', () => {
+  const room = [s('vet-1', VET, '2026-10-07T05:34:58Z'), s('vet-3', VET, '2026-10-07T05:37:19Z')];
+  assert.deepEqual(sessionsToEject(room, { callerUserId: PARENT, otherUserId: VET, maxParticipants: 4 }), []);
+});
+
+test('the vet rejoins: all her earlier sessions go; the pet parent’s stay while there is room', () => {
   const room = [
     s('vet-1', VET, '2026-10-07T05:34:58Z'),
     s('parent-2', PARENT, '2026-10-07T05:36:00Z'),
@@ -63,26 +68,31 @@ test('the vet rejoins: all her earlier sessions go, the pet parent keeps their n
     s('parent-1', PARENT, '2026-10-07T05:35:00Z'),
   ];
   assert.deepEqual(
-    sessionsToEject(room, { callerUserId: VET, otherUserId: PARENT }).sort(),
-    ['parent-1', 'vet-1', 'vet-2']
+    sessionsToEject(room, { callerUserId: VET, otherUserId: PARENT, maxParticipants: 4 }).sort(),
+    ['vet-1', 'vet-2']
   );
 });
 
-test('the pet parent is never removed when the vet joins, and never removed by their own other copies order', () => {
+test('the pet parent is never removed when the vet joins', () => {
   const room = [s('parent-1', PARENT, '2026-10-07T05:35:00Z')];
-  assert.deepEqual(sessionsToEject(room, { callerUserId: VET, otherUserId: PARENT }), []);
+  assert.deepEqual(sessionsToEject(room, { callerUserId: VET, otherUserId: PARENT, maxParticipants: 4 }), []);
 });
 
 test('anyone who is neither of the two goes', () => {
   const room = [s('x', 'someone-else', '2026-10-07T05:35:00Z'), s('y', null, '2026-10-07T05:35:00Z')];
-  assert.deepEqual(sessionsToEject(room, { callerUserId: PARENT, otherUserId: VET }).sort(), ['x', 'y']);
+  assert.deepEqual(
+    sessionsToEject(room, { callerUserId: PARENT, otherUserId: VET, maxParticipants: 4 }).sort(),
+    ['x', 'y']
+  );
 });
 
-test('after the clean-up at most one session is left, so the room is never full', () => {
-  const room = Array.from({ length: 6 }, (_, i) => s(`v${i}`, VET, `2026-10-07T05:3${i}:00Z`));
-  const ejected = sessionsToEject(room, { callerUserId: PARENT, otherUserId: VET });
-  assert.equal(room.length - ejected.length, 1);
-  assert.ok(!ejected.includes('v5'), 'the newest vet session stays');
+test('however many copies of the other person, the joining person always has a place', () => {
+  for (const max of [2, 4]) {
+    const room = Array.from({ length: 6 }, (_, i) => s(`v${i}`, VET, `2026-10-07T05:3${i}:00Z`));
+    const ejected = sessionsToEject(room, { callerUserId: PARENT, otherUserId: VET, maxParticipants: max });
+    assert.ok(room.length - ejected.length < max, `room of ${max} has a free place`);
+    assert.ok(!ejected.includes('v5'), 'the newest vet session stays');
+  }
 });
 
 test('presence parsing follows Daily’s field names and skips junk', () => {

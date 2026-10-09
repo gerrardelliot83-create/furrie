@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/auth/withAuth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { ejectOwnSession, roomNameForConsultation } from '@/lib/daily';
+import { checkRateLimit } from '@/lib/utils/rate-limit';
 import { withRoute } from '@/server/handler';
 
 const SESSION_ID = /^[0-9a-f-]{8,64}$/i;
@@ -27,6 +28,8 @@ export const POST = withRoute(async function POST(
   const { user, error: authError } = await getRequestUser();
   const { id } = await params;
   if (authError || !user) return done();
+  // Each call costs up to two Daily API calls; one per page close is normal.
+  if (!checkRateLimit(`leave:${user.id}`, { maxRequests: 20, windowMs: 5 * 60 * 1000 }).success) return done();
 
   const body = (await request.json().catch(() => null)) as { sessionId?: unknown } | null;
   const sessionId = typeof body?.sessionId === 'string' ? body.sessionId : '';

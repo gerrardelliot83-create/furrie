@@ -28,9 +28,13 @@ interface VideoRoomProps {
   token: string;
   userName: string;
   consultationId: string;
+  /** Our user id (the meeting token's user_id): this person's other tabs are never shown as "the other person". */
+  userId: string;
   isVet?: boolean;
   /** The person pressed End call. */
   onLeave: () => void;
+  /** Daily confirmed the person is in the call. */
+  onJoined?: () => void;
   /**
    * The call stopped and can't continue on its own (Daily's 'error' event, a
    * failed join, or the call ending without End being pressed). The page
@@ -47,17 +51,24 @@ export function VideoRoom({
   token,
   userName,
   consultationId,
+  userId,
   isVet = false,
   onLeave,
+  onJoined,
   onFatal,
   onRetry,
   className,
 }: VideoRoomProps) {
   const daily = useDaily();
   const localSessionId = useLocalSessionId();
-  // Newest first-joined last: if an older session of the other person is still
-  // around, show the newest one rather than a frozen picture (VC-1, L6).
-  const remoteParticipantIds = useParticipantIds({ filter: 'remote', sort: 'joined_at' });
+  // The other person only (never this person's own other tab), newest last:
+  // if an older session of theirs is still around, show the newest one
+  // rather than a frozen picture (VC-1, L6).
+  const isOtherPerson = useCallback(
+    (p: { local: boolean; user_id: string }) => !p.local && p.user_id !== userId,
+    [userId]
+  );
+  const remoteParticipantIds = useParticipantIds({ filter: isOtherPerson, sort: 'joined_at' });
   const remoteParticipantId = remoteParticipantIds[remoteParticipantIds.length - 1];
   const remoteName = useParticipantProperty(remoteParticipantId ?? '', 'user_name');
   const { isRecording } = useRecording();
@@ -67,13 +78,22 @@ export function VideoRoom({
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
   const [mediaProblem, setMediaProblem] = useState<CallProblem | null>(null);
-  const [reconnecting, setReconnecting] = useState(false);
+  // Per connection (signaling / media): one coming back must not hide the other still down.
+  const [interrupted, setInterrupted] = useState<Record<string, boolean>>({});
+  const reconnecting = Object.values(interrupted).some(Boolean);
   const [audioBlocked, setAudioBlocked] = useState(false);
   const audioRef = useRef<AudioPlayers>(null);
 
-  // Set when the person presses End, or a fatal error was already reported,
-  // so the 'left-meeting' that follows isn't treated as a dropped call.
+  // Set when the person presses End, a fatal error was already reported, or
+  // this screen is going away, so the 'left-meeting' (or rejected join) that
+  // follows isn't treated as a dropped call.
   const endingRef = useRef(false);
+  useEffect(
+    () => () => {
+      endingRef.current = true;
+    },
+    []
+  );
 
   const fail = useCallback(
     (problem: CallProblem) => {
@@ -91,11 +111,19 @@ export function VideoRoom({
       .join({ url: roomUrl, token, userName, startVideoOff: false, startAudioOff: false })
       .catch((error: unknown) => {
         // A fatal join failure also raises the 'error' event; whichever
-        // arrives first is shown.
-        const type = (error as { type?: string } | null)?.type ?? null;
-        fail(describeFatalError(type));
+        // arrives first is shown. daily-js rejects with the whole error event
+        // ({ error: { type } }), so read the nested type first.
+        const e = error as { error?: { type?: string }; type?: string } | null;
+        fail(describeFatalError(e?.error?.type ?? e?.type ?? null));
       });
   }, [daily, roomUrl, token, userName, meetingState, fail]);
+
+  useDailyEvent(
+    'joined-meeting',
+    useCallback(() => {
+      onJoined?.();
+    }, [onJoined])
+  );
 
   // Daily's fatal errors: room full, expired, removed, connection lost…
   useDailyEvent(
@@ -134,8 +162,11 @@ export function VideoRoom({
   useDailyEvent(
     'network-connection',
     useCallback((ev: DailyEventObject<'network-connection'>) => {
-      if (ev.event === 'interrupted') setReconnecting(true);
-      if (ev.event === 'connected') setReconnecting(false);
+      // Media is either peer-to-peer or through Daily's server (sfu), and Daily
+      // can switch between them; either coming back means media is back.
+      const key = ev.type === 'signaling' ? 'signaling' : 'media';
+      if (ev.event === 'interrupted') setInterrupted((prev) => ({ ...prev, [key]: true }));
+      if (ev.event === 'connected') setInterrupted((prev) => ({ ...prev, [key]: false }));
     }, [])
   );
 

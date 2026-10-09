@@ -12,6 +12,7 @@ import {
 } from '@/lib/daily';
 import { canJoinConsultation } from '@/lib/scheduling';
 import { canJoinNow } from '@/lib/scheduling/joinWindow';
+import { checkRateLimit } from '@/lib/utils/rate-limit';
 import { withRoute } from '@/server/handler';
 
 /**
@@ -54,6 +55,16 @@ export const POST = withRoute(async function POST(
       return NextResponse.json(
         { error: 'Unauthorized', code: 'AUTH_REQUIRED' },
         { status: 401 }
+      );
+    }
+
+    // Each join can cost several Daily API calls (room, presence, eject,
+    // token); a burst from one account must not use up the account-wide
+    // Daily limit. Automatic retries plus Try again stay well under this.
+    if (!checkRateLimit(`join:${user.id}`, { maxRequests: 20, windowMs: 5 * 60 * 1000 }).success) {
+      return NextResponse.json(
+        { error: 'Too many attempts. Please wait a minute, then tap Try again.', code: 'RATE_LIMITED' },
+        { status: 429 }
       );
     }
 
@@ -180,12 +191,15 @@ export const POST = withRoute(async function POST(
     }
 
     // The pet parent always gets in (L1 + L4): remove this caller's earlier
-    // sessions (a reload, a second tab, a dropped connection), older copies of
-    // the other participant, and anyone else. On 7 Oct the vet's earlier
-    // session stayed 9 minutes and the pet parent was refused four times.
+    // sessions (a reload, a second tab, a dropped connection) and anyone else,
+    // and the other participant's older copies if the room would still be
+    // full. On 7 Oct the vet's earlier session stayed 9 minutes and the pet
+    // parent was refused four times. This runs when Join is pressed (the page
+    // fetches the ticket then), never just because a page was opened.
     const cleanup = await clearRoomForJoin(roomName, {
       callerUserId: user.id,
       otherUserId: isVet ? consultation.customer_id : consultation.vet_id,
+      maxParticipants: room.maxParticipants,
     });
     if (cleanup.otherSessions > 0) {
       // Someone else's duplicate was in the room: exactly what used to lock

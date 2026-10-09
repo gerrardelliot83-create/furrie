@@ -31,7 +31,7 @@ export default function VetVideoRoomPage() {
   const router = useRouter();
   const consultationId = params.id as string;
 
-  const { phase, problem, join, callObject, enterCall, retry, fail, markLeft } = useConsultationRoom(
+  const { phase, problem, info, join, callObject, enterCall, retry, joined, fail, markLeft } = useConsultationRoom(
     consultationId,
     'vet'
   );
@@ -119,9 +119,10 @@ export default function VetVideoRoomPage() {
     );
   }
 
-  // Ready state - show patient info before joining
-  if (phase === 'ready' && join) {
-    const pet = join.consultation.pet;
+  // Ready state - show patient info before joining. Nothing has started: the
+  // ticket is fetched (and the call marked as started) when Join is pressed.
+  if (phase === 'ready') {
+    const pet = info?.pet;
     const petName = pet?.name || 'Pet';
     const petSpecies = pet?.species || 'Unknown';
     const petBreed = pet?.breed || 'Unknown';
@@ -220,8 +221,10 @@ export default function VetVideoRoomPage() {
           token={join.token}
           userName={join.participant.name}
           consultationId={consultationId}
+          userId={join.participant.id}
           isVet={true}
           onLeave={handleLeave}
+          onJoined={joined}
           onFatal={fail}
           onRetry={retry}
         />

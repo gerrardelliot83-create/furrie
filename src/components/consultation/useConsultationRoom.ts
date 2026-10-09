@@ -21,11 +21,19 @@ export interface JoinResponse {
   participant: { id: string; name: string; role: 'vet' | 'customer'; isOwner: boolean };
 }
 
+/** What the ready screen shows (GET /api/consultations/[id]; nothing is started). */
+export interface RoomInfo {
+  status: string;
+  scheduledAt: string | null;
+  pet: { name: string; species: string; breed: string } | null;
+  vetName: string | null;
+}
+
 /**
- * loading → ready (consent screen) → in-call → left, or problem (with Try
- * again) from any of them.
+ * ready (consent screen) → loading (ticket, after Join) → in-call → left,
+ * or problem (with Try again) once Join has been pressed.
  */
-export type RoomPhase = 'loading' | 'ready' | 'in-call' | 'problem' | 'left';
+export type RoomPhase = 'ready' | 'loading' | 'in-call' | 'problem' | 'left';
 
 /**
  * L5: when Daily says the room is full, fetch a fresh ticket (which clears the
@@ -34,6 +42,9 @@ export type RoomPhase = 'loading' | 'ready' | 'in-call' | 'problem' | 'left';
  */
 const FULL_ROOM_RETRY_DELAYS_MS = [2000, 5000];
 
+/** A join request that hangs (captive portal, dead network) becomes a problem, not an endless spinner. */
+const JOIN_REQUEST_TIMEOUT_MS = 20_000;
+
 async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3, initialDelay = 500): Promise<Response> {
   let lastError: Error | null = null;
   for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -41,7 +52,7 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3,
       await new Promise((resolve) => setTimeout(resolve, initialDelay * Math.pow(2, attempt - 1)));
     }
     try {
-      const response = await fetch(url, options);
+      const response = await fetch(url, { ...options, signal: AbortSignal.timeout(JOIN_REQUEST_TIMEOUT_MS) });
       // Retry only what may be a race or a blip; a 4xx answer is final.
       if (response.ok || (response.status !== 404 && response.status !== 500) || attempt === maxRetries - 1) {
         return response;
@@ -54,28 +65,66 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3,
   throw lastError || new Error('Request failed after retries');
 }
 
+function isJoinResponse(data: unknown): data is JoinResponse {
+  const d = data as Partial<JoinResponse> | null;
+  return !!d && typeof d.token === 'string' && !!d.token && typeof d.roomUrl === 'string' && !!d.roomUrl && !!d.participant;
+}
+
 /**
- * Everything the pet parent's and the vet's call pages share (VC-1): the
- * join ticket, one Daily call object at a time, Try again, the automatic
- * retry for a full room (L5), and freeing the place at once when the page is
- * closed or reloaded (L3).
+ * Everything the pet parent's and the vet's call pages share (VC-1).
+ *
+ * Opening the page starts nothing: it only reads what the ready screen shows.
+ * The join ticket is fetched when the person presses Join, because the join
+ * API marks the consultation as started and clears the room (the person's
+ * earlier sessions). Doing that on page load dropped a live call on another
+ * device and blocked cancelling just by looking at the page.
+ *
+ * Also here: one Daily call object at a time, Try again, the automatic retry
+ * for a full room (L5), and freeing the place at once when the page is closed
+ * or reloaded (L3).
  */
 export function useConsultationRoom(consultationId: string, role: 'customer' | 'vet') {
-  const [attempt, setAttempt] = useState(0);
-  const [phase, setPhase] = useState<RoomPhase>('loading');
+  const [attempt, setAttempt] = useState(0); // 0 = Join not pressed yet
+  const [phase, setPhase] = useState<RoomPhase>('ready');
   const [problem, setProblem] = useState<CallProblem | null>(null);
+  const [info, setInfo] = useState<RoomInfo | null>(null);
   const [join, setJoin] = useState<JoinResponse | null>(null);
   const [callObject, setCallObject] = useState<DailyCall | null>(null);
 
-  // After Try again from inside the call, go straight back in (no second consent click).
-  const wasInCallRef = useRef(false);
   const autoRetriesRef = useRef(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // The page is closing or reloading: the call ending then is not a problem to show or report.
   const pageHidingRef = useRef(false);
 
-  // 1. The join ticket (room + meeting token), once per attempt.
+  // 0. What the ready screen shows. Read-only; failures just hide the details.
   useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch(`/api/consultations/${consultationId}`, {
+          signal: AbortSignal.timeout(JOIN_REQUEST_TIMEOUT_MS),
+        });
+        const data = await response.json().catch(() => null);
+        const c = data?.consultation;
+        if (cancelled || !response.ok || !c) return;
+        setInfo({
+          status: c.status,
+          scheduledAt: c.scheduledAt ?? null,
+          pet: c.pet ? { name: c.pet.name, species: c.pet.species, breed: c.pet.breed } : null,
+          vetName: c.vet?.fullName ?? null,
+        });
+      } catch {
+        // The ready screen falls back to generic text.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [consultationId]);
+
+  // 1. The join ticket (room + meeting token), once per Join press or retry.
+  useEffect(() => {
+    if (attempt === 0) return;
     let cancelled = false;
     (async () => {
       try {
@@ -85,8 +134,8 @@ export function useConsultationRoom(consultationId: string, role: 'customer' | '
         });
         const data = await response.json().catch(() => null);
         if (cancelled) return;
-        if (!response.ok) {
-          const code: string = data?.code ?? `HTTP_${response.status}`;
+        if (!response.ok || !isJoinResponse(data)) {
+          const code: string = data?.code ?? (response.ok ? 'BAD_RESPONSE' : `HTTP_${response.status}`);
           reportCallProblem(`join-api:${code}`, {
             consultationId,
             role,
@@ -101,7 +150,7 @@ export function useConsultationRoom(consultationId: string, role: 'customer' | '
           setPhase('problem');
           return;
         }
-        setJoin(data as JoinResponse);
+        setJoin(data);
       } catch (error) {
         if (cancelled) return;
         reportCallProblem('join-api:network', { consultationId, role, detail: String(error) });
@@ -132,7 +181,7 @@ export function useConsultationRoom(consultationId: string, role: 'customer' | '
         if (cancelled) return;
         created = Daily.createCallObject();
         setCallObject(created);
-        setPhase(wasInCallRef.current ? 'in-call' : 'ready');
+        setPhase('in-call');
       })
       .catch((error: unknown) => {
         if (cancelled) return;
@@ -152,52 +201,7 @@ export function useConsultationRoom(consultationId: string, role: 'customer' | '
     };
   }, [join, consultationId, role]);
 
-  // 3. L3: when the page is closed, reloaded or left, tell Daily (leave) and
-  // our server (which removes the session by id) at once, so the place frees
-  // now instead of when Daily notices. On 7 Oct that took 9 minutes.
-  useEffect(() => {
-    if (!callObject) return;
-    const onPageHide = () => {
-      pageHidingRef.current = true;
-      try {
-        if (callObject.meetingState() === 'joined-meeting') {
-          const sessionId = callObject.participants()?.local?.session_id;
-          if (sessionId) {
-            navigator.sendBeacon(
-              `/api/consultations/${consultationId}/leave`,
-              new Blob([JSON.stringify({ sessionId })], { type: 'application/json' })
-            );
-          }
-        }
-        void callObject.leave().catch(() => undefined);
-      } catch {
-        // The page is going away; nothing more to do.
-      }
-    };
-    // Back from the browser's page cache: the call has ended, offer Try again.
-    const onPageShow = (event: PageTransitionEvent) => {
-      pageHidingRef.current = false;
-      if (event.persisted && wasInCallRef.current) {
-        setProblem({ title: 'You left the call', message: 'Tap Try again to go back in.', kind: 'page-restored' });
-        setPhase('problem');
-      }
-    };
-    window.addEventListener('pagehide', onPageHide);
-    window.addEventListener('pageshow', onPageShow);
-    return () => {
-      window.removeEventListener('pagehide', onPageHide);
-      window.removeEventListener('pageshow', onPageShow);
-    };
-  }, [callObject, consultationId]);
-
-  useEffect(
-    () => () => {
-      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
-    },
-    []
-  );
-
-  /** Fresh ticket and a new call object; back into the call if we were in it. */
+  /** Fresh ticket and a new call object, straight back into the call. */
   const retry = useCallback(() => {
     if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
     retryTimerRef.current = null;
@@ -207,11 +211,65 @@ export function useConsultationRoom(consultationId: string, role: 'customer' | '
     setAttempt((n) => n + 1);
   }, []);
 
+  // 3. L3: when the page is closed, reloaded or left during a call, tell Daily
+  // (leave) and our server (which removes the session by id) at once, so the
+  // place frees now instead of when Daily notices. On 7 Oct that took 9 minutes.
+  useEffect(() => {
+    if (!callObject) return;
+    const onPageHide = () => {
+      pageHidingRef.current = true;
+      let state: string | undefined;
+      try {
+        state = callObject.meetingState();
+      } catch {
+        return;
+      }
+      if (state === 'joined-meeting') {
+        try {
+          const sessionId = callObject.participants()?.local?.session_id;
+          // A plain string: Chrome refuses a Blob whose type isn't CORS-safelisted.
+          if (sessionId) navigator.sendBeacon(`/api/consultations/${consultationId}/leave`, JSON.stringify({ sessionId }));
+        } catch {
+          // Daily will notice on its own.
+        }
+      }
+      if (state === 'joined-meeting' || state === 'joining-meeting') {
+        try {
+          void callObject.leave().catch(() => undefined);
+        } catch {
+          // The page is going away.
+        }
+      }
+    };
+    // Back from the browser's page cache: the call was left on the way out.
+    const onPageShow = (event: PageTransitionEvent) => {
+      pageHidingRef.current = false;
+      if (event.persisted) retry();
+    };
+    window.addEventListener('pagehide', onPageHide);
+    window.addEventListener('pageshow', onPageShow);
+    return () => {
+      window.removeEventListener('pagehide', onPageHide);
+      window.removeEventListener('pageshow', onPageShow);
+    };
+  }, [callObject, consultationId, retry]);
+
+  useEffect(
+    () => () => {
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+    },
+    []
+  );
+
   /** The person ticked consent and pressed Join. */
   const enterCall = useCallback(() => {
-    wasInCallRef.current = true;
     autoRetriesRef.current = 0;
-    setPhase('in-call');
+    retry();
+  }, [retry]);
+
+  /** Daily confirmed the person is in the call: a later full room gets its automatic retries again. */
+  const joined = useCallback(() => {
+    autoRetriesRef.current = 0;
   }, []);
 
   /** The call stopped (VideoRoom's onFatal). A full room is retried automatically (L5). */
@@ -241,9 +299,8 @@ export function useConsultationRoom(consultationId: string, role: 'customer' | '
 
   /** The person pressed End. */
   const markLeft = useCallback(() => {
-    wasInCallRef.current = false;
     setPhase('left');
   }, []);
 
-  return { phase, problem, join, callObject, enterCall, retry, fail, markLeft };
+  return { phase, problem, info, join, callObject, enterCall, retry, joined, fail, markLeft };
 }

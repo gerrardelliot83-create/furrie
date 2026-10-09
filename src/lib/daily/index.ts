@@ -1,5 +1,6 @@
 // Daily.co video integration helpers for Furrie teleconsultations
 
+import * as Sentry from '@sentry/nextjs';
 import { roomNameForConsultation } from './rooms';
 import { ROOM_MAX_PARTICIPANTS, roomNeedsUpdate } from './roomLife';
 import { parsePresence, sessionsToEject, type PresenceSession } from './roomCleanup';
@@ -69,6 +70,8 @@ export interface PreparedRoom {
   url: string;
   /** Unix seconds the room is open until. */
   expiresAt: number;
+  /** How many people the room admits right now. */
+  maxParticipants: number;
   /** 'created' now, 'updated' (expiry pushed out / cap raised) or 'ready' as it was. */
   action: 'created' | 'updated' | 'ready';
 }
@@ -88,23 +91,47 @@ export async function prepareConsultationRoom(
   let existing = await getRoom(roomName);
   if (!existing) {
     const created = await createRoom(consultationId, expiresAt);
-    if (created) return { ...created, action: 'created' };
+    if (created) return { ...created, maxParticipants: ROOM_MAX_PARTICIPANTS, action: 'created' };
     // Someone else created it between our GET and POST (both people joining at once).
     existing = await getRoom(roomName);
     if (!existing) throw new Error(`Daily room ${roomName} could not be created or found`);
   }
 
   if (!roomNeedsUpdate(existing.config, expiresAt)) {
-    return { name: existing.name, url: existing.url, expiresAt: existing.config.exp, action: 'ready' };
+    return {
+      name: existing.name,
+      url: existing.url,
+      expiresAt: existing.config.exp,
+      maxParticipants: existing.config.max_participants,
+      action: 'ready',
+    };
   }
 
-  const newExp = Math.max(existing.config?.exp ?? 0, expiresAt);
-  await updateRoomProperties(roomName, {
-    exp: newExp,
-    eject_at_room_exp: true,
-    max_participants: ROOM_MAX_PARTICIPANTS,
-  });
-  return { name: existing.name, url: existing.url, expiresAt: newExp, action: 'updated' };
+  const currentExp = existing.config?.exp ?? 0;
+  const newExp = Math.max(currentExp, expiresAt);
+  try {
+    await updateRoomProperties(roomName, {
+      exp: newExp,
+      eject_at_room_exp: true,
+      max_participants: ROOM_MAX_PARTICIPANTS,
+    });
+  } catch (error) {
+    // A blip or a refused change must not lock people out of a room that is
+    // still open: hand out the room as it is when it has time left.
+    if (currentExp * 1000 > Date.now() + 10 * 60 * 1000) {
+      console.error(`[daily] room ${roomName} update failed; using it as it is:`, error);
+      Sentry.captureException(error, { tags: { area: 'video-call', 'call.kind': 'room-update-failed' } });
+      return {
+        name: existing.name,
+        url: existing.url,
+        expiresAt: currentExp,
+        maxParticipants: existing.config?.max_participants || 2,
+        action: 'ready',
+      };
+    }
+    throw error;
+  }
+  return { name: existing.name, url: existing.url, expiresAt: newExp, maxParticipants: ROOM_MAX_PARTICIPANTS, action: 'updated' };
 }
 
 /** POST /rooms/:name — change a room's properties. */
@@ -197,12 +224,13 @@ export interface RoomCleanup {
 
 /**
  * Clears the room before `callerUserId` joins (VC-1, L1 + L4; rules in
- * ./roomCleanup): the caller's earlier sessions, older duplicates of the
- * other participant, and anyone else. Never throws: the join goes ahead.
+ * ./roomCleanup): the caller's earlier sessions and anyone else; the other
+ * participant's older sessions only if the room would still be full.
+ * `maxParticipants` is the room's actual cap. Never throws: the join goes ahead.
  */
 export async function clearRoomForJoin(
   roomName: string,
-  opts: { callerUserId: string; otherUserId: string | null }
+  opts: { callerUserId: string; otherUserId: string | null; maxParticipants: number }
 ): Promise<RoomCleanup> {
   const presence = await getRoomPresence(roomName);
   if (presence === null) {

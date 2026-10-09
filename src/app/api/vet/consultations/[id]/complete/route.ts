@@ -6,7 +6,9 @@ import {
   decideFinishOutcome,
   FINISH_CHOICE_OUTCOME,
   isFinishChoice,
+  NO_SHOW_AFTER_MINUTES,
   type FinishChoice,
+  type NoShowBlock,
 } from '@/lib/scheduling/outcomes';
 import { formatIstTime } from '@/lib/time/ist';
 import { withRoute } from '@/server/handler';
@@ -28,6 +30,31 @@ const MAX_DURATION_MINUTES = 60;
 
 function capMinutes(minutes: number): number {
   return Math.min(Math.max(1, Math.ceil(minutes)), MAX_DURATION_MINUTES);
+}
+
+// The booked length: a slot (the book route stores 30) and the extension
+// (POST /api/consultations/[id]/extend adds 15).
+const BOOKED_MINUTES = 30;
+const EXTENSION_MINUTES = 15;
+
+/** Why "The pet parent didn't come" can't be recorded, in plain words (C1). */
+function noShowRefusal(block: NoShowBlock | null, availableAt: string | null): string {
+  switch (block) {
+    case 'customer_pressed_join':
+      return "The pet parent pressed Join, so we can't record that they didn't come. If you couldn't connect, choose \"We couldn't connect (technical problem)\".";
+    case 'customer_seen':
+      return "The video call shows the pet parent joined (just not at the same time as you), so we can't record that they didn't come. Choose \"We couldn't connect\" or \"It happened another way\".";
+    case 'daily_unreachable':
+      return "We couldn't check the video call just now, so we can't record that the pet parent didn't come. Try again in a minute, or choose another answer.";
+    case 'vet_not_seen':
+      return "We didn't see you on the video call, so we can't record that the pet parent didn't come. Join the call and wait for them, or choose another answer.";
+    case 'too_early':
+      return availableAt
+        ? `The pet parent may still join. You can record that they didn't come from ${formatIstTime(availableAt)} (India time), ${NO_SHOW_AFTER_MINUTES} minutes after the start.`
+        : 'The pet parent may still join. Please wait a few minutes.';
+    default:
+      return "That answer isn't available for this consultation. Please reload the page.";
+  }
 }
 
 /** The vet's answer from the "we didn't see the call" dialog, if the body has one (VC-1b). */
@@ -60,10 +87,14 @@ async function readChoice(request: Request): Promise<FinishChoice | null | 'inva
  *     call together (src/lib/scheduling/outcomes.ts decideFinishOutcome).
  *     Otherwise (not together, Daily unreachable, or nobody pressed Join)
  *     nothing is recorded and the answer is 409 OUTCOME_NEEDED with what we
- *     know; the vet's page asks her what happened and sends it again with
- *     `outcome`: happened_elsewhere → success, customer_no_show → missed,
+ *     know, the answers allowed and whether the notes are complete; the vet's
+ *     page asks her what happened and sends it again with `outcome`:
+ *     happened_elsewhere → success, customer_no_show → missed,
  *     technical_problem → failed (+ ops email). On 3 and 7 Oct Finish
  *     recorded a success although the two were never in the call together;
+ *   - C1: customer_no_show only when the evidence backs it (Daily saw the
+ *     vet and never the pet parent, the pet parent never pressed Join, and
+ *     the start was 15+ minutes ago); otherwise 409 OUTCOME_NOT_ALLOWED;
  *   - a success needs the saved note's chief complaint and provisional
  *     diagnosis; missed and failed don't (there was no consultation);
  *   - the status change is guarded and read back, so only one request (or
@@ -102,7 +133,7 @@ export const POST = withRoute(async function POST(
     supabaseAdmin
       .from('consultations')
       .select(
-        'id, vet_id, customer_id, pet_id, consultation_number, status, outcome, scheduled_at, started_at, duration_minutes, daily_room_name'
+        'id, vet_id, customer_id, pet_id, consultation_number, status, outcome, scheduled_at, started_at, duration_minutes, was_extended, daily_room_name, customer_join_requested_at'
       )
       .eq('id', id)
       .maybeSingle(),
@@ -192,15 +223,20 @@ export const POST = withRoute(async function POST(
   // Who Daily saw in the room, and the saved note, side by side. The Daily
   // request has a 5 s timeout and returns null rather than throwing.
   const [attendance, noteResult] = await Promise.all([
-    getRoomAttendance(consultation.daily_room_name || roomNameForConsultation(id)),
+    getRoomAttendance(consultation.daily_room_name || roomNameForConsultation(id), {
+      scheduledAt: consultation.scheduled_at ?? consultation.started_at,
+    }),
     supabaseAdmin
       .from('soap_notes')
       .select('chief_complaint, provisional_diagnosis')
       .eq('consultation_id', id)
       .maybeSingle(),
   ]);
+  if (noteResult.error) console.error('[complete] failed to load notes:', noteResult.error);
+  const notesComplete = !noteResult.error && noteIsComplete(noteResult.data);
 
   const together = attendance ? secondsTogether(attendance.records, user.id, consultation.customer_id) : 0;
+  const startsAt = consultation.scheduled_at ?? consultation.started_at;
   const decision = decideFinishOutcome({
     callOpened: consultation.status === 'active',
     call: attendance
@@ -210,22 +246,46 @@ export const POST = withRoute(async function POST(
           secondsTogether: together,
         }
       : null,
+    customerPressedJoin: !!consultation.customer_join_requested_at,
+    startsAtMs: startsAt ? new Date(startsAt).getTime() : null,
+    nowMs: now.getTime(),
     choice,
   });
 
-  if (decision.action === 'ask') {
-    // Nothing is recorded: the vet's page asks what happened (VC-1b).
+  if (decision.action === 'ask' || decision.action === 'refuse') {
+    // Nothing is recorded (VC-1b). 'ask': the vet's page asks what happened,
+    // offering only the answers the evidence allows. 'refuse': she sent
+    // "didn't come" when the evidence doesn't back it (C1).
+    const evidence = {
+      customerSeen: decision.customerSeen,
+      vetSeen: decision.vetSeen,
+      dailyReachable: decision.dailyReachable,
+      callOpened: decision.callOpened,
+      customerPressedJoin: decision.customerPressedJoin,
+      allowedOutcomes: decision.allowedOutcomes,
+      noShowAvailableAt: decision.noShowAvailableAt,
+      notesComplete,
+    };
     console.log(
-      `[complete] consultation=${id} outcome_needed status=${consultation.status} daily=${decision.dailyReachable ? 'ok' : 'unreachable'} customer_seen=${decision.customerSeen} vet_seen=${decision.vetSeen} together=${together}s`
+      `[complete] consultation=${id} ${decision.action === 'ask' ? 'outcome_needed' : `outcome_not_allowed choice=${decision.choice}`} status=${consultation.status} daily=${decision.dailyReachable ? 'ok' : 'unreachable'} customer_seen=${decision.customerSeen} vet_seen=${decision.vetSeen} customer_pressed_join=${decision.customerPressedJoin} together=${together}s no_show_blocked_by=${decision.noShowBlockedBy ?? 'none'}`
     );
+    if (decision.action === 'refuse') {
+      return NextResponse.json(
+        {
+          error: noShowRefusal(decision.noShowBlockedBy, decision.noShowAvailableAt),
+          code: 'OUTCOME_NOT_ALLOWED',
+          ...evidence,
+        },
+        { status: 409 }
+      );
+    }
     return NextResponse.json(
       {
-        error: "We didn't see the pet parent on the video call. Please tell us what happened.",
+        error: decision.customerSeen
+          ? "You and the pet parent weren't on the video call at the same time. Please tell us what happened."
+          : "We didn't see the pet parent on the video call. Please tell us what happened.",
         code: 'OUTCOME_NEEDED',
-        customerSeen: decision.customerSeen,
-        vetSeen: decision.vetSeen,
-        dailyReachable: decision.dailyReachable,
-        callOpened: decision.callOpened,
+        ...evidence,
       },
       { status: 409 }
     );
@@ -233,10 +293,9 @@ export const POST = withRoute(async function POST(
 
   if (decision.outcome === 'success') {
     if (noteResult.error) {
-      console.error('[complete] failed to load notes:', noteResult.error);
       return NextResponse.json({ error: 'Failed to load notes', code: 'FETCH_ERROR' }, { status: 500 });
     }
-    if (!noteIsComplete(noteResult.data)) {
+    if (!notesComplete) {
       return NextResponse.json(
         {
           error: 'Add the chief complaint and a provisional diagnosis, save, then finish.',
@@ -247,13 +306,17 @@ export const POST = withRoute(async function POST(
     }
   }
 
-  // The real call length (CTO review item 2; the booking stores the allotted
-  // 30): Daily's meeting records for this room when available, otherwise
-  // first join to now; both capped at 60. With no join at all (e.g. the call
-  // happened by phone) the allotted length is kept. A missed or failed
-  // consultation records only the time Daily saw, as the stale-call cron does.
+  // The call length (CTO review item 2; the booking stores the allotted 30):
+  //   - seen together: Daily's meeting records for this room, otherwise first
+  //     join to now; both capped at 60;
+  //   - happened another way (C7): the booked length, not the room time. The
+  //     Daily webhook may already have overwritten duration_minutes with the
+  //     room time, so it is the slot (plus the extension, if any);
+  //   - missed or failed: only the time Daily saw, as the stale-call cron does.
   let durationMinutes = consultation.duration_minutes;
-  if (attendance && attendance.totalSeconds > 0) {
+  if (decision.reason === 'happened_elsewhere') {
+    durationMinutes = BOOKED_MINUTES + (consultation.was_extended ? EXTENSION_MINUTES : 0);
+  } else if (attendance && attendance.totalSeconds > 0) {
     durationMinutes = capMinutes(attendance.totalSeconds / 60);
   } else if (decision.outcome !== 'success') {
     durationMinutes = 0;
@@ -327,8 +390,10 @@ export const POST = withRoute(async function POST(
         consultation_number: consultation.consultation_number,
         petName: pet?.name || 'your pet',
       };
-      if (outcome === 'missed') await sendMissedNotices(closed);
-      else await sendFailedNotices(closed, 'technical_problem');
+      // The vet chose this herself: no notice to her (C4); the pet parent's
+      // notice and the ops email still go.
+      if (outcome === 'missed') await sendMissedNotices(closed, { notifyVet: false });
+      else await sendFailedNotices(closed, 'technical_problem', { notifyVet: false });
     });
   }
   revalidateConsultationPages(id);

@@ -34,12 +34,23 @@ async function notice(name: string, consultationId: string, fn: () => Promise<vo
   }
 }
 
+export interface NoticeOptions {
+  /**
+   * Also tell the vet in-app (default true). False when the vet chose the
+   * outcome herself at Finish: she already knows (C4).
+   */
+  notifyVet?: boolean;
+}
+
 /**
  * Outcome 'missed': the vet was there and the customer did not join (Daily
  * showed only the vet, or the vet said so at Finish). A consultation nobody
  * opened is 'failed' since VC-1b, never 'missed'.
  */
-export async function sendMissedNotices(consultation: ClosedConsultation): Promise<void> {
+export async function sendMissedNotices(
+  consultation: ClosedConsultation,
+  { notifyVet = true }: NoticeOptions = {}
+): Promise<void> {
   const when = `${formatIstDateTime(consultation.scheduled_at)} IST`;
   const pet = consultation.petName;
   const data = { consultationId: consultation.id, scheduledAt: consultation.scheduled_at, petName: pet };
@@ -70,7 +81,7 @@ export async function sendMissedNotices(consultation: ClosedConsultation): Promi
     if (!result.success) throw new Error(`missed email: ${result.error ?? 'send failed'}`);
   });
 
-  if (consultation.vet_id) {
+  if (consultation.vet_id && notifyVet) {
     const vetId = consultation.vet_id;
     await notice('vet_in_app', consultation.id, async () => {
       notified(await createNotification({
@@ -87,6 +98,8 @@ export async function sendMissedNotices(consultation: ClosedConsultation): Promi
 
 const FAILED_REASON_TEXT: Record<FailedReason, string> = {
   vet_no_show: 'The customer joined the video room, but the vet did not.',
+  customer_could_not_connect:
+    'The pet parent pressed Join but never reached the call (camera permission, browser or network).',
   never_together: 'Both joined, but never at the same time.',
   nobody_connected: 'Neither the vet nor the customer was in the video room.',
   daily_unreachable:
@@ -103,7 +116,7 @@ const FAILED_REASON_TEXT: Record<FailedReason, string> = {
 export async function sendFailedNotices(
   consultation: ClosedConsultation,
   reason: FailedReason,
-  detail?: string
+  { detail, notifyVet = true }: NoticeOptions & { detail?: string } = {}
 ): Promise<void> {
   const when = `${formatIstDateTime(consultation.scheduled_at)} IST`;
   const pet = consultation.petName;
@@ -140,7 +153,7 @@ export async function sendFailedNotices(
     }));
   });
 
-  if (consultation.vet_id) {
+  if (consultation.vet_id && notifyVet) {
     const vetId = consultation.vet_id;
     await notice('vet_in_app', consultation.id, async () => {
       notified(await createNotification({

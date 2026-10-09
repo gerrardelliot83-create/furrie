@@ -22,6 +22,7 @@ const STALE_COLUMNS = [
   'scheduled_at',
   'daily_room_name',
   'consultation_number',
+  'customer_join_requested_at',
 ] as const satisfies readonly (keyof ConsultationRow)[];
 
 type StaleConsultation = Pick<ConsultationRow, (typeof STALE_COLUMNS)[number]>;
@@ -44,9 +45,10 @@ function callMinutes(attendance: RoomAttendance | null): number {
  * Daily's Meetings API (participants' user ids = our user ids, join times):
  *   - still in the room              → leave it
  *   - vet and customer together ≥60 s → success (+ follow-up, emails, invite reward)
- *   - vet only                       → missed (the customer didn't come)
- *   - both, but never together (VC-1b), customer only, nobody
- *                                    → failed (+ ops email)
+ *   - vet only, customer never pressed Join
+ *                                    → missed (the customer didn't come)
+ *   - vet only but the customer pressed Join (A4), both but never together
+ *     (VC-1b), customer only, nobody → failed (+ ops email)
  *   - Daily unreachable              → retry; failed (+ ops email) after 3 hours
  *
  * This is the only job that closes 'active' consultations; mark-missed only
@@ -93,7 +95,8 @@ export const GET = withRoute(async function GET(request: Request) {
     const msSinceStart = startedAt ? now.getTime() - new Date(startedAt).getTime() : STALE_AFTER_MS;
 
     const attendance = await getRoomAttendance(
-      consultation.daily_room_name || roomNameForConsultation(consultation.id)
+      consultation.daily_room_name || roomNameForConsultation(consultation.id),
+      { scheduledAt: consultation.scheduled_at ?? consultation.started_at }
     );
 
     const decision = decideStaleActiveOutcome({
@@ -105,6 +108,8 @@ export const GET = withRoute(async function GET(request: Request) {
       },
       vetId: consultation.vet_id,
       customerId: consultation.customer_id,
+      // A4: a pet parent who pressed Join but never got in didn't "not come".
+      customerPressedJoin: !!consultation.customer_join_requested_at,
       msSinceStart,
     });
 
@@ -152,11 +157,10 @@ export const GET = withRoute(async function GET(request: Request) {
     } else if (decision.outcome === 'missed') {
       await sendMissedNotices(closedConsultation);
     } else {
-      await sendFailedNotices(
-        closedConsultation,
-        decision.reason,
-        decision.reason === 'nobody_connected' ? 'Join was pressed, but Daily shows nobody in the room.' : undefined
-      );
+      await sendFailedNotices(closedConsultation, decision.reason, {
+        detail:
+          decision.reason === 'nobody_connected' ? 'Join was pressed, but Daily shows nobody in the room.' : undefined,
+      });
     }
     revalidateConsultationPages(consultation.id);
 

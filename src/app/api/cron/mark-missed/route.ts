@@ -79,7 +79,7 @@ export const GET = withRoute(async function GET(request: Request) {
         petName: petData?.name || 'your pet',
       },
       NEVER_OPENED_OUTCOME.reason,
-      'Nobody pressed Join before the join window closed (45 minutes after the start).'
+      { detail: 'Nobody pressed Join before the join window closed (45 minutes after the start).' }
     );
 
     revalidateConsultationPages(consultation.id);

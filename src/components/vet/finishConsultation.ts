@@ -5,16 +5,37 @@
  *
  * VC-1b: when the server didn't see the vet and the pet parent in the video
  * call together it answers OUTCOME_NEEDED and records nothing; the page asks
- * the vet what happened and calls this again with her `outcome`.
+ * the vet what happened (only the answers the evidence allows) and calls this
+ * again with her `outcome`. OUTCOME_NOT_ALLOWED carries the same details.
  */
 
-import type { FinishChoice } from '@/lib/scheduling/outcomes';
+import { isFinishChoice, type FinishChoice } from '@/lib/scheduling/outcomes';
 
 export type FinishOutcome = 'success' | 'missed' | 'failed';
 
+/** What the server knew when it asked (OUTCOME_NEEDED / OUTCOME_NOT_ALLOWED). */
+export interface OutcomeQuestion {
+  customerSeen: boolean;
+  allowedOutcomes: FinishChoice[];
+  /** When "didn't come" becomes possible, if only the 15-minute wait stands in the way (ISO). */
+  noShowAvailableAt: string | null;
+  /** The saved notes have a chief complaint and a provisional diagnosis. */
+  notesComplete: boolean;
+}
+
 export type FinishResult =
   | { ok: true; alreadyCompleted: boolean; notesSent: boolean; outcome: FinishOutcome }
-  | { ok: false; code: string; message: string };
+  | { ok: false; code: string; message: string; question: OutcomeQuestion | null };
+
+function readQuestion(data: Record<string, unknown>): OutcomeQuestion | null {
+  if (!Array.isArray(data.allowedOutcomes)) return null;
+  return {
+    customerSeen: data.customerSeen === true,
+    allowedOutcomes: data.allowedOutcomes.filter(isFinishChoice),
+    noShowAvailableAt: typeof data.noShowAvailableAt === 'string' ? data.noShowAvailableAt : null,
+    notesComplete: data.notesComplete === true,
+  };
+}
 
 export async function finishConsultation(
   consultationId: string,
@@ -33,16 +54,18 @@ export async function finishConsultation(
       ok: false,
       code: 'NETWORK_ERROR',
       message: 'Could not reach Furrie. Check your connection and try again.',
+      question: null,
     };
   }
 
-  const data = await response.json().catch(() => ({}));
+  const data = ((await response.json().catch(() => null)) ?? {}) as Record<string, unknown>;
 
   if (!response.ok) {
     return {
       ok: false,
       code: typeof data.code === 'string' ? data.code : 'ERROR',
       message: typeof data.error === 'string' ? data.error : 'Failed to complete the consultation.',
+      question: readQuestion(data),
     };
   }
 

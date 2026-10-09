@@ -119,7 +119,7 @@ export function mediaPermissionHint(
     return {
       kind: 'prompt',
       message:
-        'Your browser is asking to use your camera and microphone. Click Allow — on a computer the request appears near the address bar.',
+        "Your browser is asking to use your camera and microphone. Click Allow — on a computer the request appears near the address bar. If you don't see a request, click the camera icon or the lock next to the address and allow the camera and microphone.",
     };
   }
   return null;

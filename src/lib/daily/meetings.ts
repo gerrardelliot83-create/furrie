@@ -36,11 +36,16 @@ function finiteNumber(value: unknown): number | null {
 
 /**
  * Daily's GET /meetings body → meetings. Anything malformed is skipped; a body
- * without a `data` list is "no meetings". A participant with no duration is
- * still in the room if the meeting is ongoing (until `nowSec`), otherwise
- * counted as a moment.
+ * without a `data` list is "no meetings". A participant with no duration
+ * counts until `nowSec` only if the meeting is ongoing AND Daily's presence
+ * list shows them in the room now (`presentUserIds`); otherwise as a moment
+ * (A1: a session that ended without a duration must not stretch to "now").
  */
-export function parseMeetings(body: unknown, nowSec: number): MeetingRecord[] {
+export function parseMeetings(
+  body: unknown,
+  nowSec: number,
+  presentUserIds: ReadonlySet<string> = new Set()
+): MeetingRecord[] {
   const data = (body as { data?: unknown } | null)?.data;
   if (!Array.isArray(data)) return [];
 
@@ -61,14 +66,27 @@ export function parseMeetings(body: unknown, nowSec: number): MeetingRecord[] {
         continue;
       }
       const duration = finiteNumber(participant.duration);
+      const stillHere = ongoing && userId !== null && presentUserIds.has(userId);
       const leaveSec =
-        duration !== null && duration >= 0 ? joinSec + duration : ongoing ? Math.max(joinSec, nowSec) : joinSec;
+        duration !== null && duration >= 0 ? joinSec + duration : stillHere ? Math.max(joinSec, nowSec) : joinSec;
       sessions.push({ userId, joinSec, leaveSec });
     }
 
     meetings.push({ ongoing, durationSec: Math.max(0, finiteNumber(row.duration) ?? 0), sessions });
   }
   return meetings;
+}
+
+/**
+ * False when Daily says more meetings match than it returned (total_count >
+ * the page), so the caller treats who-was-there as unknown rather than
+ * deciding from part of the record (A2). Order doesn't matter: every meeting
+ * returned is read.
+ */
+export function meetingsListIsComplete(body: unknown): boolean {
+  const { data, total_count: total } = (body ?? {}) as { data?: unknown; total_count?: unknown };
+  if (!Array.isArray(data)) return true;
+  return !(typeof total === 'number' && Number.isFinite(total) && total > data.length);
 }
 
 type Interval = [start: number, end: number];

@@ -4,7 +4,7 @@ import * as Sentry from '@sentry/nextjs';
 import { roomNameForConsultation } from './rooms';
 import { ROOM_MAX_PARTICIPANTS, roomNeedsUpdate } from './roomLife';
 import { parsePresence, sessionsToEject, type PresenceSession } from './roomCleanup';
-import { parseMeetings, type MeetingRecord } from './meetings';
+import { meetingsListIsComplete, parseMeetings, type MeetingRecord } from './meetings';
 
 export { roomNameForConsultation, consultationIdFromRoom } from './rooms';
 export { roomExpiryFor } from './roomLife';
@@ -640,22 +640,38 @@ export interface RoomAttendance {
   records: MeetingRecord[];
 }
 
+/** Meetings from this long before the booked start count (the join window opens 10 minutes early). */
+const ATTENDANCE_LOOKBACK_SEC = 30 * 60;
+
 /**
  * Who was in a consultation's room, and when, across every meeting (a
  * dropped call and a rejoin are separate meetings). Returns null when Daily
- * can't be asked, so callers never mistake "unknown" for "nobody came".
+ * can't be asked, or returned only part of the record (A2: more meetings than
+ * one page), so callers never mistake "unknown" for "nobody came".
+ * `scheduledAt` limits it to meetings from 30 minutes before the booking.
+ * Someone still in an ongoing meeting counts until now only if Daily's
+ * presence list shows them there (A1).
  * https://docs.daily.co/reference/rest-api/meetings (participants[].user_id,
  * join_time, duration; parsed by ./meetings)
  */
-export async function getRoomAttendance(roomName: string): Promise<RoomAttendance | null> {
+export async function getRoomAttendance(
+  roomName: string,
+  options: { scheduledAt?: string | null } = {}
+): Promise<RoomAttendance | null> {
   if (!DAILY_API_KEY) {
     console.error('DAILY_API_KEY is not configured');
     return null;
   }
 
+  const query = new URLSearchParams({ room: roomName, limit: '100' });
+  const scheduledMs = options.scheduledAt ? Date.parse(options.scheduledAt) : NaN;
+  if (Number.isFinite(scheduledMs)) {
+    query.set('timeframe_start', String(Math.floor(scheduledMs / 1000) - ATTENDANCE_LOOKBACK_SEC));
+  }
+
   let response: Response;
   try {
-    response = await fetch(`${DAILY_API_URL}/meetings?room=${encodeURIComponent(roomName)}&limit=10`, {
+    response = await fetch(`${DAILY_API_URL}/meetings?${query.toString()}`, {
       method: 'GET',
       headers: { Authorization: `Bearer ${DAILY_API_KEY}` },
       // The vet's Finish waits on this; a slow Daily must not hold it up.
@@ -673,8 +689,22 @@ export async function getRoomAttendance(roomName: string): Promise<RoomAttendanc
 
   const data: unknown = await response.json().catch(() => null);
   if (!data) return null;
+  if (!meetingsListIsComplete(data)) {
+    console.error(`Daily returned only part of the meetings for room ${roomName}; attendance unknown`);
+    return null;
+  }
 
-  const records = parseMeetings(data, Math.floor(Date.now() / 1000));
+  // Who is in the room right now, asked only while a meeting is ongoing.
+  const rows = (data as { data?: unknown }).data;
+  const anyOngoing = Array.isArray(rows) && rows.some((m) => (m as { ongoing?: unknown } | null)?.ongoing === true);
+  const present = new Set<string>();
+  if (anyOngoing) {
+    for (const session of (await getRoomPresence(roomName)) ?? []) {
+      if (session.userId) present.add(session.userId);
+    }
+  }
+
+  const records = parseMeetings(data, Math.floor(Date.now() / 1000), present);
   const userIds = new Set<string>();
   let totalSeconds = 0;
   let ongoing = false;

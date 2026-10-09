@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { parseMeetings, secondsTogether, type MeetingRecord } from '../meetings';
+import { meetingsListIsComplete, parseMeetings, secondsTogether, type MeetingRecord } from '../meetings';
 import { mediaPermissionHint } from '../callErrors';
 import {
   decideFinishOutcome,
@@ -14,6 +14,8 @@ import {
   isFinishChoice,
   MIN_SECONDS_TOGETHER,
   NEVER_OPENED_OUTCOME,
+  NO_SHOW_AFTER_MINUTES,
+  type FinishChoice,
 } from '../../scheduling/outcomes';
 import { consultationPage } from '../../../components/layouts/VetLayout/vetEvents';
 
@@ -30,8 +32,12 @@ const p = (userId: string | null, fromMin: number, forMin?: number) => ({
   ...(forMin === undefined ? {} : { duration: min(forMin) }),
 });
 
-const meetings = (...list: Array<{ ongoing?: boolean; duration?: number; participants: unknown[] }>) =>
-  parseMeetings({ total_count: list.length, data: list }, T + min(60));
+type MeetingRow = { ongoing?: boolean; duration?: number; participants: unknown[] };
+
+/** Daily's /meetings body parsed at T+60; `present` = who Daily's presence list shows in the room now. */
+const meetingsWith = (present: string[], ...list: MeetingRow[]) =>
+  parseMeetings({ total_count: list.length, data: list }, T + min(60), new Set(present));
+const meetings = (...list: MeetingRow[]) => meetingsWith([], ...list);
 
 // ── Daily's meeting records ───────────────────────────────────────────
 
@@ -42,15 +48,28 @@ test('meetings are read with each person’s join time and how long they stayed'
   assert.deepEqual(meeting.sessions[1], { userId: PARENT, joinSec: T + min(10), leaveSec: T + min(20) });
 });
 
-test('someone still in an ongoing meeting counts until now; junk is skipped', () => {
-  const [meeting] = meetings({ ongoing: true, participants: [p(PARENT, 50), 'junk', null, { user_id: VET }] });
-  assert.equal(meeting.ongoing, true);
-  assert.deepEqual(meeting.sessions[0], { userId: PARENT, joinSec: T + min(50), leaveSec: T + min(60) });
-  // No join time: still "was in the room", never "together".
-  assert.deepEqual(meeting.sessions[1], { userId: VET, joinSec: null, leaveSec: null });
-  assert.equal(meeting.sessions.length, 2);
+test('A1: someone in an ongoing meeting with no duration counts until now only if Daily shows them present', () => {
+  const row: MeetingRow = { ongoing: true, participants: [p(PARENT, 50), 'junk', null, { user_id: VET }] };
+  const [present] = meetingsWith([PARENT], row);
+  assert.equal(present.ongoing, true);
+  assert.deepEqual(present.sessions[0], { userId: PARENT, joinSec: T + min(50), leaveSec: T + min(60) });
+  // No join time: still "was in the room", never "together"; junk skipped.
+  assert.deepEqual(present.sessions[1], { userId: VET, joinSec: null, leaveSec: null });
+  assert.equal(present.sessions.length, 2);
+
+  // Not in the presence list (left without Daily giving a duration): a moment, not "until now".
+  const [gone] = meetingsWith([], row);
+  assert.deepEqual(gone.sessions[0], { userId: PARENT, joinSec: T + min(50), leaveSec: T + min(50) });
+
   assert.deepEqual(parseMeetings(null, 0), []);
   assert.deepEqual(parseMeetings({ data: 'nope' }, 0), []);
+});
+
+test('A2: a cut-off list of meetings is "unknown", never "nobody came"', () => {
+  assert.equal(meetingsListIsComplete({ total_count: 2, data: [{}, {}] }), true);
+  assert.equal(meetingsListIsComplete({ total_count: 101, data: Array.from({ length: 100 }, () => ({})) }), false);
+  assert.equal(meetingsListIsComplete({ data: [] }), true); // no total given: take what came
+  assert.equal(meetingsListIsComplete(null), true);
 });
 
 // ── Were they in the call together? ───────────────────────────────────
@@ -86,8 +105,13 @@ test('a dropped call and a rejoin (two meetings) add up', () => {
 });
 
 test('still in the call together when Finish is pressed: counted until now', () => {
-  const record = meetings({ ongoing: true, participants: [p(VET, 40), p(PARENT, 45)] });
+  const record = meetingsWith([VET, PARENT], { ongoing: true, participants: [p(VET, 40), p(PARENT, 45)] });
   assert.equal(secondsTogether(record, VET, PARENT), min(15));
+});
+
+test('A1: the pet parent left without a duration and isn’t in the room now → not "together until now"', () => {
+  const record = meetingsWith([VET], { ongoing: true, participants: [p(VET, 40), p(PARENT, 45)] });
+  assert.equal(secondsTogether(record, VET, PARENT), 0);
 });
 
 test('no ids, the same id twice, or nobody: never together', () => {
@@ -105,9 +129,28 @@ const seen = (secondsTogetherValue: number, customerSeen = true, vetSeen = true)
   secondsTogether: secondsTogetherValue,
 });
 
+const START_MS = T * 1000;
+/** decideFinishOutcome with a real-looking default: call opened, 30 min after the start, nothing pressed. */
+const finish = (over: Partial<Parameters<typeof decideFinishOutcome>[0]> = {}) =>
+  decideFinishOutcome({
+    callOpened: true,
+    call: seen(0, false, true),
+    customerPressedJoin: false,
+    startsAtMs: START_MS,
+    nowMs: START_MS + min(30) * 1000,
+    choice: null,
+    ...over,
+  });
+const allowed = (over: Partial<Parameters<typeof decideFinishOutcome>[0]> = {}) => {
+  const decision = finish(over);
+  return decision.action === 'ask' || decision.action === 'refuse' ? decision.allowedOutcomes : null;
+};
+const EVERY: FinishChoice[] = ['happened_elsewhere', 'customer_no_show', 'technical_problem'];
+const NOT_NO_SHOW: FinishChoice[] = ['happened_elsewhere', 'technical_problem'];
+
 test('Daily saw them together: success exactly as before, whatever was sent', () => {
   for (const choice of [null, ...FINISH_CHOICES]) {
-    assert.deepEqual(decideFinishOutcome({ callOpened: true, call: seen(min(12)), choice }), {
+    assert.deepEqual(finish({ call: seen(min(12)), choice }), {
       action: 'close',
       outcome: 'success',
       reason: 'seen_together',
@@ -115,44 +158,74 @@ test('Daily saw them together: success exactly as before, whatever was sent', ()
   }
 });
 
-test('3 and 7 Oct: both in the room but never together → nothing recorded, the vet is asked', () => {
-  assert.deepEqual(decideFinishOutcome({ callOpened: true, call: seen(0), choice: null }), {
+test('3 and 7 Oct: both in the room but never together → nothing recorded, asked; "didn’t come" is never offered', () => {
+  assert.deepEqual(finish({ call: seen(0) }), {
     action: 'ask',
     customerSeen: true,
     vetSeen: true,
     dailyReachable: true,
     callOpened: true,
+    customerPressedJoin: false,
+    allowedOutcomes: NOT_NO_SHOW,
+    noShowBlockedBy: 'customer_seen',
+    noShowAvailableAt: null,
   });
 });
 
 test(`a few seconds together (under ${MIN_SECONDS_TOGETHER} s) is not a consultation`, () => {
-  const decision = decideFinishOutcome({ callOpened: true, call: seen(MIN_SECONDS_TOGETHER - 1), choice: null });
-  assert.equal(decision.action, 'ask');
+  assert.equal(finish({ call: seen(MIN_SECONDS_TOGETHER - 1) }).action, 'ask');
 });
 
-test('Daily unreachable, or nobody pressed Join: the vet is asked', () => {
-  assert.deepEqual(decideFinishOutcome({ callOpened: true, call: null, choice: null }), {
-    action: 'ask',
-    customerSeen: false,
-    vetSeen: false,
-    dailyReachable: false,
-    callOpened: true,
+test('C1: "didn’t come" is offered only with the evidence: vet seen, pet parent never seen nor pressed Join, 15+ min after the start', () => {
+  assert.deepEqual(allowed(), EVERY);
+  assert.deepEqual(allowed({ customerPressedJoin: true }), NOT_NO_SHOW);
+  assert.deepEqual(allowed({ call: null }), NOT_NO_SHOW); // Daily unreachable
+  assert.deepEqual(allowed({ call: seen(0, false, false) }), NOT_NO_SHOW); // the vet wasn't in the call
+  assert.deepEqual(allowed({ callOpened: false, call: seen(0, false, false) }), NOT_NO_SHOW); // nobody pressed Join
+  assert.deepEqual(allowed({ call: seen(30, true, true) }), NOT_NO_SHOW); // the pet parent was seen
+});
+
+test(`C1: before start + ${NO_SHOW_AFTER_MINUTES} min "didn’t come" waits, and says from when`, () => {
+  const early = finish({ nowMs: START_MS + min(10) * 1000 });
+  assert.equal(early.action, 'ask');
+  if (early.action !== 'ask') return;
+  assert.deepEqual(early.allowedOutcomes, NOT_NO_SHOW);
+  assert.equal(early.noShowBlockedBy, 'too_early');
+  assert.equal(early.noShowAvailableAt, new Date(START_MS + NO_SHOW_AFTER_MINUTES * 60 * 1000).toISOString());
+  assert.deepEqual(allowed({ nowMs: START_MS + NO_SHOW_AFTER_MINUTES * 60 * 1000 }), EVERY);
+});
+
+test('C1: "didn’t come" sent without the evidence is refused, nothing recorded', () => {
+  for (const over of [
+    { customerPressedJoin: true },
+    { call: null },
+    { call: seen(0) },
+    { nowMs: START_MS + min(5) * 1000 },
+  ]) {
+    const decision = finish({ ...over, choice: 'customer_no_show' });
+    assert.equal(decision.action, 'refuse');
+  }
+});
+
+test('the vet’s answer decides when the call wasn’t seen and the evidence allows it', () => {
+  assert.deepEqual(finish({ choice: 'happened_elsewhere' }), {
+    action: 'close',
+    outcome: 'success',
+    reason: 'happened_elsewhere',
   });
-  const neverOpened = decideFinishOutcome({ callOpened: false, call: seen(0, false, false), choice: null });
-  assert.equal(neverOpened.action, 'ask');
-  assert.equal(neverOpened.action === 'ask' && neverOpened.callOpened, false);
-});
-
-test('the vet’s answer decides when the call wasn’t seen', () => {
-  const answer = (choice: (typeof FINISH_CHOICES)[number]) =>
-    decideFinishOutcome({ callOpened: true, call: seen(0, false, true), choice });
-  assert.deepEqual(answer('happened_elsewhere'), { action: 'close', outcome: 'success', reason: 'happened_elsewhere' });
-  assert.deepEqual(answer('customer_no_show'), { action: 'close', outcome: 'missed', reason: 'customer_no_show' });
-  assert.deepEqual(answer('technical_problem'), { action: 'close', outcome: 'failed', reason: 'technical_problem' });
-  // Also when Daily couldn't be asked or nobody pressed Join.
-  assert.equal(decideFinishOutcome({ callOpened: false, call: null, choice: 'happened_elsewhere' }).action, 'close');
-  for (const choice of FINISH_CHOICES) {
-    const decision = decideFinishOutcome({ callOpened: false, call: null, choice });
+  assert.deepEqual(finish({ choice: 'customer_no_show' }), {
+    action: 'close',
+    outcome: 'missed',
+    reason: 'customer_no_show',
+  });
+  assert.deepEqual(finish({ choice: 'technical_problem' }), {
+    action: 'close',
+    outcome: 'failed',
+    reason: 'technical_problem',
+  });
+  // "Happened another way" and "couldn't connect" also when Daily couldn't be asked or nobody pressed Join.
+  for (const choice of NOT_NO_SHOW) {
+    const decision = finish({ callOpened: false, call: null, choice });
     assert.equal(decision.action === 'close' && decision.outcome, FINISH_CHOICE_OUTCOME[choice]);
   }
 });
@@ -175,7 +248,10 @@ test('nobody pressed Join by the end of the join window: failed (not the pet par
 // ── The stale-call cron (an 'active' consultation the vet never finished) ──
 
 /** What close-stale-active does with a Daily /meetings body. */
-const staleCall = (meetingsList: Array<{ ongoing?: boolean; participants: unknown[] }>) => {
+const staleCall = (
+  meetingsList: Array<{ ongoing?: boolean; participants: unknown[] }>,
+  customerPressedJoin = false
+) => {
   const records = parseMeetings({ data: meetingsList }, T + min(120));
   const ids = [...new Set(records.flatMap((m) => m.sessions.flatMap((s) => (s.userId ? [s.userId] : []))))];
   return decideStaleActiveOutcome({
@@ -186,9 +262,18 @@ const staleCall = (meetingsList: Array<{ ongoing?: boolean; participants: unknow
     },
     vetId: VET,
     customerId: PARENT,
+    customerPressedJoin,
     msSinceStart: min(100) * 1000,
   });
 };
+
+test('A4, stale call: the vet was there, the pet parent pressed Join but never got in → failed, not missed', () => {
+  assert.deepEqual(staleCall([{ participants: [p(VET, 0, 25)] }], true), {
+    action: 'close',
+    outcome: 'failed',
+    reason: 'customer_could_not_connect',
+  });
+});
 
 test('stale call: together for a real call → success', () => {
   assert.deepEqual(staleCall([{ participants: [p(VET, 1, 20), p(PARENT, 2, 18)] }]), {
@@ -239,7 +324,7 @@ test('stale call: one person only, nobody, still in the call, Daily unreachable 
     reason: 'call_ongoing',
   });
   const unreachable = (msSinceStart: number) =>
-    decideStaleActiveOutcome({ attendance: null, vetId: VET, customerId: PARENT, msSinceStart });
+    decideStaleActiveOutcome({ attendance: null, vetId: VET, customerId: PARENT, customerPressedJoin: true, msSinceStart });
   assert.deepEqual(unreachable(min(100) * 1000), { action: 'wait', reason: 'daily_unreachable' });
   assert.deepEqual(unreachable(min(181) * 1000), { action: 'close', outcome: 'failed', reason: 'daily_unreachable' });
 });
@@ -250,6 +335,8 @@ test('the browser is asking for the camera or microphone: say where to click All
   assert.equal(mediaPermissionHint('prompt', 'granted')?.kind, 'prompt');
   assert.equal(mediaPermissionHint('granted', 'prompt')?.kind, 'prompt');
   assert.match(mediaPermissionHint('prompt', 'prompt')?.message ?? '', /Click Allow.*address bar/);
+  // A5: the bubble may be hidden.
+  assert.match(mediaPermissionHint('prompt', 'granted')?.message ?? '', /don't see a request.*camera icon or the lock/);
 });
 
 test('blocked wins over asking, and says how to unblock', () => {

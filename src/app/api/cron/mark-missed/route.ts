@@ -2,16 +2,21 @@ import { NextResponse } from 'next/server';
 import { verifyCronRequest } from '@/lib/cron/auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { SCHEDULING_CONSTANTS } from '@/lib/scheduling';
+import { NEVER_OPENED_OUTCOME } from '@/lib/scheduling/outcomes';
 import { withRoute } from '@/server/handler';
-import { sendMissedNotices } from '../_lib/consultationNotices';
+import { sendFailedNotices } from '../_lib/consultationNotices';
 import { revalidateConsultationPages } from '@/app/api/vet/_lib/completeConsultation';
 
 /**
  * GET /api/cron/mark-missed   (every 5 minutes, vercel.json)
  *
  * A consultation still 'scheduled' when its join window has closed (45 min
- * after the start) was never opened by anyone: the customer did not join, so
- * it is 'missed' (V rule set, src/lib/scheduling/outcomes.ts).
+ * after the start) was never opened: neither the vet nor the customer pressed
+ * Join (since VC-1 it becomes 'active' only then). That is not the customer's
+ * fault, so it is closed as 'failed' (nobody_connected), the customer is told
+ * our team will be in touch, and ops is emailed (VC-1b; before, it was
+ * 'missed' and the customer was told "You didn't join"). Rule set:
+ * src/lib/scheduling/outcomes.ts. The job keeps its name for vercel.json.
  *
  * 'active' consultations are no longer touched here — close-stale-active is
  * the only job that closes them (A-07: the two crons used to disagree, one
@@ -42,21 +47,21 @@ export const GET = withRoute(async function GET(request: Request) {
     return NextResponse.json({ error: 'Query failed' }, { status: 500 });
   }
 
-  const results: Array<{ consultationId: string; action: 'marked_missed' }> = [];
+  const results: Array<{ consultationId: string; action: 'closed_failed'; reason: string }> = [];
 
   for (const consultation of expiredConsultations || []) {
     if (!consultation.scheduled_at) continue;
 
     const { data: closed, error: updateError } = await supabaseAdmin
       .from('consultations')
-      .update({ status: 'closed', outcome: 'missed' })
+      .update({ status: 'closed', outcome: NEVER_OPENED_OUTCOME.outcome })
       .eq('id', consultation.id)
-      .eq('status', 'scheduled') // Only if nobody joined in the meantime
+      .eq('status', 'scheduled') // Only if nobody joined (or the vet finished it) in the meantime
       .select('id')
       .maybeSingle();
 
     if (updateError) {
-      console.error(`Failed to mark consultation ${consultation.id} as missed:`, updateError);
+      console.error(`Failed to close never-opened consultation ${consultation.id}:`, updateError);
       continue;
     }
     if (!closed) continue;
@@ -64,7 +69,7 @@ export const GET = withRoute(async function GET(request: Request) {
     // Supabase returns joined data as objects (not arrays) for !fkey syntax
     const petData = consultation.pets as unknown as { name: string } | null;
 
-    await sendMissedNotices(
+    await sendFailedNotices(
       {
         id: consultation.id,
         customer_id: consultation.customer_id,
@@ -73,12 +78,13 @@ export const GET = withRoute(async function GET(request: Request) {
         consultation_number: consultation.consultation_number,
         petName: petData?.name || 'your pet',
       },
-      false
+      NEVER_OPENED_OUTCOME.reason,
+      { detail: 'Nobody pressed Join before the join window closed (45 minutes after the start).' }
     );
 
     revalidateConsultationPages(consultation.id);
-    results.push({ consultationId: consultation.id, action: 'marked_missed' });
-    console.log(`Consultation ${consultation.id} marked as missed`);
+    results.push({ consultationId: consultation.id, action: 'closed_failed', reason: NEVER_OPENED_OUTCOME.reason });
+    console.log(`Consultation ${consultation.id} closed as failed (${NEVER_OPENED_OUTCOME.reason}): nobody pressed Join`);
   }
 
   return NextResponse.json({

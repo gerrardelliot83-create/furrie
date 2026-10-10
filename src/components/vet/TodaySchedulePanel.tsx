@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/client';
 import { formatIstTime, istDayRange } from '@/lib/time/ist';
 import { JOIN_WINDOW_AFTER_MS, JOIN_WINDOW_BEFORE_MS } from '@/lib/scheduling/joinWindow';
 import { VET_CONSULTATIONS_CHANGED_EVENT } from '@/components/layouts/VetLayout/vetEvents';
+import { outcomeLabels } from '@/lib/utils/statusHelpers';
 import type { Consultation, ConsultationStatus } from '@/types';
 import styles from './TodaySchedulePanel.module.css';
 
@@ -379,8 +380,14 @@ export function TodaySchedulePanel({ vetId }: TodaySchedulePanelProps) {
                     <span className={styles.completedPet}>
                       {consultation.pet?.name || 'Unknown Pet'}
                     </span>
+                    {/* Every closed outcome by its own name: since VC-1b a call nobody
+                        joined is 'failed', not 'missed'. */}
                     <Badge variant={consultation.outcome === 'success' ? 'success' : 'error'}>
-                      {consultation.outcome === 'success' ? 'Done' : 'Missed'}
+                      {consultation.outcome === 'success'
+                        ? 'Done'
+                        : consultation.outcome
+                          ? outcomeLabels[consultation.outcome]
+                          : 'Closed'}
                     </Badge>
                   </div>
                 ))}

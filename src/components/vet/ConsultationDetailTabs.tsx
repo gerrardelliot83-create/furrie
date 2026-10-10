@@ -3,15 +3,31 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
 import { SOAPForm, type SOAPFormHandle } from './SOAPForm';
-import { finishConsultation } from './finishConsultation';
+import { finishConsultation, type FinishOutcome, type OutcomeQuestion } from './finishConsultation';
 import { formatIstTime } from '@/lib/time/ist';
+import type { FinishChoice } from '@/lib/scheduling/outcomes';
 import { TreatmentPlanBuilder } from './treatment-plan/TreatmentPlanBuilder';
 import type { SoapNote } from '@/types';
 import styles from './ConsultationDetailTabs.module.css';
 
 type TabKey = 'overview' | 'soap' | 'rx';
+
+// VC-1b: what the vet can say happened when Finish found no video call with
+// the pet parent (server: decideFinishOutcome in lib/scheduling/outcomes).
+const OUTCOME_OPTIONS: { choice: FinishChoice; label: string }[] = [
+  { choice: 'happened_elsewhere', label: 'It happened another way (phone or WhatsApp)' },
+  { choice: 'customer_no_show', label: "The pet parent didn't come" },
+  { choice: 'technical_problem', label: "We couldn't connect (technical problem)" },
+];
+
+const FINISHED_MESSAGE: Record<FinishOutcome, string> = {
+  success: 'Consultation completed',
+  missed: 'Marked as missed: the pet parent didn’t come',
+  failed: 'Closed. Our team has been told and will contact the pet parent.',
+};
 
 interface ConsultationDetailTabsProps {
   consultationId: string;
@@ -100,31 +116,77 @@ export function ConsultationDetailTabs({
 
   const soapFormRef = useRef<SOAPFormHandle>(null);
 
+  // Set while the "we didn't see the pet parent" question is open (VC-1b).
+  const [outcomeQuestion, setOutcomeQuestion] = useState<
+    { isDiagnosisFromList: boolean; question: OutcomeQuestion } | null
+  >(null);
+  const [answering, setAnswering] = useState<FinishChoice | null>(null);
+  // "It happened another way" picked before the notes were written (C2).
+  const [notesFirst, setNotesFirst] = useState(false);
+  // That answer, sent with the next Finish once the notes are saved (C2).
+  const rememberedChoiceRef = useRef<FinishChoice | null>(null);
+
+  // "Didn't come" may be waiting for start + 15 minutes: re-check while asked.
+  const noShowAvailableAt = outcomeQuestion?.question.noShowAvailableAt ?? null;
+  const [questionNow, setQuestionNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!noShowAvailableAt) return;
+    const timer = setInterval(() => setQuestionNow(Date.now()), 15_000);
+    return () => clearInterval(timer);
+  }, [noShowAvailableAt]);
+
   // One finish path for both buttons (C-02): the notes are already saved when
-  // this runs; the server checks status, start time and notes, closes the
-  // consultation once, and sends the follow-up chat, emails and invite reward.
+  // this runs; the server checks status, start time, the video call and the
+  // notes, closes the consultation once, and sends what follows (follow-up
+  // chat, emails and invite reward for a success; notices otherwise).
   const completeConsultation = useCallback(
-    async (options: { isDiagnosisFromList: boolean }) => {
+    async (options: { isDiagnosisFromList: boolean; outcome?: FinishChoice }) => {
       setIsFinishing(true);
+      const outcome = options.outcome ?? rememberedChoiceRef.current ?? undefined;
       try {
-        const result = await finishConsultation(consultationId, options);
+        const result = await finishConsultation(consultationId, { ...options, outcome });
         if (result.ok) {
+          rememberedChoiceRef.current = null;
+          setOutcomeQuestion(null);
           setIsCompleted(true);
           setAwaitingNotes(false);
           if (result.alreadyCompleted) {
             toast(
-              result.notesSent ? 'Notes sent to the pet parent' : 'This consultation was already completed',
+              result.notesSent
+                ? 'Notes sent to the pet parent'
+                : result.outcome === 'success'
+                  ? 'This consultation was already completed'
+                  : 'This consultation was already closed',
               'success'
             );
             router.refresh();
             return;
           }
-          toast('Consultation completed', 'success');
+          toast(FINISHED_MESSAGE[result.outcome], 'success');
           router.push('/consultations');
           router.refresh();
           return;
         }
+        if (result.code === 'OUTCOME_NEEDED' && result.question) {
+          // Nothing was recorded: ask the vet what happened, then send it again.
+          rememberedChoiceRef.current = null;
+          setNotesFirst(false);
+          setOutcomeQuestion({ isDiagnosisFromList: options.isDiagnosisFromList, question: result.question });
+          return;
+        }
+        if (result.code === 'OUTCOME_NOT_ALLOWED') {
+          // The evidence doesn't back that answer (C1): say why, ask again.
+          rememberedChoiceRef.current = null;
+          toast(result.message, 'error');
+          setOutcomeQuestion(
+            result.question ? { isDiagnosisFromList: options.isDiagnosisFromList, question: result.question } : null
+          );
+          return;
+        }
+        setOutcomeQuestion(null);
         if (result.code === 'NOTES_REQUIRED') {
+          // Keep her answer for the next Finish, once the notes are saved (C2).
+          if (outcome) rememberedChoiceRef.current = outcome;
           handleTabChange('soap');
         }
         toast(result.message, 'error');
@@ -133,6 +195,45 @@ export function ConsultationDetailTabs({
       }
     },
     [consultationId, handleTabChange, router, toast]
+  );
+
+  const answerOutcomeQuestion = async (choice: FinishChoice) => {
+    if (!outcomeQuestion || answering) return;
+    if (choice === 'happened_elsewhere' && !outcomeQuestion.question.notesComplete) {
+      // The notes go to the pet parent: they must be written first (C2).
+      setNotesFirst(true);
+      return;
+    }
+    setAnswering(choice);
+    try {
+      await completeConsultation({ isDiagnosisFromList: outcomeQuestion.isDiagnosisFromList, outcome: choice });
+    } finally {
+      setAnswering(null);
+    }
+  };
+
+  const goWriteNotes = () => {
+    rememberedChoiceRef.current = 'happened_elsewhere';
+    setNotesFirst(false);
+    setOutcomeQuestion(null);
+    handleTabChange('soap');
+  };
+
+  const closeOutcomeQuestion = () => {
+    if (answering) return;
+    setNotesFirst(false);
+    setOutcomeQuestion(null);
+  };
+
+  const question = outcomeQuestion?.question ?? null;
+  const noShowReady = !!noShowAvailableAt && questionNow >= Date.parse(noShowAvailableAt);
+  // Each answer the evidence allows; "didn't come" also when only the
+  // 15-minute wait stands in the way (shown disabled until then).
+  const visibleOptions = OUTCOME_OPTIONS.filter(
+    (option) =>
+      question &&
+      (question.allowedOutcomes.includes(option.choice) ||
+        (option.choice === 'customer_no_show' && !!question.noShowAvailableAt))
   );
 
   // Treatment Plan tab: save whatever is in the SOAP form first.
@@ -237,6 +338,80 @@ export function ConsultationDetailTabs({
           </div>
         </div>
       </div>
+
+      {/* VC-1b: Finish didn't see the two on the video call together. */}
+      <Modal
+        isOpen={question !== null}
+        onClose={closeOutcomeQuestion}
+        title={
+          question?.customerSeen
+            ? "You and the pet parent weren't on the video call at the same time"
+            : "We didn't see the pet parent on the video call"
+        }
+        size="sm"
+      >
+        {notesFirst ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+            <p style={{ margin: 0, color: 'var(--color-text-secondary)' }}>
+              Add the chief complaint and a provisional diagnosis first: they go to the pet parent.
+              We&apos;ll remember your answer. Save the notes, then press Finish again.
+            </p>
+            <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'flex-end' }}>
+              <Button variant="ghost" onClick={() => setNotesFirst(false)}>
+                Back
+              </Button>
+              <Button variant="primary" onClick={goWriteNotes}>
+                Write the notes
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+            <p style={{ margin: 0, color: 'var(--color-text-secondary)' }}>
+              What happened? We&apos;ll close the consultation to match. If it happened another way,
+              your notes go to the pet parent as usual.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+              {visibleOptions.map((option) => {
+                // "Didn't come" before start + 15 minutes: shown, not yet allowed (C1).
+                const waiting =
+                  option.choice === 'customer_no_show' &&
+                  !question?.allowedOutcomes.includes(option.choice) &&
+                  !noShowReady;
+                return (
+                  <div key={option.choice}>
+                    <Button
+                      variant="secondary"
+                      fullWidth
+                      onClick={() => answerOutcomeQuestion(option.choice)}
+                      loading={answering === option.choice}
+                      disabled={waiting || (answering !== null && answering !== option.choice)}
+                    >
+                      {option.label}
+                    </Button>
+                    {waiting && noShowAvailableAt && (
+                      <p
+                        style={{
+                          margin: 'var(--space-1) 0 0',
+                          fontSize: 'var(--font-size-sm)',
+                          color: 'var(--color-text-secondary)',
+                        }}
+                      >
+                        Available at {formatIstTime(noShowAvailableAt)} — the pet parent may still join.
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button variant="ghost" onClick={closeOutcomeQuestion} disabled={answering !== null}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

@@ -11,10 +11,11 @@ type BadgeVariant = 'neutral' | 'info' | 'success' | 'warning' | 'error';
 // Transitions:
 //   pending   -> scheduled  (after payment confirmed)
 //   pending   -> closed     (cancelled before payment, outcome='cancelled')
-//   scheduled -> active     (first participant joins video call)
-//   scheduled -> closed     (missed or cancelled, outcome='missed'|'cancelled')
-//   active    -> closed     (call ends, outcome='success')
-//   active    -> closed     (stale recovery, outcome='failed')
+//   scheduled -> active     (first participant presses Join)
+//   scheduled -> closed     (cancelled, or nobody pressed Join: 'failed' since VC-1b;
+//                            or the vet's Finish with her answer)
+//   active    -> closed     (the vet's Finish or the stale-call cron:
+//                            success | missed | failed, src/lib/scheduling/outcomes.ts)
 //
 // Constraints:
 //   - status='closed' MUST have a non-null outcome

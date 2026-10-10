@@ -748,6 +748,7 @@ export type Database = {
           consultation_number: string
           created_at: string | null
           customer_id: string
+          customer_join_requested_at: string | null
           daily_room_name: string | null
           daily_room_url: string | null
           duration_minutes: number | null
@@ -773,6 +774,7 @@ export type Database = {
           type: string
           updated_at: string | null
           vet_id: string | null
+          vet_join_requested_at: string | null
           was_extended: boolean | null
         }
         Insert: {
@@ -782,6 +784,7 @@ export type Database = {
           consultation_number?: string
           created_at?: string | null
           customer_id: string
+          customer_join_requested_at?: string | null
           daily_room_name?: string | null
           daily_room_url?: string | null
           duration_minutes?: number | null
@@ -807,6 +810,7 @@ export type Database = {
           type: string
           updated_at?: string | null
           vet_id?: string | null
+          vet_join_requested_at?: string | null
           was_extended?: boolean | null
         }
         Update: {
@@ -816,6 +820,7 @@ export type Database = {
           consultation_number?: string
           created_at?: string | null
           customer_id?: string
+          customer_join_requested_at?: string | null
           daily_room_name?: string | null
           daily_room_url?: string | null
           duration_minutes?: number | null
@@ -841,6 +846,7 @@ export type Database = {
           type?: string
           updated_at?: string | null
           vet_id?: string | null
+          vet_join_requested_at?: string | null
           was_extended?: boolean | null
         }
         Relationships: [

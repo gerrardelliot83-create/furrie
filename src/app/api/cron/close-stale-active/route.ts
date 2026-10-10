@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { verifyCronRequest } from '@/lib/cron/auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { getRoomAttendance, roomNameForConsultation, type RoomAttendance } from '@/lib/daily';
+import { getRoomAttendance, roomNameForConsultation, secondsTogether, type RoomAttendance } from '@/lib/daily';
 import { decideStaleActiveOutcome } from '@/lib/scheduling/outcomes';
 import type { Database } from '@/lib/database.types';
 import { withRoute } from '@/server/handler';
@@ -22,6 +22,7 @@ const STALE_COLUMNS = [
   'scheduled_at',
   'daily_room_name',
   'consultation_number',
+  'customer_join_requested_at',
 ] as const satisfies readonly (keyof ConsultationRow)[];
 
 type StaleConsultation = Pick<ConsultationRow, (typeof STALE_COLUMNS)[number]>;
@@ -41,15 +42,18 @@ function callMinutes(attendance: RoomAttendance | null): number {
  *
  * Closes 'active' consultations the vet never finished, by the V rule set
  * (src/lib/scheduling/outcomes.ts, A-07). Who was in the call comes from
- * Daily's Meetings API (participants' user ids = our user ids):
- *   - still in the room          → leave it
- *   - vet and customer           → success (+ follow-up, emails, invite reward)
- *   - vet only                   → missed (the customer didn't come)
- *   - customer only / nobody     → failed (+ ops email)
- *   - Daily unreachable          → retry; failed (+ ops email) after 3 hours
+ * Daily's Meetings API (participants' user ids = our user ids, join times):
+ *   - still in the room              → leave it
+ *   - vet and customer together ≥60 s → success (+ follow-up, emails, invite reward)
+ *   - vet only, customer never pressed Join
+ *                                    → missed (the customer didn't come)
+ *   - vet only but the customer pressed Join (A4), both but never together
+ *     (VC-1b), customer only, nobody → failed (+ ops email)
+ *   - Daily unreachable              → retry; failed (+ ops email) after 3 hours
  *
  * This is the only job that closes 'active' consultations; mark-missed only
- * handles 'scheduled' ones. Writes use the service role, guarded on status.
+ * handles 'scheduled' ones. The vet's Finish can close it too; both updates
+ * are guarded on status, so only one of them does. Writes use the service role.
  */
 export const GET = withRoute(async function GET(request: Request) {
   const denied = verifyCronRequest(request);
@@ -91,13 +95,21 @@ export const GET = withRoute(async function GET(request: Request) {
     const msSinceStart = startedAt ? now.getTime() - new Date(startedAt).getTime() : STALE_AFTER_MS;
 
     const attendance = await getRoomAttendance(
-      consultation.daily_room_name || roomNameForConsultation(consultation.id)
+      consultation.daily_room_name || roomNameForConsultation(consultation.id),
+      { scheduledAt: consultation.scheduled_at ?? consultation.started_at }
     );
 
     const decision = decideStaleActiveOutcome({
-      attendance,
+      attendance: attendance && {
+        ongoing: attendance.ongoing,
+        participantUserIds: attendance.participantUserIds,
+        // VC-1b: together, not just "both seen at some point".
+        secondsTogether: secondsTogether(attendance.records, consultation.vet_id, consultation.customer_id),
+      },
       vetId: consultation.vet_id,
       customerId: consultation.customer_id,
+      // A4: a pet parent who pressed Join but never got in didn't "not come".
+      customerPressedJoin: !!consultation.customer_join_requested_at,
       msSinceStart,
     });
 
@@ -143,9 +155,12 @@ export const GET = withRoute(async function GET(request: Request) {
     if (decision.outcome === 'success') {
       await runCompletionSideEffects(consultation.id, 'system');
     } else if (decision.outcome === 'missed') {
-      await sendMissedNotices(closedConsultation, true);
+      await sendMissedNotices(closedConsultation);
     } else {
-      await sendFailedNotices(closedConsultation, decision.reason);
+      await sendFailedNotices(closedConsultation, decision.reason, {
+        detail:
+          decision.reason === 'nobody_connected' ? 'Join was pressed, but Daily shows nobody in the room.' : undefined,
+      });
     }
     revalidateConsultationPages(consultation.id);
 

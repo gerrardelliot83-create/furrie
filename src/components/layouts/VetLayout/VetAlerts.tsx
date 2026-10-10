@@ -1,10 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/ui/Toast';
 import { formatIstDateTime, formatIstTime } from '@/lib/time/ist';
-import { emitVetConsultationsChanged } from './vetEvents';
+import { consultationPage, emitVetConsultationsChanged } from './vetEvents';
 import styles from './VetAlerts.module.css';
 
 /**
@@ -13,11 +14,14 @@ import styles from './VetAlerts.module.css';
  *
  * Alerts: a two-tone chime (Web Audio; the AudioContext is unlocked by the
  * vet's first click, see VetLayout), the tab title flashing until the tab is
- * focused, a browser notification when permission is granted, and a toast.
+ * focused, the vet opens that consultation, or 10 minutes pass (VC-1b), a
+ * browser notification when permission is granted, and a toast.
  *
  * Triggers:
  *   - Broadcast 'new_consultation' on vet:<id>:notifications (booking route)
- *   - Broadcast 'customer_joined' (Daily webhook: the customer is in the room)
+ *   - Broadcast 'customer_joined' (Daily webhook: the customer is in the room),
+ *     unless the vet is already on that consultation's video page (VC-1b: on
+ *     9 Oct it popped up during the call, and the title outlived the call)
  *   - Broadcast 'consultation_cancelled' (the customer cancelled; toast only)
  *   - a scheduled consultation starting within 5 minutes (checked every 60 s)
  *
@@ -28,6 +32,8 @@ import styles from './VetAlerts.module.css';
 const FIVE_MINUTES_MS = 5 * 60 * 1000;
 const CHECK_EVERY_MS = 60 * 1000;
 const WARNED_STORAGE_KEY = 'furrie:vet-start-warnings';
+/** The tab title stops flashing after this even if the tab never gets focus (VC-1b). */
+const FLASH_FOR_MS = 10 * 60 * 1000;
 
 interface BookingPayload {
   consultationId?: string;
@@ -102,13 +108,22 @@ export function VetAlerts({ vetId }: { vetId: string }) {
   );
   const seenRef = useRef<Set<string>>(new Set());
   const flashTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const flashEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** The consultation the flashing title is about, if any. */
+  const flashConsultationRef = useRef<string | null>(null);
   const originalTitleRef = useRef<string | null>(null);
+  const pathname = usePathname();
 
   const stopFlash = useCallback(() => {
     if (flashTimerRef.current) {
       clearInterval(flashTimerRef.current);
       flashTimerRef.current = null;
     }
+    if (flashEndTimerRef.current) {
+      clearTimeout(flashEndTimerRef.current);
+      flashEndTimerRef.current = null;
+    }
+    flashConsultationRef.current = null;
     if (originalTitleRef.current !== null) {
       document.title = originalTitleRef.current;
       originalTitleRef.current = null;
@@ -116,18 +131,33 @@ export function VetAlerts({ vetId }: { vetId: string }) {
   }, []);
 
   const flashTitle = useCallback(
-    (message: string) => {
+    (message: string, consultationId?: string) => {
       if (document.visibilityState === 'visible' && document.hasFocus()) return;
       stopFlash();
+      const flashText = `● ${message}`;
       originalTitleRef.current = document.title;
+      flashConsultationRef.current = consultationId ?? null;
       let showMessage = true;
       flashTimerRef.current = setInterval(() => {
-        document.title = showMessage ? `● ${message}` : (originalTitleRef.current ?? document.title);
+        // The page set its own title meanwhile (the vet moved on): put that
+        // one back when the flashing stops, not the old one.
+        if (document.title !== flashText && document.title !== originalTitleRef.current) {
+          originalTitleRef.current = document.title;
+        }
+        document.title = showMessage ? flashText : (originalTitleRef.current ?? document.title);
         showMessage = !showMessage;
       }, 1000);
+      flashEndTimerRef.current = setTimeout(stopFlash, FLASH_FOR_MS);
     },
     [stopFlash]
   );
+
+  // The vet opened the consultation the title is flashing about (its page or
+  // its video room): she has seen it (VC-1b).
+  useEffect(() => {
+    const page = consultationPage(pathname ?? '');
+    if (page && page.consultationId === flashConsultationRef.current) stopFlash();
+  }, [pathname, stopFlash]);
 
   useEffect(() => {
     const onVisible = () => {
@@ -143,9 +173,9 @@ export function VetAlerts({ vetId }: { vetId: string }) {
   }, [stopFlash]);
 
   const raiseAlert = useCallback(
-    (title: string, body: string, url?: string) => {
+    (title: string, body: string, url?: string, consultationId?: string) => {
       playChime();
-      flashTitle(title);
+      flashTitle(title, consultationId);
       showBrowserNotification(title, body, url);
       toast(`${title}: ${body}`, 'info');
       emitVetConsultationsChanged();
@@ -174,16 +204,26 @@ export function VetAlerts({ vetId }: { vetId: string }) {
           raiseAlert(
             'New booking',
             `${data.petName || 'A pet'}, ${when}`,
-            data.consultationId ? `/consultations/${data.consultationId}` : undefined
+            data.consultationId ? `/consultations/${data.consultationId}` : undefined,
+            data.consultationId
           );
         })
         .on('broadcast', { event: 'customer_joined' }, ({ payload }) => {
           const data = payload as BookingPayload;
+          // VC-1b: the vet is already on this consultation's video page, so
+          // no chime, toast or title. Checked before `once`, so the alert
+          // still comes if the pet parent rejoins after she has left the page.
+          const page = consultationPage(window.location.pathname);
+          if (data.consultationId && page?.inRoom && page.consultationId === data.consultationId) {
+            emitVetConsultationsChanged();
+            return;
+          }
           if (data.consultationId && !once(`joined:${data.consultationId}`)) return;
           raiseAlert(
             'Customer is in the video room',
             `${data.petName ? `${data.petName}'s pet parent` : 'The pet parent'} has joined. Open the consultation to join.`,
-            data.consultationId ? `/consultations/${data.consultationId}` : undefined
+            data.consultationId ? `/consultations/${data.consultationId}` : undefined,
+            data.consultationId
           );
         })
         .on('broadcast', { event: 'consultation_updated' }, () => {
@@ -239,7 +279,8 @@ export function VetAlerts({ vetId }: { vetId: string }) {
         raiseAlert(
           'Consultation starts in 5 minutes',
           `${pet || 'Your next consultation'} at ${formatIstTime(consultation.scheduled_at)} IST. You can join now.`,
-          `/consultations/${consultation.id}`
+          `/consultations/${consultation.id}`,
+          consultation.id
         );
       }
     };

@@ -36,6 +36,30 @@
   }
 }
 
+/* Camera/microphone permission hint under the spinner (VC-1b) */
+.permissionHint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: 360px;
+  margin: 0 var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: rgba(0, 0, 0, 0.75);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  text-align: center;
+  color: var(--color-text-inverse);
+}
+
+.permissionHint p {
+  margin: 0;
+}
+
+.permissionHintBlocked {
+  background: rgba(120, 53, 15, 0.92);
+}
+
 /* Error State */
 .error {
   align-items: center;

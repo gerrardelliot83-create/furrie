@@ -84,6 +84,8 @@ export const POST = withRoute(async function POST(
         room_created_at,
         started_at,
         duration_minutes,
+        customer_join_requested_at,
+        vet_join_requested_at,
         pets!consultations_pet_id_fkey (
           id,
           name,
@@ -157,6 +159,30 @@ export const POST = withRoute(async function POST(
         },
         { status: 400 }
       );
+    }
+
+    // Record that this person pressed Join, the first time only (VC-1b, A4).
+    // Daily only shows who reached the call; a pet parent stuck on a camera
+    // prompt, an in-app browser or a bad network never does, and must not be
+    // recorded as "didn't come". Set before the room is prepared, so a room or
+    // ticket failure on our side still counts as having tried.
+    const pressedAt = new Date().toISOString();
+    const alreadyRecorded = isVet ? consultation.vet_join_requested_at : consultation.customer_join_requested_at;
+    if (!alreadyRecorded) {
+      const { error: pressedError } = isVet
+        ? await supabaseAdmin
+            .from('consultations')
+            .update({ vet_join_requested_at: pressedAt })
+            .eq('id', id)
+            .is('vet_join_requested_at', null)
+        : await supabaseAdmin
+            .from('consultations')
+            .update({ customer_join_requested_at: pressedAt })
+            .eq('id', id)
+            .is('customer_join_requested_at', null);
+      if (pressedError) {
+        console.error(`[join] could not record the Join press for consultation=${id}:`, pressedError);
+      }
     }
 
     // Make sure the room exists and stays open long enough (VC-1). A-04: a

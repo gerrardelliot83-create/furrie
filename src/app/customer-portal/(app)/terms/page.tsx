@@ -27,6 +27,7 @@ export default function TermsPage() {
         <strong>Operated by:</strong> Pakta Technologies (OPC) Pvt. Ltd., operating under the trade name &quot;Furrie&quot;
       </p>
       <p style={{ color: '#888', fontSize: '0.875rem', marginBottom: '0.25rem' }}>Effective Date: 10 April 2026</p>
+      <p style={{ color: '#888', fontSize: '0.875rem', marginBottom: '0.25rem' }}>Last updated: 10 October 2026 (sections 7.1–7.3)</p>
       <p style={{ color: '#888', fontSize: '0.875rem', marginBottom: '2rem' }}>Last Updated: 27 September 2026</p>
 
       {/* Emergency Warning Box */}
@@ -196,17 +197,19 @@ export default function TermsPage() {
         <h2 style={h2Style}>7. Consultations</h2>
         <p style={pSpacedStyle}>
           7.1. <strong>Booking.</strong> You may book a scheduled consultation by selecting an available time
-          slot and a registered pet. You must join the video call within the window of five (5) minutes before
+          slot and a registered pet. You must join the video call within the window of ten (10) minutes before
           to forty-five (45) minutes after the scheduled time.
         </p>
         <p style={pSpacedStyle}>
-          7.2. <strong>Missed Consultations.</strong> A consultation not joined within the join window will be
-          automatically marked as missed. Consultation credits used for missed consultations are{' '}
-          <strong>not automatically refunded</strong> but may be reinstated at our discretion on a case-by-case basis.
+          7.2. <strong>Missed or Failed Consultations.</strong> If your vet joins and you don&apos;t, the
+          consultation is marked as missed and the credit is used. If neither of you joins, or the video call
+          fails on our side, it&apos;s marked as not completed and our team will contact you to put it right, for
+          example by reinstating your credit.
         </p>
         <p style={pSpacedStyle}>
-          7.3. <strong>Cancellation.</strong> You may cancel a scheduled consultation before the join window
-          opens. Credits used for cancelled consultations will be reinstated to your account.
+          7.3. <strong>Cancellation.</strong> You can cancel a scheduled consultation until it starts. Cancel more
+          than five (5) minutes before the start time and your credit is returned; within five (5) minutes of the
+          start, the credit is used.
         </p>
         <p style={pSpacedStyle}>
           7.4. <strong>Recording and Consent.</strong> Consultations may be recorded when recording is enabled

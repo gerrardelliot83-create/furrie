@@ -14,6 +14,7 @@ import {
 } from '@/lib/email';
 import { checkRateLimit, getClientIp, RATE_LIMITS, rateLimitResponse } from '@/lib/utils/rate-limit';
 import { formatScheduledTimeShort } from '@/lib/utils';
+import { formatIstDateTime } from '@/lib/time/ist';
 import { withRoute } from '@/server/handler';
 
 interface MediaUploadRef {
@@ -331,7 +332,8 @@ export const POST = withRoute(async function POST(request: Request) {
           user_id: vetId,
           type: 'new_consultation_request',
           title: 'New consultation booked',
-          body: `${pet.name} · scheduled ${formatScheduledTimeShort(body.scheduledAt)}`,
+          // A date, not "Today"/"Tomorrow": the bell keeps it for days (CX-1).
+          body: `${pet.name} · scheduled ${formatIstDateTime(body.scheduledAt)} IST`,
           channel: 'in_app',
           data: {
             consultationId: booked.id,

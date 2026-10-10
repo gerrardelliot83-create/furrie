@@ -6,6 +6,12 @@ import type { User } from '@supabase/supabase-js';
 import { sendWelcomeEmail } from '@/lib/email';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { FEATURES } from '@/lib/config/features';
+import {
+  shouldSendWelcomeEmail,
+  welcomeEmailAttempt,
+  welcomeEmailIdempotencyKey,
+  welcomeEmailRecord,
+} from './welcomeEmailRule';
 
 /**
  * Side-effects that belong to signing in but that the user is not waiting for.
@@ -16,37 +22,75 @@ import { FEATURES } from '@/lib/config/features';
  * down first. The welcome email in particular hung off a 200ms `setTimeout`.
  *
  * They now run from `after()` on the first authenticated server render, so they
- * execute after the response has been streamed and cost the user nothing. Both
- * are idempotent and safe to re-run on every render.
+ * execute after the response has been streamed and cost the user nothing. All
+ * are idempotent and safe to re-run on every render (the welcome email since
+ * CX-1: it is sent once per account).
  */
 
-/** Only send a welcome email to accounts created in the last half hour. */
-const WELCOME_WINDOW_MS = 30 * 60 * 1000;
+/**
+ * Send the welcome email for an account at most once (CX-1): a Resend
+ * idempotency key per account and attempt (stops two renders racing), then a
+ * marker in auth app_metadata so later renders don't call Resend at all. A
+ * failed send bumps the attempt so the next render retries under a new key.
+ * See welcomeEmailRule.ts.
+ *
+ * `attempt` is the account's failed-send count from app_metadata (0 for a
+ * brand-new account).
+ */
+export async function sendWelcomeEmailOnce(
+  userId: string,
+  email: string,
+  customerName: string,
+  attempt = 0
+) {
+  const result = await sendWelcomeEmail(
+    email,
+    { customerName },
+    { idempotencyKey: welcomeEmailIdempotencyKey(userId, attempt) }
+  );
+  const record = welcomeEmailRecord(result, attempt);
+  if (record) {
+    // GoTrue merges app_metadata keys, so this adds one key and keeps the rest.
+    // If it fails, the idempotency key still stops a second send in the window.
+    try {
+      const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, { app_metadata: record });
+      if (error) console.error('[postSignIn] could not record the welcome email:', error.message);
+    } catch (err) {
+      console.error('[postSignIn] could not record the welcome email:', err);
+    }
+  }
+  return result;
+}
 
 interface WelcomeEmailInput {
+  userId: string;
   email: string | null | undefined;
   fullName: string | null | undefined;
   createdAt: string | null | undefined;
+  /** The account's auth app_metadata, from getUser() (so it is current). */
+  appMetadata: Record<string, unknown> | null | undefined;
 }
 
 /**
- * Send the welcome email if this looks like a freshly created account.
+ * Send the welcome email if this is a freshly created account that hasn't
+ * had one yet.
  *
- * Same 30-minute guard the /api/email/welcome route uses, so a returning user
- * never gets one. Callers pass profile fields they have already fetched — this
- * adds no round-trip of its own.
+ * The dashboard runs this on every render. It used to check only the
+ * account's age, so every dashboard visit in the first 30 minutes sent
+ * another welcome email (CX-1). Callers pass fields they have already
+ * fetched; the only extra round-trip is the one-time marker write.
  */
 export async function maybeSendWelcomeEmail({
+  userId,
   email,
   fullName,
   createdAt,
+  appMetadata,
 }: WelcomeEmailInput): Promise<void> {
-  if (!email || !createdAt) return;
-
-  if (Date.now() - new Date(createdAt).getTime() > WELCOME_WINDOW_MS) return;
+  if (!email || !shouldSendWelcomeEmail({ email, createdAt, appMetadata })) return;
 
   try {
-    await sendWelcomeEmail(email, { customerName: fullName || 'there' });
+    await sendWelcomeEmailOnce(userId, email, fullName || 'there', welcomeEmailAttempt(appMetadata));
   } catch (err) {
     // Never surface: the page has already been sent to the user.
     console.error('[postSignIn] welcome email failed:', err);

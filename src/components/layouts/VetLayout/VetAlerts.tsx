@@ -22,6 +22,7 @@ import styles from './VetAlerts.module.css';
  *   - Broadcast 'customer_joined' (Daily webhook: the customer is in the room),
  *     unless the vet is already on that consultation's video page (VC-1b: on
  *     9 Oct it popped up during the call, and the title outlived the call)
+ *   - Broadcast 'consultation_cancelled' (the customer cancelled; toast only)
  *   - a scheduled consultation starting within 5 minutes (checked every 60 s)
  *
  * No service worker or web push: the portal must be open in a tab. The vet
@@ -228,6 +229,15 @@ export function VetAlerts({ vetId }: { vetId: string }) {
         .on('broadcast', { event: 'consultation_updated' }, () => {
           emitVetConsultationsChanged();
         })
+        // CX-1: the customer cancelled (cancel route). No chime: nothing to
+        // join, but the vet should know the time is free.
+        .on('broadcast', { event: 'consultation_cancelled' }, ({ payload }) => {
+          const data = payload as BookingPayload;
+          if (data.consultationId && !once(`cancelled:${data.consultationId}`)) return;
+          const when = data.scheduledAt ? `, ${formatIstDateTime(data.scheduledAt)} IST` : '';
+          toast(`Consultation cancelled: ${data.petName || 'a pet'}${when}. The pet parent cancelled.`, 'info', 8000);
+          emitVetConsultationsChanged();
+        })
         .subscribe((status, err) => {
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             console.warn(`[vet-alerts] broadcast channel ${status}`, err);
@@ -240,7 +250,7 @@ export function VetAlerts({ vetId }: { vetId: string }) {
     return () => {
       if (channel) supabase.removeChannel(channel);
     };
-  }, [vetId, raiseAlert]);
+  }, [vetId, raiseAlert, toast]);
 
   // 5-minute warning before each scheduled consultation.
   useEffect(() => {

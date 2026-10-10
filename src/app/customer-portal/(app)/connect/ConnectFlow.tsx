@@ -160,6 +160,12 @@ export function ConnectFlow({ initialPets, plusPetIds = [], hasPackCredit = fals
         vetName: bookData.consultation.vet?.name || null,
       });
       goToStep('confirmation');
+      // Shown here straight away, then from the server at its own address
+      // (CX-1). A refresh of /connect used to re-render the page with 0
+      // credits after booking the last one, and the buy screen replaced this
+      // confirmation. The refresh after it clears stale cached pages (the
+      // dashboard's balance) as before.
+      router.replace(`/connect?booked=${encodeURIComponent(bookData.consultation.id)}`, { scroll: false });
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');

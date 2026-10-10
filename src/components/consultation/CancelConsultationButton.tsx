@@ -4,20 +4,39 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
+import {
+  cancelCreditNotice,
+  cancelledMessage,
+  cancelledToastType,
+  readCancelCreditOutcome,
+} from '@/lib/credits/cancelCredit';
 import styles from './CancelConsultationButton.module.css';
 
 interface CancelConsultationButtonProps {
   consultationId: string;
+  /** Start time, for the credit-back rule (more than 5 minutes ahead). */
+  scheduledAt: string | null;
+  /** True when this booking took a consultation credit (see bookingUsesCredit). */
+  usesCredit: boolean;
 }
 
 export function CancelConsultationButton({
   consultationId,
+  scheduledAt,
+  usesCredit,
 }: CancelConsultationButtonProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Read when the dialog opens, so the line doesn't change under the reader.
+  const [creditNotice, setCreditNotice] = useState<string | null>(null);
+
+  const openConfirm = () => {
+    setCreditNotice(cancelCreditNotice({ usesCredit, scheduledAt }));
+    setShowConfirm(true);
+  };
 
   const handleCancel = async () => {
     setLoading(true);
@@ -30,13 +49,15 @@ export function CancelConsultationButton({
         body: JSON.stringify({ status: 'cancelled' }),
       });
 
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        const data = await response.json();
         throw new Error(data.error || 'Failed to cancel consultation');
       }
 
-      // Show success toast and refresh
-      toast('Consultation cancelled successfully', 'success');
+      // Say what happened to the credit, as the server decided it (CX-1: the
+      // answer used to be ignored).
+      const outcome = readCancelCreditOutcome(data);
+      toast(cancelledMessage(outcome), cancelledToastType(outcome), 7000);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -50,6 +71,7 @@ export function CancelConsultationButton({
         <p className={styles.confirmText}>
           Are you sure you want to cancel this consultation?
         </p>
+        {creditNotice && <p className={styles.confirmText}>{creditNotice}</p>}
         {error && <p className={styles.error}>{error}</p>}
         <div className={styles.actions}>
           <Button
@@ -75,7 +97,7 @@ export function CancelConsultationButton({
     <div className={styles.container}>
       <Button
         variant="ghost"
-        onClick={() => setShowConfirm(true)}
+        onClick={openConfirm}
         fullWidth
       >
         Cancel Consultation

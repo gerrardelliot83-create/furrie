@@ -12,6 +12,7 @@ import { JoinCallButton } from '@/components/consultation/JoinCallButton';
 import { CancelConsultationButton } from '@/components/consultation/CancelConsultationButton';
 import { MediaUpload } from '@/components/consultation/MediaUpload';
 import { getStatusVariant, getStatusDisplayText } from '@/lib/utils/statusHelpers';
+import { bookingUsesCredit } from '@/lib/credits/cancelCredit';
 import { FEATURES } from '@/lib/config/features';
 import type { ConsultationStatus, ConsultationOutcome } from '@/types';
 import styles from './ConsultationDetail.module.css';
@@ -170,7 +171,11 @@ export default async function ConsultationDetailPage({ params }: ConsultationDet
       {/* Cancel Section - for pending/scheduled consultations */}
       {['pending', 'scheduled'].includes(consultation.status) && (
         <section className={styles.card}>
-          <CancelConsultationButton consultationId={consultation.id} />
+          <CancelConsultationButton
+            consultationId={consultation.id}
+            scheduledAt={consultation.scheduledAt}
+            usesCredit={bookingUsesCredit(consultation.status, consultation.isPriority)}
+          />
         </section>
       )}
 

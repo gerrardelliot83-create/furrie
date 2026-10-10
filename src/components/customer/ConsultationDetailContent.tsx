@@ -8,6 +8,13 @@ import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { formatDate, formatTime, formatCurrency } from '@/lib/utils';
 import { getStatusVariant, getStatusDisplayText } from '@/lib/utils/statusHelpers';
+import {
+  bookingUsesCredit,
+  cancelCreditNotice,
+  cancelledMessage,
+  cancelledToastType,
+  readCancelCreditOutcome,
+} from '@/lib/credits/cancelCredit';
 import { FEATURES } from '@/lib/config/features';
 import type { ConsultationStatus, ConsultationOutcome } from '@/types';
 import { Badge } from '@/components/ui/Badge';
@@ -38,6 +45,7 @@ interface ConsultationData {
   created_at: string;
   amount_paid: number | null;
   is_free: boolean;
+  is_priority: boolean | null;
   recording_url: string | null;
   vet_id: string | null;
   pets: {
@@ -98,6 +106,8 @@ export function ConsultationDetailContent({ consultationId, onCancelSuccess, onO
   const [error, setError] = useState<string | null>(null);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  // The credit-back line, read when the dialog opens (CX-1).
+  const [cancelCreditLine, setCancelCreditLine] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -126,6 +136,16 @@ export function ConsultationDetailContent({ consultationId, onCancelSuccess, onO
     return () => { cancelled = true; };
   }, [consultationId]);
 
+  const usesCredit = consultation
+    ? bookingUsesCredit(consultation.status, consultation.is_priority)
+    : false;
+  const scheduledAt = consultation?.scheduled_at ?? null;
+
+  const openCancelModal = () => {
+    setCancelCreditLine(cancelCreditNotice({ usesCredit, scheduledAt }));
+    setCancelModalOpen(true);
+  };
+
   const handleCancelConsultation = useCallback(async () => {
     setCancelling(true);
     try {
@@ -135,12 +155,15 @@ export function ConsultationDetailContent({ consultationId, onCancelSuccess, onO
         body: JSON.stringify({ status: 'closed', outcome: 'cancelled' }),
       });
 
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        const data = await response.json();
         throw new Error(data.error || 'Failed to cancel');
       }
 
-      toast('Consultation cancelled', 'success');
+      // Say what happened to the credit, as the server decided it (CX-1: the
+      // answer used to be ignored).
+      const outcome = readCancelCreditOutcome(data);
+      toast(cancelledMessage(outcome), cancelledToastType(outcome), 7000);
       setCancelModalOpen(false);
 
       if (onCancelSuccess) {
@@ -225,7 +248,7 @@ export function ConsultationDetailContent({ consultationId, onCancelSuccess, onO
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setCancelModalOpen(true)}
+            onClick={openCancelModal}
             className={styles.cancelButton}
           >
             Cancel Consultation
@@ -490,6 +513,7 @@ export function ConsultationDetailContent({ consultationId, onCancelSuccess, onO
           <p className={styles.cancelMessage}>
             Are you sure you want to cancel this consultation? This action cannot be undone.
           </p>
+          {cancelCreditLine && <p className={styles.cancelMessage}>{cancelCreditLine}</p>}
           <div className={styles.cancelActions}>
             <Button
               variant="ghost"

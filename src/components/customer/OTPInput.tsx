@@ -10,6 +10,7 @@ import {
 } from 'react';
 import styles from './OTPInput.module.css';
 import { cn } from '@/lib/utils';
+import { applyOtpInput } from './otpDigits';
 
 interface OTPInputProps {
   length?: number;
@@ -53,21 +54,23 @@ export function OTPInput({
   };
 
   const handleChange = (index: number, e: ChangeEvent<HTMLInputElement>) => {
-    const inputValue = e.target.value;
+    // One typed digit fills this box; a whole code (iOS "From Mail", an
+    // Android keyboard suggestion, autofill) fills every box (CX-1). It used
+    // to keep only the last character, so those left one digit.
+    const result = applyOtpInput({
+      digits,
+      index,
+      rawValue: e.target.value,
+      caret: e.target.selectionStart,
+      length,
+    });
+    if (!result) return;
 
-    // Only allow single digit
-    const digit = inputValue.slice(-1);
-    if (!/^\d*$/.test(digit)) return;
-
-    // Update value
-    const newDigits = [...digits];
-    newDigits[index] = digit;
-    const newValue = newDigits.join('');
+    const newValue = result.digits.join('');
     onChange(newValue);
 
-    // Move to next input if digit entered
-    if (digit && index < length - 1) {
-      focusInput(index + 1);
+    if (result.focusIndex !== index) {
+      focusInput(result.focusIndex);
     }
 
     // Submitting is a response to the user finishing their input, so it
@@ -135,6 +138,8 @@ export function OTPInput({
   return (
     <div className={styles.container}>
       {digits.map((digit, index) => (
+        // No maxLength: a whole code offered by the phone can land in any
+        // box and is spread across all of them (CX-1).
         <input
           key={index}
           ref={(el) => {
@@ -144,7 +149,6 @@ export function OTPInput({
           inputMode="numeric"
           autoComplete="one-time-code"
           pattern="\d*"
-          maxLength={1}
           value={digit}
           onChange={(e) => handleChange(index, e)}
           onKeyDown={(e) => handleKeyDown(index, e)}

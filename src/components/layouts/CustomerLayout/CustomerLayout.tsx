@@ -1,10 +1,11 @@
 'use client';
 
-import { type ReactNode, useSyncExternalStore } from 'react';
+import { type ReactNode, useEffect, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { clearPendingOtp } from '@/lib/auth/pendingOtp';
 import { NotificationBell } from '@/components/ui/NotificationBell/NotificationBell';
 import styles from './CustomerLayout.module.css';
 
@@ -54,6 +55,14 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
   // Mount the bell only in the visible slot: mounting both (one hidden by CSS)
   // doubled its API calls, Realtime channel and poll.
   const isDesktop = useIsDesktop();
+
+  // Signed in (by the code, by the email's link through /auth/callback, or
+  // an existing session): the sign-in form's "code sent" note in this tab is
+  // done with (CX-1). The callback is a server redirect, so this is where
+  // its success lands in the browser.
+  useEffect(() => {
+    clearPendingOtp();
+  }, []);
 
   return (
     <div className={styles.layout}>

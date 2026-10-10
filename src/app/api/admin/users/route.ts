@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { sendWelcomeEmail } from '@/lib/email';
+import { sendWelcomeEmailOnce } from '@/lib/auth/postSignInTasks';
 import { verifyAdmin, logAdminAction } from '@/lib/admin/auth';
 import { withRoute } from '@/server/handler';
 
@@ -166,11 +166,10 @@ export const POST = withRoute(async function POST(request: Request) {
       );
     }
 
-    // Send welcome email
+    // Send welcome email. Recorded on the account, so the customer's first
+    // dashboard visit doesn't send a second one (CX-1).
     if (body.email) {
-      const emailResult = await sendWelcomeEmail(body.email, {
-        customerName: body.fullName,
-      });
+      const emailResult = await sendWelcomeEmailOnce(userId, body.email, body.fullName);
       if (!emailResult.success) {
         console.error('Failed to send welcome email:', emailResult.error);
       }

@@ -11,6 +11,7 @@ import { OTPInput } from './OTPInput';
 import { OTP_LENGTH } from '@/lib/auth/otpConfig';
 import { ACCOUNT_ERROR_MESSAGES } from '@/lib/auth/loginErrors';
 import { postSignInPath } from '@/lib/auth/safeRedirect';
+import { clearPendingOtp, readPendingOtp, savePendingOtp } from '@/lib/auth/pendingOtp';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/components/ui/Toast';
 import styles from './AuthForm.module.css';
@@ -117,6 +118,22 @@ export function AuthForm() {
         .catch(() => setInviteValid(false));
     }
   }, [searchParams]);
+
+  // A code was sent from this tab and the page reloaded (the phone switched
+  // to the mail app and back): go straight back to the code boxes instead of
+  // the email step, where asking again would hit the rate limit (CX-1). The
+  // resend cooldown is restored from localStorage below, as before.
+  useEffect(() => {
+    const pending = readPendingOtp();
+    if (pending) {
+      // Restoring from sessionStorage (an external source) on mount; a lazy
+      // initial state would read it during SSR, as with the invite code above.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setEmail(pending.email);
+      setStep('otp');
+    }
+  }, []);
+
   // Initialize cooldown from localStorage (persists across refresh)
   const [resendTimer, setResendTimer] = useState(() => {
     if (typeof window === 'undefined') return 0;
@@ -224,6 +241,7 @@ export function AuthForm() {
     }
 
     setStep('otp');
+    savePendingOtp(email);
     setCooldown(RESEND_COOLDOWN);
     toast(t('otpSent'), 'success');
   };
@@ -277,6 +295,7 @@ export function AuthForm() {
     }
 
     verifiedRef.current = true;
+    clearPendingOtp();
     toast(t('welcomeBack'), 'success');
 
     // Welcome email and invite redemption used to fire from here as two
@@ -307,6 +326,7 @@ export function AuthForm() {
       return;
     }
 
+    savePendingOtp(email);
     setCooldown(RESEND_COOLDOWN);
     setOtp(''); // Clear any existing OTP
     setOtpError('');
@@ -314,6 +334,7 @@ export function AuthForm() {
   };
 
   const handleBackToEmail = () => {
+    clearPendingOtp();
     setStep('email');
     setOtp('');
     setOtpError('');
